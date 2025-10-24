@@ -5,6 +5,7 @@ import 'view_models/account_view_model.dart';
 import 'services/account_service.dart';
 import 'services/totp_service.dart';
 import 'services/secure_storage_service.dart';
+import 'services/theme_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -13,10 +14,12 @@ void main() async {
   final secureStorage = SecureStorageService();
   final accountService = AccountService(secureStorage: secureStorage);
   final totpService = TOTPService();
+  final themeService = ThemeService();
   
   runApp(
     MultiProvider(
       providers: [
+        ChangeNotifierProvider(create: (context) => themeService),
         ChangeNotifierProvider(
           create: (context) => AccountViewModel(
             accountService: accountService,

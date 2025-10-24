@@ -1,9 +1,11 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:camera/camera.dart';
 import 'package:google_mlkit_barcode_scanning/google_mlkit_barcode_scanning.dart';
 import 'package:provider/provider.dart';
+import 'package:permission_handler/permission_handler.dart';
 import '../app/theme.dart';
 import '../models/account.dart';
 import '../view_models/account_view_model.dart';
@@ -75,6 +77,13 @@ class _QRScanScreenState extends State<QRScanScreen>
 
   Future<void> _initializeCamera() async {
     try {
+      // Request camera permission first
+      final permission = await Permission.camera.request();
+      if (permission != PermissionStatus.granted) {
+        _setError('Camera permission is required to scan QR codes');
+        return;
+      }
+
       _cameras = await availableCameras();
       
       if (_cameras == null || _cameras!.isEmpty) {
@@ -154,7 +163,7 @@ class _QRScanScreenState extends State<QRScanScreen>
         }
       }
     } catch (e) {
-      print('Scan error: $e');
+      // Silently handle scan errors to avoid spam
     } finally {
       if (mounted) {
         setState(() {
@@ -182,24 +191,88 @@ class _QRScanScreenState extends State<QRScanScreen>
     final account = Account.fromOTPAuthURI(otpAuth);
     final viewModel = Provider.of<AccountViewModel>(context, listen: false);
     
-    final success = await viewModel.addAccount(account);
+    // Check if account already exists
+    final exists = await viewModel.accountExists(account);
     
-    if (success && mounted) {
-      // Navigate back to home with success
-      Navigator.of(context).pop(true);
+    if (exists && mounted) {
+      _showDuplicateAccountDialog(account, viewModel);
+    } else {
+      final success = await viewModel.addAccount(account);
       
-      // Show success message
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('${account.issuer} account added successfully!'),
-          backgroundColor: AppTheme.successColor,
-          behavior: SnackBarBehavior.floating,
-          duration: const Duration(seconds: 2),
-        ),
-      );
-    } else if (mounted) {
-      _setError('Failed to add account. It might already exist.');
+      if (success && mounted) {
+        // Haptic feedback for successful scan
+        HapticFeedback.lightImpact();
+        
+        // Navigate back to home with success
+        Navigator.of(context).pop(true);
+        
+        // Show success message
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${account.issuer} account added successfully!'),
+            backgroundColor: AppTheme.successColor,
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      } else if (mounted) {
+        _setError('Failed to add account. Please try again.');
+      }
     }
+  }
+
+  void _showDuplicateAccountDialog(Account account, AccountViewModel viewModel) {
+    final theme = Theme.of(context);
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: theme.colorScheme.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text('Account Already Exists', style: AppTheme.headlineMedium(theme.colorScheme.onSurface)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '${account.issuer} - ${account.accountName}',
+              style: AppTheme.bodyLarge(theme.colorScheme.onSurface).copyWith(fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'This account is already added to your authenticator.',
+              style: AppTheme.bodyMedium(theme.colorScheme.onSurface),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Cancel', style: AppTheme.bodyMedium(theme.colorScheme.onSurface)),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              final messenger = ScaffoldMessenger.of(context);
+              final navigator = Navigator.of(context);
+              final success = await viewModel.updateAccount(account);
+              if (success && mounted) {
+                HapticFeedback.lightImpact();
+                navigator.pop(true);
+                messenger.showSnackBar(
+                  SnackBar(
+                    content: Text('${account.issuer} account updated!'),
+                    backgroundColor: AppTheme.successColor,
+                    behavior: SnackBarBehavior.floating,
+                  ),
+                );
+              }
+            },
+            style: TextButton.styleFrom(foregroundColor: AppTheme.primaryColor),
+            child: Text('Update', style: AppTheme.bodyMedium(theme.colorScheme.onSurface)),
+          ),
+        ],
+      ),
+    );
   }
 
   void _setError(String message) {
@@ -439,16 +512,34 @@ class QrScannerOverlayPainter extends CustomPainter {
   }
 
   void _drawScannerCorners(Canvas canvas, Rect scannerRect) {
-    const cornerLength = 22.0;
-    const cornerWidth = 4.0;
+    const cornerLength = 28.0;
+    const cornerWidth = 5.0;
     
     final cornerPaint = Paint()
       ..color = AppTheme.primaryColor
       ..strokeWidth = cornerWidth
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round;
+    
+    // Add glow effect to corners
+    final glowPaint = Paint()
+      ..color = AppTheme.primaryColor.withValues(alpha:0.3)
+      ..strokeWidth = cornerWidth + 8
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4.0);
 
     // Top-left corner
+    canvas.drawLine(
+      scannerRect.topLeft,
+      scannerRect.topLeft + Offset(cornerLength, 0),
+      glowPaint,
+    );
+    canvas.drawLine(
+      scannerRect.topLeft,
+      scannerRect.topLeft + Offset(0, cornerLength),
+      glowPaint,
+    );
     canvas.drawLine(
       scannerRect.topLeft,
       scannerRect.topLeft + Offset(cornerLength, 0),
@@ -464,6 +555,16 @@ class QrScannerOverlayPainter extends CustomPainter {
     canvas.drawLine(
       scannerRect.topRight,
       scannerRect.topRight - Offset(cornerLength, 0),
+      glowPaint,
+    );
+    canvas.drawLine(
+      scannerRect.topRight,
+      scannerRect.topRight + Offset(0, cornerLength),
+      glowPaint,
+    );
+    canvas.drawLine(
+      scannerRect.topRight,
+      scannerRect.topRight - Offset(cornerLength, 0),
       cornerPaint,
     );
     canvas.drawLine(
@@ -476,6 +577,16 @@ class QrScannerOverlayPainter extends CustomPainter {
     canvas.drawLine(
       scannerRect.bottomLeft,
       scannerRect.bottomLeft + Offset(cornerLength, 0),
+      glowPaint,
+    );
+    canvas.drawLine(
+      scannerRect.bottomLeft,
+      scannerRect.bottomLeft - Offset(0, cornerLength),
+      glowPaint,
+    );
+    canvas.drawLine(
+      scannerRect.bottomLeft,
+      scannerRect.bottomLeft + Offset(cornerLength, 0),
       cornerPaint,
     );
     canvas.drawLine(
@@ -485,6 +596,16 @@ class QrScannerOverlayPainter extends CustomPainter {
     );
     
     // Bottom-right corner
+    canvas.drawLine(
+      scannerRect.bottomRight,
+      scannerRect.bottomRight - Offset(cornerLength, 0),
+      glowPaint,
+    );
+    canvas.drawLine(
+      scannerRect.bottomRight,
+      scannerRect.bottomRight - Offset(0, cornerLength),
+      glowPaint,
+    );
     canvas.drawLine(
       scannerRect.bottomRight,
       scannerRect.bottomRight - Offset(cornerLength, 0),

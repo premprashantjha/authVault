@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:developer' as developer;
 import 'package:flutter/material.dart';
 import '../models/account.dart';
 import '../services/account_service.dart';
@@ -34,7 +35,7 @@ class AccountViewModel with ChangeNotifier {
       _accounts = await accountService.getAllAccounts();
       _generateOTPs();
     } catch (e) {
-      print('Error loading accounts: $e');
+      developer.log('Error loading accounts', error: e, level: 1000);
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -47,7 +48,7 @@ class AccountViewModel with ChangeNotifier {
       await _loadAccounts(); // Reload to get updated list
       return true;
     } catch (e) {
-      print('Error adding account: $e');
+      developer.log('Error adding account', error: e, level: 1000);
       return false;
     }
   }
@@ -58,7 +59,7 @@ class AccountViewModel with ChangeNotifier {
       await _loadAccounts(); // Reload to get updated list
       return true;
     } catch (e) {
-      print('Error deleting account: $e');
+      developer.log('Error deleting account', error: e, level: 1000);
       return false;
     }
   }
@@ -84,6 +85,21 @@ class AccountViewModel with ChangeNotifier {
 
   void refreshOTPs() {
     _generateOTPs();
+  }
+
+  Future<bool> accountExists(Account account) async {
+    return await accountService.accountExists(account);
+  }
+
+  Future<bool> updateAccount(Account account) async {
+    try {
+      await accountService.updateAccount(account);
+      await _loadAccounts();
+      return true;
+    } catch (e) {
+      developer.log('Error updating account', error: e, level: 1000);
+      return false;
+    }
   }
 
   @override

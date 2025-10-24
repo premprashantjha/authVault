@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../app/theme.dart';
 import '../../models/account.dart';
+import '../../services/icon_service.dart';
 
 class OTPCard extends StatelessWidget {
   final AccountWithOTP account;
@@ -16,9 +18,13 @@ class OTPCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final serviceIcon = IconService.getIconForService(account.account.issuer);
+    final serviceColor = IconService.getColorForService(account.account.issuer);
+    
     return Card(
       elevation: 2,
-      color: AppTheme.surfaceColor,
+      color: theme.colorScheme.surface,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(20),
       ),
@@ -37,11 +43,11 @@ class OTPCard extends StatelessWidget {
                     width: 40,
                     height: 40,
                     decoration: BoxDecoration(
-                      gradient: AppTheme.primaryGradient,
+                      color: serviceColor,
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Icon(
-                      Icons.security,
+                      serviceIcon,
                       color: Colors.white,
                       size: 20,
                     ),
@@ -53,7 +59,7 @@ class OTPCard extends StatelessWidget {
                       children: [
                         Text(
                           account.account.issuer,
-                          style: AppTheme.bodyLarge.copyWith(
+                          style: AppTheme.bodyLarge(theme.colorScheme.onSurface).copyWith(
                             fontWeight: FontWeight.w600,
                           ),
                           maxLines: 1,
@@ -62,7 +68,7 @@ class OTPCard extends StatelessWidget {
                         const SizedBox(height: 2),
                         Text(
                           account.account.accountName,
-                          style: AppTheme.caption,
+                          style: AppTheme.caption(theme.colorScheme.onSurface),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -70,7 +76,7 @@ class OTPCard extends StatelessWidget {
                     ),
                   ),
                   PopupMenuButton<String>(
-                    icon: Icon(Icons.more_vert, color: Colors.white54),
+                    icon: Icon(Icons.more_vert, color: theme.colorScheme.onSurface.withValues(alpha: 0.6)),
                     onSelected: (value) {
                       if (value == 'delete') onDelete();
                     },
@@ -81,7 +87,7 @@ class OTPCard extends StatelessWidget {
                           children: [
                             Icon(Icons.delete, color: AppTheme.errorColor, size: 20),
                             const SizedBox(width: 8),
-                            Text('Delete', style: AppTheme.bodyMedium),
+                            Text('Delete', style: AppTheme.bodyMedium(theme.colorScheme.onSurface)),
                           ],
                         ),
                       ),
@@ -94,25 +100,38 @@ class OTPCard extends StatelessWidget {
               Row(
                 children: [
                   Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Verification Code',
-                          style: AppTheme.caption,
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          _formatOTP(account.otp),
-                          style: const TextStyle(
-                            fontSize: 28,
-                            fontWeight: FontWeight.w700,
-                            fontFamily: 'Monospace',
-                            letterSpacing: 4,
-                            color: AppTheme.onSurfaceColor,
+                    child: GestureDetector(
+                      onTap: () => _copyToClipboard(context, account.otp),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Text(
+                                'Verification Code',
+                                style: AppTheme.caption(theme.colorScheme.onSurface),
+                              ),
+                              const SizedBox(width: 8),
+                              Icon(
+                                Icons.copy,
+                                size: 14,
+                                color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                              ),
+                            ],
                           ),
-                        ),
-                      ],
+                          const SizedBox(height: 4),
+                          Text(
+                            _formatOTP(account.otp),
+                            style: TextStyle(
+                              fontSize: 28,
+                              fontWeight: FontWeight.w700,
+                              fontFamily: 'Monospace',
+                              letterSpacing: 4,
+                              color: theme.colorScheme.onSurface,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                   // Timer
@@ -127,7 +146,7 @@ class OTPCard extends StatelessWidget {
                             CircularProgressIndicator(
                               value: account.progress,
                               strokeWidth: 4,
-                              backgroundColor: Colors.white.withValues(alpha:0.1),
+                              backgroundColor: theme.colorScheme.onSurface.withValues(alpha: 0.1),
                               valueColor: AlwaysStoppedAnimation<Color>(
                                 account.secondsRemaining > 10 
                                     ? AppTheme.primaryColor 
@@ -138,7 +157,7 @@ class OTPCard extends StatelessWidget {
                               child: Text(
                                 '${account.secondsRemaining}',
                                 textAlign: TextAlign.center,
-                                style: AppTheme.bodyMedium.copyWith(
+                                style: AppTheme.bodyMedium(theme.colorScheme.onSurface).copyWith(
                                   fontWeight: FontWeight.w600,
                                   color: account.secondsRemaining > 10 
                                       ? AppTheme.primaryColor 
@@ -152,7 +171,7 @@ class OTPCard extends StatelessWidget {
                       const SizedBox(height: 4),
                       Text(
                         'seconds',
-                        style: AppTheme.caption,
+                        style: AppTheme.caption(theme.colorScheme.onSurface),
                       ),
                     ],
                   ),
@@ -162,7 +181,7 @@ class OTPCard extends StatelessWidget {
               // Progress bar
               LinearProgressIndicator(
                 value: account.progress,
-                backgroundColor: Colors.white.withValues(alpha:0.1),
+                backgroundColor: theme.colorScheme.onSurface.withValues(alpha: 0.1),
                 valueColor: AlwaysStoppedAnimation<Color>(
                   account.secondsRemaining > 10 
                       ? AppTheme.primaryColor 
@@ -183,5 +202,20 @@ class OTPCard extends StatelessWidget {
       return '${otp.substring(0, 3)} ${otp.substring(3)}';
     }
     return otp;
+  }
+
+  void _copyToClipboard(BuildContext context, String otp) {
+    Clipboard.setData(ClipboardData(text: otp));
+    HapticFeedback.lightImpact();
+    
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Text('OTP code copied to clipboard'),
+        backgroundColor: AppTheme.successColor,
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 1),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+    );
   }
 }

@@ -1,3 +1,5 @@
+import 'dart:developer' as developer;
+
 class OTPAuthURI {
   final String type;
   final String issuer;
@@ -63,7 +65,7 @@ class OTPAuthURI {
         throw FormatException('Missing secret parameter');
       }
 
-      print('🔍 DEBUG PARSED: Label="$label", Issuer="$issuer", Account="$accountName", Secret=${secret.substring(0, 8)}...');
+      developer.log('QR Code parsed successfully', name: 'QRScanner');
 
       return OTPAuthURI(
         type: type,

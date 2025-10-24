@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../app/theme.dart';
 import '../view_models/account_view_model.dart';
+import '../services/theme_service.dart';
 import 'qr_scan_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -22,23 +23,30 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    
     return Scaffold(
-      backgroundColor: AppTheme.backgroundColor,
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
-        title: const Text(
+        title: Text(
           'AuthVault',
-          style: AppTheme.headlineMedium,
+          style: AppTheme.headlineMedium(theme.colorScheme.onSurface),
         ),
-        backgroundColor: AppTheme.surfaceColor,
+        backgroundColor: theme.colorScheme.surface,
         elevation: 0,
-        // actions: [
-        //   IconButton(
-        //     icon: const Icon(Icons.refresh, color: AppTheme.onSurfaceColor),
-        //     onPressed: () {
-        //       context.read<AccountViewModel>().refreshOTPs();
-        //     },
-        //   ),
-        // ],
+        actions: [
+          Consumer<ThemeService>(
+            builder: (context, themeService, child) {
+              return IconButton(
+                icon: Icon(
+                  themeService.isDarkMode ? Icons.light_mode : Icons.dark_mode,
+                  color: theme.colorScheme.onSurface,
+                ),
+                onPressed: () => themeService.toggleTheme(),
+              );
+            },
+          ),
+        ],
       ),
       body: Consumer<AccountViewModel>(
         builder: (context, viewModel, child) {
@@ -67,6 +75,8 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildEmptyState() {
+    final theme = Theme.of(context);
+    
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32.0),
@@ -89,14 +99,14 @@ class _HomeScreenState extends State<HomeScreen> {
             const SizedBox(height: 32),
             Text(
               'No 2FA Accounts',
-              style: AppTheme.headlineLarge.copyWith(fontSize: 24),
+              style: AppTheme.headlineLarge(theme.colorScheme.onSurface).copyWith(fontSize: 24),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 16),
             Text(
               'Add your first account to start securing your logins with two-factor authentication',
-              style: AppTheme.bodyMedium.copyWith(
-                color: AppTheme.onSurfaceColor.withValues(alpha:0.7),
+              style: AppTheme.bodyMedium(theme.colorScheme.onSurface).copyWith(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
                 height: 1.5,
               ),
               textAlign: TextAlign.center,
@@ -123,6 +133,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildAccountsList(AccountViewModel viewModel) {
+    final theme = Theme.of(context);
     return Column(
       children: [
         // Header
@@ -130,10 +141,10 @@ class _HomeScreenState extends State<HomeScreen> {
           width: double.infinity,
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: AppTheme.surfaceColor,
+            color: theme.colorScheme.surface,
             border: Border(
               bottom: BorderSide(
-                color: Colors.white.withValues(alpha:0.1),
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.1),
                 width: 1,
               ),
             ),
@@ -144,7 +155,7 @@ class _HomeScreenState extends State<HomeScreen> {
               const SizedBox(width: 8),
               Text(
                 '${viewModel.accountsWithOTP.length} Account${viewModel.accountsWithOTP.length == 1 ? '' : 's'}',
-                style: AppTheme.bodyLarge.copyWith(
+                style: AppTheme.bodyLarge(theme.colorScheme.onSurface).copyWith(
                   color: AppTheme.primaryColor,
                   fontWeight: FontWeight.w600,
                 ),
@@ -152,7 +163,7 @@ class _HomeScreenState extends State<HomeScreen> {
               const Spacer(),
               Text(
                 'Auto-refresh in ${viewModel.accountsWithOTP.isNotEmpty ? viewModel.accountsWithOTP.first.secondsRemaining : 30}s',
-                style: AppTheme.caption,
+                style: AppTheme.caption(theme.colorScheme.onSurface),
               ),
             ],
           ),
@@ -179,9 +190,10 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _showAddAccountOptions(BuildContext context) {
+    final theme = Theme.of(context);
     showModalBottomSheet(
       context: context,
-      backgroundColor: AppTheme.surfaceColor,
+      backgroundColor: theme.colorScheme.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
@@ -193,7 +205,7 @@ class _HomeScreenState extends State<HomeScreen> {
             children: [
               Text(
                 'Add Account',
-                style: AppTheme.headlineMedium,
+                style: AppTheme.headlineMedium(theme.colorScheme.onSurface),
               ),
               const SizedBox(height: 24),
               _buildAddOption(
@@ -222,7 +234,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 onPressed: () => Navigator.pop(context),
                 child: Text(
                   'Cancel',
-                  style: AppTheme.bodyMedium.copyWith(color: Colors.white54),
+                  style: AppTheme.bodyMedium(theme.colorScheme.onSurface).copyWith(color: theme.colorScheme.onSurface.withValues(alpha: 0.6)),
                 ),
               ),
             ],
@@ -239,12 +251,13 @@ class _HomeScreenState extends State<HomeScreen> {
     required String subtitle,
     required VoidCallback onTap,
   }) {
+    final theme = Theme.of(context);
     return Card(
-      color: AppTheme.surfaceColor.withValues(alpha:0.8),
+      color: theme.colorScheme.surface.withValues(alpha: 0.8),
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: Colors.white.withValues(alpha:0.1)),
+        side: BorderSide(color: theme.colorScheme.onSurface.withValues(alpha: 0.1)),
       ),
       child: ListTile(
         leading: Container(
@@ -256,9 +269,9 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           child: Icon(icon, color: Colors.white, size: 20),
         ),
-        title: Text(title, style: AppTheme.bodyLarge),
-        subtitle: Text(subtitle, style: AppTheme.caption),
-        trailing: const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.white54),
+        title: Text(title, style: AppTheme.bodyLarge(theme.colorScheme.onSurface)),
+        subtitle: Text(subtitle, style: AppTheme.caption(theme.colorScheme.onSurface)),
+        trailing: Icon(Icons.arrow_forward_ios, size: 16, color: theme.colorScheme.onSurface.withValues(alpha: 0.6)),
         onTap: onTap,
       ),
     );
@@ -272,12 +285,13 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _showManualEntryDialog(BuildContext context) {
+    final theme = Theme.of(context);
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: AppTheme.surfaceColor,
+        backgroundColor: theme.colorScheme.surface,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text('Add Account', style: AppTheme.headlineMedium),
+        title: Text('Add Account', style: AppTheme.headlineMedium(theme.colorScheme.onSurface)),
         content: ManualEntryForm(
           onAccountAdded: (account) {
             Navigator.pop(context);
@@ -290,10 +304,13 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _addAccount(BuildContext context, Account account) async {
     final viewModel = context.read<AccountViewModel>();
+    final messenger = ScaffoldMessenger.of(context);
     final success = await viewModel.addAccount(account);
     
-    if (success && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
+    if (!mounted) return;
+    
+    if (success) {
+      messenger.showSnackBar(
         SnackBar(
           content: Text('${account.issuer} account added successfully!'),
           backgroundColor: AppTheme.successColor,
@@ -301,8 +318,8 @@ class _HomeScreenState extends State<HomeScreen> {
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
       );
-    } else if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
+    } else {
+      messenger.showSnackBar(
         SnackBar(
           content: const Text('Failed to add account'),
           backgroundColor: AppTheme.errorColor,
@@ -314,27 +331,31 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _deleteAccount(BuildContext context, String accountId) {
+    final theme = Theme.of(context);
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: AppTheme.surfaceColor,
+        backgroundColor: theme.colorScheme.surface,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text('Delete Account', style: AppTheme.headlineMedium),
+        title: Text('Delete Account', style: AppTheme.headlineMedium(theme.colorScheme.onSurface)),
         content: Text(
           'Are you sure you want to delete this account? This action cannot be undone.',
-          style: AppTheme.bodyMedium,
+          style: AppTheme.bodyMedium(theme.colorScheme.onSurface),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text('Cancel', style: AppTheme.bodyMedium),
+            child: Text('Cancel', style: AppTheme.bodyMedium(theme.colorScheme.onSurface)),
           ),
           TextButton(
             onPressed: () async {
               Navigator.pop(context);
+              final messenger = ScaffoldMessenger.of(context);
               final success = await context.read<AccountViewModel>().deleteAccount(accountId);
-              if (success && mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
+              if (!mounted) return;
+              
+              if (success) {
+                messenger.showSnackBar(
                   SnackBar(
                     content: const Text('Account deleted'),
                     backgroundColor: AppTheme.successColor,
@@ -345,7 +366,7 @@ class _HomeScreenState extends State<HomeScreen> {
               }
             },
             style: TextButton.styleFrom(foregroundColor: AppTheme.errorColor),
-            child: Text('Delete', style: AppTheme.bodyMedium),
+            child: Text('Delete', style: AppTheme.bodyMedium(theme.colorScheme.onSurface)),
           ),
         ],
       ),
@@ -371,6 +392,7 @@ class _ManualEntryFormState extends State<ManualEntryForm> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Form(
       key: _formKey,
       child: Column(
@@ -378,10 +400,10 @@ class _ManualEntryFormState extends State<ManualEntryForm> {
         children: [
           TextFormField(
             controller: _issuerController,
-            style: AppTheme.bodyMedium,
+            style: AppTheme.bodyMedium(theme.colorScheme.onSurface),
             decoration: InputDecoration(
               labelText: 'Issuer (e.g., Google)',
-              labelStyle: AppTheme.bodyMedium.copyWith(color: Colors.white54),
+              labelStyle: AppTheme.bodyMedium(theme.colorScheme.onSurface).copyWith(color: theme.colorScheme.onSurface.withValues(alpha: 0.6)),
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
             ),
             validator: (value) {
@@ -394,10 +416,10 @@ class _ManualEntryFormState extends State<ManualEntryForm> {
           const SizedBox(height: 16),
           TextFormField(
             controller: _accountNameController,
-            style: AppTheme.bodyMedium,
+            style: AppTheme.bodyMedium(theme.colorScheme.onSurface),
             decoration: InputDecoration(
               labelText: 'Account Name (e.g., user@gmail.com)',
-              labelStyle: AppTheme.bodyMedium.copyWith(color: Colors.white54),
+              labelStyle: AppTheme.bodyMedium(theme.colorScheme.onSurface).copyWith(color: theme.colorScheme.onSurface.withValues(alpha: 0.6)),
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
             ),
             validator: (value) {
@@ -410,10 +432,10 @@ class _ManualEntryFormState extends State<ManualEntryForm> {
           const SizedBox(height: 16),
           TextFormField(
             controller: _secretKeyController,
-            style: AppTheme.bodyMedium,
+            style: AppTheme.bodyMedium(theme.colorScheme.onSurface),
             decoration: InputDecoration(
               labelText: 'Secret Key (Base32)',
-              labelStyle: AppTheme.bodyMedium.copyWith(color: Colors.white54),
+              labelStyle: AppTheme.bodyMedium(theme.colorScheme.onSurface).copyWith(color: theme.colorScheme.onSurface.withValues(alpha: 0.6)),
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
               hintText: 'JBSWY3DPEHPK3PXP',
             ),

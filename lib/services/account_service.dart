@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:developer' as developer;
 import '../models/account.dart';
 import 'secure_storage_service.dart';
 
@@ -21,7 +22,7 @@ class AccountService {
       return jsonList.map((json) => Account.fromMap(json)).toList();
       
     } catch (e) {
-      print('Error loading accounts: $e');
+      developer.log('Error loading accounts', error: e, level: 1000);
       return [];
     }
   }
@@ -34,7 +35,7 @@ class AccountService {
       
       await secureStorage.saveSecret(_accountsKey, accountsJson);
     } catch (e) {
-      print('Error saving accounts: $e');
+      developer.log('Error saving accounts', error: e, level: 1000);
       throw Exception('Failed to save accounts');
     }
   }
@@ -60,5 +61,26 @@ class AccountService {
     final accounts = await getAllAccounts();
     accounts.removeWhere((account) => account.id == accountId);
     await saveAccounts(accounts);
+  }
+
+  Future<bool> accountExists(Account newAccount) async {
+    final accounts = await getAllAccounts();
+    return accounts.any((account) => 
+      account.issuer == newAccount.issuer && 
+      account.accountName == newAccount.accountName
+    );
+  }
+
+  Future<void> updateAccount(Account updatedAccount) async {
+    final accounts = await getAllAccounts();
+    final index = accounts.indexWhere((account) => 
+      account.issuer == updatedAccount.issuer && 
+      account.accountName == updatedAccount.accountName
+    );
+    
+    if (index != -1) {
+      accounts[index] = updatedAccount;
+      await saveAccounts(accounts);
+    }
   }
 }
