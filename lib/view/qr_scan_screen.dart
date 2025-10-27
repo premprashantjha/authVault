@@ -32,8 +32,6 @@ class _QRScanScreenState extends State<QRScanScreen>
   
   // Animation for scanner
   late AnimationController _animationController;
-  late Animation<double> _animation;
-
   @override
   void initState() {
     super.initState();
@@ -45,7 +43,6 @@ class _QRScanScreenState extends State<QRScanScreen>
       duration: const Duration(milliseconds: 2000),
     )..repeat(reverse: true);
     
-    _animation = Tween<double>(begin: 0.0, end: 1.0).animate(_animationController);
     
     _initializeCamera();
   }
@@ -426,56 +423,103 @@ class _QRScanScreenState extends State<QRScanScreen>
     );
   }
 
-  Widget _buildCameraPreview() {
-    return Stack(
-      children: [
-        // Camera Preview - full screen
-        SizedBox(
-          width: double.infinity,
-          height: double.infinity,
-          child: CameraPreview(_controller!),
-        ),
-        
-        // Scanner Overlay
-        _buildScannerOverlay(),
-        
-        // Processing Indicator
-        if (_isProcessing)
-          Container(
-            color: Colors.black54,
-            child: const Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  CircularProgressIndicator(
-                    valueColor: AlwaysStoppedAnimation<Color>(AppTheme.primaryColor),
-                  ),
-                  SizedBox(height: 16),
-                  Text(
-                    'Scanning QR Code...',
-                    style: TextStyle(color: Colors.white, fontSize: 16),
-                  ),
-                ],
-              ),
-            ),
-          ),
-      ],
-    );
+ Widget _buildCameraPreview() {
+  if (!_isCameraInitialized || _controller == null) {
+    return const Center(child: CircularProgressIndicator());
   }
 
-  Widget _buildScannerOverlay() {
-    return IgnorePointer(
-      child: AnimatedBuilder(
-        animation: _animation,
-        builder: (context, child) {
-          return CustomPaint(
-            painter: QrScannerOverlayPainter(_animation.value),
-            size: MediaQuery.of(context).size,
-          );
-        },
-      ),
-    );
-  }
+  return Scaffold(
+    backgroundColor: Colors.black,
+    body: Stack(
+      children: [
+        // Camera preview filling the screen
+        Positioned.fill(
+          child: FittedBox(
+            fit: BoxFit.cover,
+            child: SizedBox(
+              width: _controller!.value.previewSize!.width,
+              height: _controller!.value.previewSize!.height,
+              child: CameraPreview(_controller!),
+            ),
+          ),
+        ),
+
+        // Semi-transparent overlay with clear scan area
+        Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Colors.black.withValues(alpha:0.6),
+                Colors.transparent,
+                Colors.transparent,
+                Colors.transparent,
+                Colors.black.withValues(alpha:0.6),
+              ],
+              stops: const [0.0, 0.2, 0.5, 0.8, 1.0],
+            ),
+          ),
+        ),
+
+        // Scan frame
+        Center(
+          child: Container(
+            width: 250,
+            height: 250,
+            decoration: BoxDecoration(
+              border: Border.all(
+                color: Colors.white,
+                width: 2,
+              ),
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+        ),
+
+        // Instructions
+        Positioned(
+          top: MediaQuery.of(context).padding.top + 80,
+          left: 0,
+          right: 0,
+          child: const Text(
+            'Position QR code in frame',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 18,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+
+        // Close button
+        // Positioned(
+        //   top: MediaQuery.of(context).padding.top + 20,
+        //   left: 20,
+        //   child: IconButton(
+        //     icon: const Icon(Icons.close, color: Colors.white, size: 30),
+        //     onPressed: () => Navigator.pop(context),
+        //   ),
+        // ),
+      ],
+    ),
+  );
+}
+
+  // Widget _buildScannerOverlay() {
+  //   return IgnorePointer(
+  //     child: AnimatedBuilder(
+  //       animation: _animation,
+  //       builder: (context, child) {
+  //         return CustomPaint(
+  //           painter: QrScannerOverlayPainter(_animation.value),
+  //           size: MediaQuery.of(context).size,
+  //         );
+  //       },
+  //     ),
+  //   );
+  // }
 }
 
 class QrScannerOverlayPainter extends CustomPainter {
