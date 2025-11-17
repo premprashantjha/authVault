@@ -69,10 +69,12 @@ class _AuthScreenState extends State<AuthScreen> {
       return;
     }
     // Attempt biometric and only show PIN if biometric fails or is cancelled
-    if (mounted) setState(() {
+    if (mounted) {
+      setState(() {
       _isAuthenticating = true;
       _showPin = false; // hide PIN while biometric prompt runs
     });
+    }
 
     try {
       final success = await widget.authService.authenticateWithBiometric();
