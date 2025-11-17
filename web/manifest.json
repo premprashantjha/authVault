@@ -1,6 +1,6 @@
 {
-    "name": "authvault_poc",
-    "short_name": "authvault_poc",
+    "name": "authenticator",
+    "short_name": "authenticator",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",

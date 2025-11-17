@@ -1,4 +1,5 @@
 import 'dart:typed_data';
+import 'package:flutter/foundation.dart';
 import 'package:base32/base32.dart';
 import 'package:crypto/crypto.dart';
 
@@ -6,7 +7,8 @@ class TOTPService {
   static const int _timeStep = 30;
 
   String generateTOTP(String secret) {
-    final key = base32.decode(secret);
+    final cleanSecret = secret.trim().toUpperCase().replaceAll(' ', '');
+    final key = base32.decode(cleanSecret);
     final time = (DateTime.now().millisecondsSinceEpoch / 1000).floor() ~/ _timeStep;
     final timeBytes = _intToBytes(time);
     
@@ -36,9 +38,13 @@ class TOTPService {
 
   bool validateSecret(String secret) {
     try {
-      base32.decode(secret);
+      final cleanSecret = secret.trim().toUpperCase().replaceAll(' ', '');
+      debugPrint('TOTPService: Validating secret: "$secret" -> "$cleanSecret" (length: ${cleanSecret.length})');
+      final decoded = base32.decode(cleanSecret);
+      debugPrint('TOTPService: Secret validation successful, decoded length: ${decoded.length}');
       return true;
     } catch (e) {
+      debugPrint('TOTPService: Secret validation failed: $e');
       return false;
     }
   }

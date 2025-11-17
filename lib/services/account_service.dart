@@ -1,86 +1,71 @@
-import 'dart:convert';
 import 'dart:developer' as developer;
 import '../models/account.dart';
-import 'secure_storage_service.dart';
+import 'database_service.dart';
 
+/// Service for managing accounts using encrypted database storage
 class AccountService {
-  final SecureStorageService secureStorage;
-  static const String _accountsKey = 'authvault_accounts';
+  final DatabaseService databaseService;
 
-  AccountService({required this.secureStorage});
+  AccountService({required this.databaseService});
 
   Future<List<Account>> getAllAccounts() async {
     try {
-      final accountsJson = await secureStorage.getSecret(_accountsKey);
-      
-      if (accountsJson == null || accountsJson.isEmpty) {
-        return [];
-      }
-      
-      // SIMPLE JSON decoding
-      final List<dynamic> jsonList = json.decode(accountsJson);
-      return jsonList.map((json) => Account.fromMap(json)).toList();
-      
+      developer.log('AccountService: Calling databaseService.getAllAccounts()', level: 800);
+      final accounts = await databaseService.getAllAccounts();
+      developer.log('AccountService: Got ${accounts.length} accounts from database', level: 800);
+      return accounts;
     } catch (e) {
       developer.log('Error loading accounts', error: e, level: 1000);
       return [];
     }
   }
 
-  Future<void> saveAccounts(List<Account> accounts) async {
-    try {
-      // SIMPLE JSON encoding
-      final jsonList = accounts.map((account) => account.toMap()).toList();
-      final accountsJson = json.encode(jsonList);
-      
-      await secureStorage.saveSecret(_accountsKey, accountsJson);
-    } catch (e) {
-      developer.log('Error saving accounts', error: e, level: 1000);
-      throw Exception('Failed to save accounts');
-    }
-  }
-
   Future<void> addAccount(Account newAccount) async {
-    final accounts = await getAllAccounts();
-    
-    // Check for duplicates
-    final exists = accounts.any((account) => 
-      account.issuer == newAccount.issuer && 
-      account.accountName == newAccount.accountName
-    );
-    
-    if (exists) {
-      throw Exception('Account already exists');
-    }
+    try {
+      // Check for duplicates using database query (more efficient)
+      final exists = await databaseService.accountExists(
+        newAccount.issuer,
+        newAccount.accountName,
+      );
+      
+      if (exists) {
+        throw Exception('Account already exists');
+      }
 
-    accounts.add(newAccount);
-    await saveAccounts(accounts);
+      await databaseService.addAccount(newAccount);
+    } catch (e) {
+      developer.log('Error adding account', error: e, level: 1000);
+      rethrow;
+    }
   }
 
   Future<void> deleteAccount(String accountId) async {
-    final accounts = await getAllAccounts();
-    accounts.removeWhere((account) => account.id == accountId);
-    await saveAccounts(accounts);
+    try {
+      await databaseService.deleteAccount(accountId);
+    } catch (e) {
+      developer.log('Error deleting account', error: e, level: 1000);
+      throw Exception('Failed to delete account');
+    }
   }
 
-  Future<bool> accountExists(Account newAccount) async {
-    final accounts = await getAllAccounts();
-    return accounts.any((account) => 
-      account.issuer == newAccount.issuer && 
-      account.accountName == newAccount.accountName
-    );
+  Future<bool> accountExists(Account account) async {
+    try {
+      return await databaseService.accountExists(
+        account.issuer,
+        account.accountName,
+      );
+    } catch (e) {
+      developer.log('Error checking account existence', error: e, level: 1000);
+      return false;
+    }
   }
 
   Future<void> updateAccount(Account updatedAccount) async {
-    final accounts = await getAllAccounts();
-    final index = accounts.indexWhere((account) => 
-      account.issuer == updatedAccount.issuer && 
-      account.accountName == updatedAccount.accountName
-    );
-    
-    if (index != -1) {
-      accounts[index] = updatedAccount;
-      await saveAccounts(accounts);
+    try {
+      await databaseService.updateAccount(updatedAccount);
+    } catch (e) {
+      developer.log('Error updating account', error: e, level: 1000);
+      throw Exception('Failed to update account');
     }
   }
 }

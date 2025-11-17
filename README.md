@@ -1,4 +1,4 @@
-# authvault_poc
+# authenticator
 
 A new Flutter project.
 

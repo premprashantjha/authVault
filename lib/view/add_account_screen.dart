@@ -1,10 +1,14 @@
-import 'package:authvault_poc/services/qr_scanner_service.dart';
+import 'package:authenticator/services/qr_scanner_service.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/account.dart';
 import '../view_models/account_view_model.dart';
 import '../services/totp_service.dart';
 import 'qr_scan_screen.dart';
+import '../animations/animation_service.dart';
+import '../animations/custom_page_route.dart';
+import '../app/theme.dart';
+import '../widgets/animated/animated_button.dart';
 
 class AddAccountScreen extends StatefulWidget {
   const AddAccountScreen({super.key});
@@ -109,12 +113,17 @@ class _AddAccountScreenState extends State<AddAccountScreen> {
                 },
               ),
               const SizedBox(height: 24),
-              ElevatedButton(
-                onPressed: _addAccount,
-                style: ElevatedButton.styleFrom(
-                  minimumSize: const Size(double.infinity, 50),
+              AnimatedButton(
+                onTap: _addAccount,
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryColor,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Center(child: Text('Add Account', style: TextStyle(color: Colors.white))),
                 ),
-                child: const Text('Add Account'),
               ),
             ],
           ),
@@ -124,10 +133,7 @@ class _AddAccountScreenState extends State<AddAccountScreen> {
   }
 
   Future<void> _scanQRCode() async {
-    final result = await Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => const QRScanScreen()),
-    );
+    final result = await AnimationService.pushWithStyle(context, const QRScanScreen(), style: PageTransitionStyle.slideRight);
 
     if (result != null && result is OTPAuthURI) {
       _fillFormFromQR(result);

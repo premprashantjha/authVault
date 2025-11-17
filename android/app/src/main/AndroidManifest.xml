@@ -1,12 +1,14 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.example.authvault_poc">
+    package="com.example.authenticator">
     <uses-permission android:name="android.permission.CAMERA" />
+    <!-- Biometric permission - required on some Android versions/devices -->
+    <uses-permission android:name="android.permission.USE_BIOMETRIC" />
     <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-feature android:name="android.hardware.camera" />
     <uses-feature android:name="android.hardware.camera.autofocus" />
     <application
-        android:label="authvault_poc"
+        android:label="authenticator"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

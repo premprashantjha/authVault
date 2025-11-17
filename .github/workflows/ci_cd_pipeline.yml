@@ -1,4 +1,4 @@
-name: Flutter CI/CD
+name: Authenticator CI/CD
 
 on:
   push:
@@ -10,7 +10,7 @@ on:
 
 jobs:
   build:
-    runs-on: macos-latest  # required for iOS builds
+    runs-on: macos-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -18,7 +18,7 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: "3.32.5"  # or your version
+          flutter-version: "3.32.5"
 
       - name: Get dependencies
         run: flutter pub get
@@ -38,12 +38,12 @@ jobs:
       # ---------------------------
       # 🍎 iOS Build (unsigned)
       # ---------------------------
-      - name: Build iOS (unsigned)
-        run: |
-          flutter build ios --no-codesign
+      # - name: Build iOS (unsigned)
+      #   run: |
+      #     flutter build ios --no-codesign
 
-      - name: Upload iOS IPA
-        uses: actions/upload-artifact@v4
-        with:
-          name: ios-build
-          path: build/ios/iphoneos
+      # - name: Upload iOS IPA
+      #   uses: actions/upload-artifact@v4
+      #   with:
+      #     name: ios-build
+      #     path: build/ios/iphoneos

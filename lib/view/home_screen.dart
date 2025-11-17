@@ -1,11 +1,20 @@
-import 'package:authvault_poc/models/account.dart';
-import 'package:authvault_poc/view/widget/otp_card.dart';
+import 'package:authenticator/models/account.dart';
+import 'package:authenticator/view/widget/otp_card.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../app/theme.dart';
 import '../view_models/account_view_model.dart';
-import '../services/theme_service.dart';
+import '../services/auth_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'qr_scan_screen.dart';
+import '../services/totp_service.dart';
+import 'settings_screen.dart';
+import '../animations/animation_service.dart';
+import '../animations/custom_page_route.dart';
+import '../widgets/animated/staggered_list.dart';
+import '../widgets/animated/animated_fab.dart';
+import '../widgets/animated/animated_button.dart';
+import '../widgets/animated/skeleton.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -15,10 +24,24 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  bool _fabOpen = false;
+  final StaggeredListController<AccountWithOTP> _listController = StaggeredListController<AccountWithOTP>();
   @override
   void initState() {
     super.initState();
     // Accounts are automatically loaded in the ViewModel constructor
+  }
+
+  void _navigateToSettings(BuildContext context) async {
+    // Capture navigator synchronously to avoid using BuildContext after awaits
+    final navigator = Navigator.of(context);
+
+    // Get auth service from context or create new instance
+    final prefs = await SharedPreferences.getInstance();
+    final authService = AuthService(prefs: prefs);
+    if (!mounted) return;
+
+    await navigator.push(CustomPageRoute(page: SettingsScreen(authService: authService), style: PageTransitionStyle.scale));
   }
 
   @override
@@ -29,31 +52,36 @@ class _HomeScreenState extends State<HomeScreen> {
       backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
         title: Text(
-          'AuthVault',
+          'Authenticator',
           style: AppTheme.headlineMedium(theme.colorScheme.onSurface),
         ),
         backgroundColor: theme.colorScheme.surface,
         elevation: 0,
         actions: [
-          Consumer<ThemeService>(
-            builder: (context, themeService, child) {
-              return IconButton(
-                icon: Icon(
-                  themeService.isDarkMode ? Icons.light_mode : Icons.dark_mode,
-                  color: theme.colorScheme.onSurface,
-                ),
-                onPressed: () => themeService.toggleTheme(),
-              );
-            },
+          IconButton(
+            icon: Icon(
+              Icons.settings,
+              color: theme.colorScheme.onSurface,
+            ),
+            onPressed: () => _navigateToSettings(context),
           ),
         ],
       ),
       body: Consumer<AccountViewModel>(
         builder: (context, viewModel, child) {
+          debugPrint('HomeScreen Consumer rebuild: isLoading=${viewModel.isLoading}, hasAccounts=${viewModel.hasAccounts}, count=${viewModel.accountsWithOTP.length}');
           if (viewModel.isLoading) {
-            return const Center(
-              child: CircularProgressIndicator(
-                valueColor: AlwaysStoppedAnimation<Color>(AppTheme.primaryColor),
+            // Show lightweight skeleton placeholders while accounts load
+            return Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                children: const [
+                  Skeleton(height: 88),
+                  SizedBox(height: 12),
+                  Skeleton(height: 88),
+                  SizedBox(height: 12),
+                  Skeleton(height: 88),
+                ],
               ),
             );
           }
@@ -65,11 +93,16 @@ class _HomeScreenState extends State<HomeScreen> {
           return _buildAccountsList(viewModel);
         },
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _showAddAccountOptions(context),
-        backgroundColor: AppTheme.primaryColor,
-        foregroundColor: Colors.white,
-        child: const Icon(Icons.add, size: 28),
+      floatingActionButton: AnimatedFAB(
+        isOpen: _fabOpen,
+        onTap: () {
+          setState(() => _fabOpen = !_fabOpen);
+          _showAddAccountOptions(context).whenComplete(() {
+            if (mounted) setState(() => _fabOpen = false);
+          });
+        },
+        openIcon: const Icon(Icons.add, size: 28),
+        closeIcon: const Icon(Icons.close, size: 28),
       ),
     );
   }
@@ -112,18 +145,22 @@ class _HomeScreenState extends State<HomeScreen> {
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 32),
-            ElevatedButton(
-              onPressed: () => _showAddAccountOptions(context),
-              style: ElevatedButton.styleFrom(
+            AnimatedButton(
+              onTap: () => _showAddAccountOptions(context),
+              child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-              ),
-              child: const Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.add, size: 20),
-                  SizedBox(width: 8),
-                  Text('Add Account'),
-                ],
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryColor,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: const [
+                    Icon(Icons.add, size: 20, color: Colors.white),
+                    SizedBox(width: 8),
+                    Text('Add Account', style: TextStyle(color: Colors.white)),
+                  ],
+                ),
               ),
             ),
           ],
@@ -170,28 +207,32 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         // Accounts List
         Expanded(
-          child: ListView.builder(
+            child: Padding(
             padding: const EdgeInsets.all(16),
-            itemCount: viewModel.accountsWithOTP.length,
-            itemBuilder: (context, index) {
-              final account = viewModel.accountsWithOTP[index];
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: OTPCard(
-                  account: account,
-                  onDelete: () => _deleteAccount(context, account.account.id), onTap: () {  },
-                ),
-              );
-            },
+            child: StaggeredList<AccountWithOTP>(
+              key: ValueKey('accounts_${viewModel.accountsWithOTP.length}'),
+              controller: _listController,
+              items: viewModel.accountsWithOTP,
+              itemBuilder: (context, index, item, animation) {
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: OTPCard(
+                    account: item,
+                    onDelete: () => _deleteAccount(context, item.account.id),
+                    onTap: () {},
+                  ),
+                );
+              },
+            ),
           ),
         ),
       ],
     );
   }
 
-  void _showAddAccountOptions(BuildContext context) {
+  Future<void> _showAddAccountOptions(BuildContext context) {
     final theme = Theme.of(context);
-    showModalBottomSheet(
+    return showModalBottomSheet<void>(
       context: context,
       backgroundColor: theme.colorScheme.surface,
       shape: const RoundedRectangleBorder(
@@ -277,11 +318,9 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  void _navigateToQRScan(BuildContext context) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => const QRScanScreen()),
-    );
+  void _navigateToQRScan(BuildContext context) async {
+    await AnimationService.pushWithStyle(context, const QRScanScreen(), style: PageTransitionStyle.slideRight);
+    // No explicit refresh needed - addAccount() in QR scan already calls _loadAccounts() which notifies listeners
   }
 
   void _showManualEntryDialog(BuildContext context) {
@@ -305,10 +344,26 @@ class _HomeScreenState extends State<HomeScreen> {
   void _addAccount(BuildContext context, Account account) async {
     final viewModel = context.read<AccountViewModel>();
     final messenger = ScaffoldMessenger.of(context);
+
+    // Check duplicate early and provide a clear message
+    final exists = await viewModel.accountExists(account);
+    if (exists) {
+      if (!mounted) return;
+      messenger.showSnackBar(
+        SnackBar(
+          content: const Text('Account already exists'),
+          backgroundColor: AppTheme.errorColor,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+      );
+      return;
+    }
+
     final success = await viewModel.addAccount(account);
-    
+
     if (!mounted) return;
-    
+
     if (success) {
       messenger.showSnackBar(
         SnackBar(
@@ -332,6 +387,13 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _deleteAccount(BuildContext context, String accountId) {
     final theme = Theme.of(context);
+
+  // Capture the current view model and index synchronously to avoid using
+    // BuildContext across async gaps inside the dialog callbacks.
+    final viewModel = context.read<AccountViewModel>();
+    final index = viewModel.accountsWithOTP.indexWhere((a) => a.account.id == accountId);
+  final messenger = ScaffoldMessenger.of(context);
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -350,10 +412,29 @@ class _HomeScreenState extends State<HomeScreen> {
           TextButton(
             onPressed: () async {
               Navigator.pop(context);
-              final messenger = ScaffoldMessenger.of(context);
-              final success = await context.read<AccountViewModel>().deleteAccount(accountId);
+
+              // If we have a valid index and a list controller, animate removal first,
+              // then perform the authoritative deletion in the ViewModel.
+              if (index != -1) {
+                try {
+                  await _listController.removeAt(index, (removedItem, animation) {
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: OTPCard(
+                        account: removedItem,
+                        onDelete: () {},
+                        onTap: () {},
+                      ),
+                    );
+                  });
+                } catch (_) {
+                  // ignore animation errors and continue to delete
+                }
+              }
+
+              final success = await viewModel.deleteAccount(accountId);
               if (!mounted) return;
-              
+
               if (success) {
                 messenger.showSnackBar(
                   SnackBar(
@@ -453,9 +534,16 @@ class _ManualEntryFormState extends State<ManualEntryForm> {
           const SizedBox(height: 24),
           SizedBox(
             width: double.infinity,
-            child: ElevatedButton(
-              onPressed: _addAccount,
-              child: const Text('Add Account'),
+            child: AnimatedButton(
+              onTap: _addAccount,
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryColor,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Center(child: const Text('Add Account', style: TextStyle(color: Colors.white))),
+              ),
             ),
           ),
         ],
@@ -470,6 +558,16 @@ class _ManualEntryFormState extends State<ManualEntryForm> {
         accountName: _accountNameController.text.trim(),
         secretKey: _secretKeyController.text.trim().toUpperCase(),
       );
+      // Validate secret decodability before adding (give clearer feedback)
+      final totp = TOTPService();
+      if (!totp.validateSecret(account.secretKey)) {
+        final messenger = ScaffoldMessenger.of(context);
+        messenger.showSnackBar(
+          SnackBar(content: const Text('Invalid secret key. Please check Base32 format.'), backgroundColor: AppTheme.errorColor),
+        );
+        return;
+      }
+
       widget.onAccountAdded(account);
     }
   }

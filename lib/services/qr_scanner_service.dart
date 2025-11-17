@@ -75,8 +75,8 @@ class OTPAuthURI {
       throw FormatException('Missing secret parameter');
     }
 
+    // Removed sensitive logging - don't log issuer/account details
     developer.log('QR Code parsed successfully', name: 'QRScanner');
-    developer.log('Issuer: $issuer, Account: $accountName', name: 'QRScanner');
 
     return OTPAuthURI(
       type: type,

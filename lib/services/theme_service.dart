@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ThemeService extends ChangeNotifier {
-  static const String _themeKey = 'authvault_theme_mode';
+  static const String _themeKey = 'authenticator_theme_mode';
   
   ThemeMode _themeMode = ThemeMode.dark;
   bool _isDarkMode = true;

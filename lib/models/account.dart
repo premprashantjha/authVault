@@ -1,4 +1,5 @@
-import 'package:authvault_poc/services/qr_scanner_service.dart';
+import 'package:authenticator/services/qr_scanner_service.dart';
+import 'dart:math';
 
 class Account {
   final String id;
@@ -13,8 +14,16 @@ class Account {
     required this.accountName,
     required this.secretKey,
     DateTime? createdAt,
-  })  : id = id ?? DateTime.now().millisecondsSinceEpoch.toString(),
+  })  : id = id ?? _generateId(),
         createdAt = createdAt ?? DateTime.now();
+
+  // Generate a more secure random ID
+  static String _generateId() {
+    final random = Random.secure();
+    final timestamp = DateTime.now().millisecondsSinceEpoch;
+    final randomPart = random.nextInt(999999);
+    return '${timestamp}_$randomPart';
+  }
 
   factory Account.fromOTPAuthURI(OTPAuthURI otpAuth) {
     return Account(

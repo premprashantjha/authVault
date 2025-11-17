@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import '../../app/theme.dart';
 import '../../models/account.dart';
 import '../../services/icon_service.dart';
+import '../../widgets/animated/animated_button.dart';
 
 class OTPCard extends StatelessWidget {
   final AccountWithOTP account;
@@ -206,6 +207,11 @@ class OTPCard extends StatelessWidget {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
     );
+
+    // Auto-clear clipboard after 60 seconds for security
+    Future.delayed(const Duration(seconds: 60), () {
+      Clipboard.setData(const ClipboardData(text: ''));
+    });
   }
   void _showDeleteConfirmationDialog(BuildContext context) {
   showDialog(
@@ -249,7 +255,7 @@ class OTPCard extends StatelessWidget {
               
               // Message
               Text(
-                'This will permanently remove ${account.account.displayName} from your AuthVault. '
+                'This will permanently remove ${account.account.displayName} from your Authenticator. '
                 'You will no longer be able to generate OTP codes for this account.',
                 style: AppTheme.bodyMedium(Theme.of(context).colorScheme.onSurface.withValues(alpha:0.7)),
               ),
@@ -275,21 +281,18 @@ class OTPCard extends StatelessWidget {
                   ),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: ElevatedButton(
-                      onPressed: () {
+                    child: AnimatedButton(
+                      onTap: () {
                         Navigator.of(context).pop();
                         onDelete();
                       },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.errorColor,
+                      child: Container(
                         padding: const EdgeInsets.symmetric(vertical: 12),
-                        shape: RoundedRectangleBorder(
+                        decoration: BoxDecoration(
+                          color: AppTheme.errorColor,
                           borderRadius: BorderRadius.circular(12),
                         ),
-                      ),
-                      child: Text(
-                        'Delete',
-                        style: AppTheme.bodyMedium(Colors.white),
+                        child: Center(child: Text('Delete', style: AppTheme.bodyMedium(Colors.white))),
                       ),
                     ),
                   ),
