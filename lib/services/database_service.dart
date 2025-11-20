@@ -1,6 +1,6 @@
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
-import 'dart:developer' as developer;
+import 'package:flutter/foundation.dart';
 import '../models/account.dart';
 import 'encryption_service.dart';
 
@@ -57,13 +57,11 @@ class DatabaseService {
   /// Get all accounts
   Future<List<Account>> getAllAccounts() async {
     try {
-      developer.log('DatabaseService: Getting all accounts...', name: 'Database');
       final db = await database;
       final List<Map<String, dynamic>> maps = await db.query(
         _tableName,
         orderBy: 'createdAt DESC',
       );
-      developer.log('DatabaseService: Found ${maps.length} accounts in DB', name: 'Database');
 
       final List<Account> accounts = [];
       for (final map in maps) {
@@ -77,15 +75,14 @@ class DatabaseService {
             'secretKey': decryptedSecret,
           }));
         } catch (e) {
-          developer.log('Error decrypting account ${map['id']}', error: e, level: 1000);
+          debugPrint('Error decrypting account ${map['id']}: $e');
           // Skip corrupted accounts
         }
       }
 
-      developer.log('DatabaseService: Returning ${accounts.length} decrypted accounts', name: 'Database');
       return accounts;
     } catch (e) {
-      developer.log('Error loading accounts from database', error: e, level: 1000);
+      debugPrint('Error loading accounts: $e');
       return [];
     }
   }
@@ -93,7 +90,6 @@ class DatabaseService {
   /// Add a new account
   Future<void> addAccount(Account account) async {
     try {
-      developer.log('DatabaseService: Adding account ${account.issuer} - ${account.accountName}', name: 'Database');
       final db = await database;
       
       // Encrypt secret key before storage
@@ -110,17 +106,16 @@ class DatabaseService {
         },
         conflictAlgorithm: ConflictAlgorithm.fail,
       );
-      developer.log('DatabaseService: Account added successfully', name: 'Database');
     } on DatabaseException catch (e) {
       // Handle unique constraint violations explicitly
       final message = e.toString().toLowerCase();
       if (message.contains('unique') || message.contains('unique constraint')) {
         throw Exception('Account already exists');
       }
-      developer.log('DatabaseException adding account', error: e, level: 1000);
+      debugPrint('Database error adding account: $e');
       throw Exception('Failed to add account');
     } catch (e) {
-      developer.log('Error adding account', error: e, level: 1000);
+      debugPrint('Error adding account: $e');
       throw Exception('Failed to add account');
     }
   }
@@ -144,7 +139,7 @@ class DatabaseService {
         whereArgs: [account.id],
       );
     } catch (e) {
-      developer.log('Error updating account', error: e, level: 1000);
+      debugPrint('DatabaseService: Error updating account: $e');
       throw Exception('Failed to update account');
     }
   }
@@ -159,7 +154,7 @@ class DatabaseService {
         whereArgs: [accountId],
       );
     } catch (e) {
-      developer.log('Error deleting account', error: e, level: 1000);
+      debugPrint('DatabaseService: Error deleting account: $e');
       throw Exception('Failed to delete account');
     }
   }
@@ -176,7 +171,7 @@ class DatabaseService {
       );
       return result.isNotEmpty;
     } catch (e) {
-      developer.log('Error checking account existence', error: e, level: 1000);
+      debugPrint('DatabaseService: Error checking account existence: $e');
       return false;
     }
   }
@@ -194,7 +189,7 @@ class DatabaseService {
       final db = await database;
       await db.delete(_tableName);
     } catch (e) {
-      developer.log('Error clearing accounts', error: e, level: 1000);
+      debugPrint('DatabaseService: Error clearing accounts: $e');
       throw Exception('Failed to clear accounts');
     }
   }

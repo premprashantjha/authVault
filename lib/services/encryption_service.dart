@@ -1,9 +1,9 @@
 import 'dart:convert';
 import 'dart:math';
 import 'dart:typed_data';
+import 'package:flutter/foundation.dart' hide Key;
 import 'package:encrypt/encrypt.dart';
 import 'secure_storage_service.dart';
-import 'keystore_service.dart';
 
 /// Service for encrypting/decrypting sensitive data
 /// Uses AES-256 encryption with a key derived from secure storage
@@ -15,51 +15,40 @@ import 'keystore_service.dart';
 /// - Secrets are encrypted before storage in database
 class EncryptionService {
   final SecureStorageService _secureStorage;
-  // Previously stored raw key (legacy)
+  // Direct key storage (current method)
   static const String _encryptionKeyKey = 'authenticator_encryption_key';
-  // New wrapped key storage
+  // Legacy wrapped key storage keys (for cleanup)
   static const String _wrappedKeyKey = 'authenticator_wrapped_encryption_key';
-  static const String _keystoreAlias = 'authenticator_data_key';
+  static const String _keystoreAvailableKey = 'authenticator_keystore_available';
   
   EncryptionService({SecureStorageService? secureStorage})
       : _secureStorage = secureStorage ?? SecureStorageService();
   
   static const int _keyLength = 32; // 256 bits for AES-256
   
-  /// Get or create encryption key
-  /// Key is stored in hardware-backed secure storage (Keychain/Keystore)
+  /// Get or create encryption key using direct secure storage
+  /// Keystore proved unreliable (IllegalBlockSizeException on all devices)
   Future<Key> _getEncryptionKey() async {
-    final keystore = KeystoreService();
+    // Check for existing direct key
+    String? directKey = await _secureStorage.getSecret(_encryptionKeyKey);
+    if (directKey != null && directKey.isNotEmpty) {
+      return Key(Uint8List.fromList(base64Decode(directKey)));
+    }
 
-    // 1) Check for wrapped key (new flow)
+    // Clean up any old keystore-wrapped keys
     final wrapped = await _secureStorage.getSecret(_wrappedKeyKey);
-    if (wrapped != null && wrapped.isNotEmpty) {
-      // Unwrap via platform keystore
-      final unwrappedBytes = await keystore.unwrapKey(_keystoreAlias, wrapped);
-      return Key(Uint8List.fromList(unwrappedBytes));
+    if (wrapped != null) {
+      await _secureStorage.deleteSecret(_wrappedKeyKey);
+      await _secureStorage.deleteSecret(_keystoreAvailableKey);
+      debugPrint('Info: Cleaned up old keystore-wrapped keys');
     }
 
-    // 2) Legacy raw key present? If so, migrate: wrap it and store wrapped key
-    String? legacyKey = await _secureStorage.getSecret(_encryptionKeyKey);
-    if (legacyKey != null && legacyKey.isNotEmpty) {
-      // Ensure keystore key exists
-      await keystore.generateKey(_keystoreAlias);
-      final legacyBytes = base64Decode(legacyKey);
-      final wrappedNew = await keystore.wrapKey(_keystoreAlias, Uint8List.fromList(legacyBytes));
-      await _secureStorage.saveSecret(_wrappedKeyKey, wrappedNew);
-      // Remove legacy raw key
-      await _secureStorage.deleteSecret(_encryptionKeyKey);
-      return Key(Uint8List.fromList(legacyBytes));
-    }
-
-    // 3) No key exists yet: generate a new random AES key, wrap it and store wrapped
+    // Generate new key and store directly
     final random = Random.secure();
     final keyBytes = List<int>.generate(_keyLength, (i) => random.nextInt(256));
-    // Ensure keystore key exists
-    await keystore.generateKey(_keystoreAlias);
-    final wrappedKey = await keystore.wrapKey(_keystoreAlias, Uint8List.fromList(keyBytes));
-    await _secureStorage.saveSecret(_wrappedKeyKey, wrappedKey);
-
+    final keyBase64 = base64Encode(keyBytes);
+    await _secureStorage.saveSecret(_encryptionKeyKey, keyBase64);
+    debugPrint('Info: Generated new encryption key in secure storage');
     return Key(Uint8List.fromList(keyBytes));
   }
 
@@ -103,6 +92,8 @@ class EncryptionService {
   /// WARNING: This will make all encrypted data unrecoverable
   Future<void> clearEncryptionKey() async {
     await _secureStorage.deleteSecret(_encryptionKeyKey);
+    await _secureStorage.deleteSecret(_wrappedKeyKey);
+    await _secureStorage.deleteSecret(_keystoreAvailableKey);
   }
 }
 

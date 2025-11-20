@@ -19,6 +19,7 @@ import javax.crypto.IllegalBlockSizeException
 // Extend FlutterFragmentActivity so biometric prompts work correctly.
 class MainActivity : FlutterFragmentActivity() {
 	private val CHANNEL = "authenticator/keystore"
+	private var cipherTransformation: String? = null
 
 	override fun configureFlutterEngine(@NonNull flutterEngine: FlutterEngine) {
 		super.configureFlutterEngine(flutterEngine)
@@ -46,9 +47,28 @@ class MainActivity : FlutterFragmentActivity() {
 					else -> result.notImplemented()
 				}
 			} catch (e: Exception) {
+				android.util.Log.e("KeystoreService", "Error: ${e.message}", e)
 				result.error("keystore_error", e.message, null)
 			}
 		}
+	}
+	
+	private fun getCipherTransformation(): String {
+		// Cache the cipher transformation to ensure consistency
+		if (cipherTransformation != null) {
+			return cipherTransformation!!
+		}
+		
+		// Try to determine which OAEP variant is supported
+		cipherTransformation = try {
+			val cipher = Cipher.getInstance("RSA/ECB/OAEPWithSHA-256AndMGF1Padding")
+			"RSA/ECB/OAEPWithSHA-256AndMGF1Padding"
+		} catch (e: Exception) {
+			"RSA/ECB/OAEPPadding"
+		}
+		
+		android.util.Log.d("KeystoreService", "Using cipher: $cipherTransformation")
+		return cipherTransformation!!
 	}
 
 	private fun ensureKeyPair(alias: String): Boolean {
@@ -79,20 +99,18 @@ class MainActivity : FlutterFragmentActivity() {
 		val keyBytes = Base64.getDecoder().decode(keyBase64)
 		val keyStore = KeyStore.getInstance("AndroidKeyStore")
 		keyStore.load(null)
-		val entry = keyStore.getCertificate(alias) ?: throw Exception("Keystore alias not found: $alias")
+		
+		// Ensure the key exists
+		if (!keyStore.containsAlias(alias)) {
+			throw Exception("Keystore alias not found: $alias. Call generateKey first.")
+		}
+		
+		val entry = keyStore.getCertificate(alias) ?: throw Exception("Certificate not found for alias: $alias")
 		val publicKey = entry.publicKey
 
-				// Use a platform-supported OAEP transformation. On Android the
-				// provider may support "RSA/ECB/OAEPWithSHA-256AndMGF1Padding" which
-				// uses SHA-256 for OAEP and MGF1; initialize with the public key.
-				val cipher = try {
-					Cipher.getInstance("RSA/ECB/OAEPWithSHA-256AndMGF1Padding")
-				} catch (e: Exception) {
-					// Fallback to a generic OAEPPadding transformation if the more
-					// specific one isn't available.
-					Cipher.getInstance("RSA/ECB/OAEPPadding")
-				}
-				cipher.init(Cipher.ENCRYPT_MODE, publicKey)
+		// Use consistent cipher transformation
+		val cipher = Cipher.getInstance(getCipherTransformation())
+		cipher.init(Cipher.ENCRYPT_MODE, publicKey)
 		val wrapped = cipher.doFinal(keyBytes)
 		return Base64.getEncoder().encodeToString(wrapped)
 	}
@@ -101,14 +119,17 @@ class MainActivity : FlutterFragmentActivity() {
 		val wrapped = Base64.getDecoder().decode(wrappedBase64)
 		val keyStore = KeyStore.getInstance("AndroidKeyStore")
 		keyStore.load(null)
+		
+		// Ensure the key exists
+		if (!keyStore.containsAlias(alias)) {
+			throw Exception("Keystore alias not found: $alias. Key may have been cleared.")
+		}
+		
 		val privKey = keyStore.getKey(alias, null) ?: throw Exception("Private key not found for alias: $alias")
 
-				val cipher = try {
-					Cipher.getInstance("RSA/ECB/OAEPWithSHA-256AndMGF1Padding")
-				} catch (e: Exception) {
-					Cipher.getInstance("RSA/ECB/OAEPPadding")
-				}
-				cipher.init(Cipher.DECRYPT_MODE, privKey)
+		// Use the same consistent cipher transformation
+		val cipher = Cipher.getInstance(getCipherTransformation())
+		cipher.init(Cipher.DECRYPT_MODE, privKey)
 		val unwrapped = cipher.doFinal(wrapped)
 		return Base64.getEncoder().encodeToString(unwrapped)
 	}

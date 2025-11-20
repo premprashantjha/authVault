@@ -11,13 +11,24 @@ class AuthenticatorApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return Consumer<ThemeService>(
       builder: (context, themeService, child) {
-        return MaterialApp(
-          title: 'Authenticator',
-          theme: AppTheme.lightTheme,
-          darkTheme: AppTheme.darkTheme,
-          themeMode: themeService.themeMode,
-          home: const AuthWrapper(),
-          debugShowCheckedModeBanner: false,
+        return AnimatedTheme(
+          data: themeService.themeMode == ThemeMode.dark 
+              ? AppTheme.darkTheme 
+              : AppTheme.lightTheme,
+          duration: const Duration(milliseconds: 350),
+          curve: Curves.easeInOut,
+          child: Builder(
+            builder: (context) {
+              return MaterialApp(
+                title: 'Authenticator',
+                theme: AppTheme.lightTheme,
+                darkTheme: AppTheme.darkTheme,
+                themeMode: themeService.themeMode,
+                home: const AuthWrapper(),
+                debugShowCheckedModeBanner: false,
+              );
+            },
+          ),
         );
       },
     );

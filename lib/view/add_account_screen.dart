@@ -9,6 +9,7 @@ import '../animations/animation_service.dart';
 import '../animations/custom_page_route.dart';
 import '../app/theme.dart';
 import '../widgets/animated/animated_button.dart';
+import '../widgets/custom_snackbar.dart';
 
 class AddAccountScreen extends StatefulWidget {
   const AddAccountScreen({super.key});
@@ -148,8 +149,11 @@ class _AddAccountScreenState extends State<AddAccountScreen> {
     });
 
     // Show success message
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('QR Code scanned successfully!')),
+    CustomSnackbar.show(
+      context,
+      title: 'QR Code Scanned',
+      message: 'Account details have been extracted successfully',
+      type: SnackbarType.success,
     );
   }
 
@@ -166,12 +170,18 @@ class _AddAccountScreenState extends State<AddAccountScreen> {
       if (mounted) {
         if (success) {
           Navigator.pop(context);
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Account added successfully')),
+          CustomSnackbar.show(
+            context,
+            title: '${account.issuer} Added',
+            message: 'Your account has been securely added to the vault',
+            type: SnackbarType.success,
           );
         } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Failed to add account')),
+          CustomSnackbar.show(
+            context,
+            title: 'Failed',
+            message: 'Unable to add account. Please try again.',
+            type: SnackbarType.error,
           );
         }
       }

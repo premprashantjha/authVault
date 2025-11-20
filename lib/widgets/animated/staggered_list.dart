@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../theme/animations.dart';
+import '../../models/account.dart';
 
 typedef StaggeredItemBuilder<T> = Widget Function(BuildContext context, int index, T item, Animation<double> animation);
 
@@ -32,6 +33,14 @@ class StaggeredList<T> extends StatefulWidget {
 
   @override
   State<StaggeredList<T>> createState() => _StaggeredListState<T>();
+  
+  /// Compare items semantically instead of by identity
+  static bool _itemsEqual(dynamic a, dynamic b) {
+    if (a is AccountWithOTP && b is AccountWithOTP) {
+      return a.account.id == b.account.id;
+    }
+    return identical(a, b);
+  }
 }
 
 class _StaggeredListState<T> extends State<StaggeredList<T>> {
@@ -93,7 +102,7 @@ class _StaggeredListState<T> extends State<StaggeredList<T>> {
 
     // If counts are equal, perform a best-effort diff: replace items that differ in identity.
     for (var i = 0; i < newItems.length; i++) {
-      if (!identical(newItems[i], _items[i])) {
+      if (!StaggeredList._itemsEqual(newItems[i], _items[i])) {
         // Replace item at i by removing and inserting at same index.
         final removed = _items.removeAt(i);
         _listKey.currentState?.removeItem(
@@ -110,6 +119,10 @@ class _StaggeredListState<T> extends State<StaggeredList<T>> {
         // insert the new item
         _items.insert(i, newItems[i]);
         _listKey.currentState?.insertItem(i, duration: widget.staggerDuration);
+      } else {
+        // Items are equal by ID, just update the reference in _items
+        // without triggering animation
+        _items[i] = newItems[i];
       }
     }
   }

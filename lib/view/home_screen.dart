@@ -1,7 +1,11 @@
 import 'package:authenticator/models/account.dart';
 import 'package:authenticator/view/widget/otp_card.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
+import 'package:lottie/lottie.dart';
+import 'dart:io' show Platform;
+import 'package:flutter_windowmanager/flutter_windowmanager.dart';
 import '../app/theme.dart';
 import '../view_models/account_view_model.dart';
 import '../services/auth_service.dart';
@@ -15,6 +19,7 @@ import '../widgets/animated/staggered_list.dart';
 import '../widgets/animated/animated_fab.dart';
 import '../widgets/animated/animated_button.dart';
 import '../widgets/animated/skeleton.dart';
+import '../widgets/custom_snackbar.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -26,10 +31,23 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   bool _fabOpen = false;
   final StaggeredListController<AccountWithOTP> _listController = StaggeredListController<AccountWithOTP>();
+  
   @override
   void initState() {
     super.initState();
+    _enableScreenshotPrevention();
     // Accounts are automatically loaded in the ViewModel constructor
+  }
+
+  /// Enable screenshot prevention (FLAG_SECURE) on Android
+  Future<void> _enableScreenshotPrevention() async {
+    if (!kDebugMode && Platform.isAndroid) {
+      try {
+        await FlutterWindowManager.addFlags(FlutterWindowManager.FLAG_SECURE);
+      } catch (e) {
+        // Silently fail - not critical
+      }
+    }
   }
 
   void _navigateToSettings(BuildContext context) async {
@@ -69,7 +87,7 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       body: Consumer<AccountViewModel>(
         builder: (context, viewModel, child) {
-          debugPrint('HomeScreen Consumer rebuild: isLoading=${viewModel.isLoading}, hasAccounts=${viewModel.hasAccounts}, count=${viewModel.accountsWithOTP.length}');
+          // Removed verbose debug logging that was triggered on every rebuild
           if (viewModel.isLoading) {
             // Show lightweight skeleton placeholders while accounts load
             return Padding(
@@ -110,62 +128,76 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildEmptyState() {
     final theme = Theme.of(context);
     
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 120,
-              height: 120,
-              decoration: BoxDecoration(
-                gradient: AppTheme.primaryGradient,
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.lock_outline,
-                size: 50,
-                color: Colors.white,
-              ),
-            ),
-            const SizedBox(height: 32),
-            Text(
-              'No 2FA Accounts',
-              style: AppTheme.headlineLarge(theme.colorScheme.onSurface).copyWith(fontSize: 24),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Add your first account to start securing your logins with two-factor authentication',
-              style: AppTheme.bodyMedium(theme.colorScheme.onSurface).copyWith(
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
-                height: 1.5,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 32),
-            AnimatedButton(
-              onTap: () => _showAddAccountOptions(context),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-                decoration: BoxDecoration(
-                  color: AppTheme.primaryColor,
-                  borderRadius: BorderRadius.circular(12),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return SingleChildScrollView(
+          padding: const EdgeInsets.all(32),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: constraints.maxHeight - 64),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                // Lottie animation showing QR scan interaction
+                SizedBox(
+                  width: 280,
+                  height: 280,
+                  child: Lottie.asset(
+                    'assets/images/AuthenticatorWelcomeScreen.json',
+                    fit: BoxFit.contain,
+                    repeat: true,
+                    animate: true,
+                  ),
                 ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: const [
-                    Icon(Icons.add, size: 20, color: Colors.white),
-                    SizedBox(width: 8),
-                    Text('Add Account', style: TextStyle(color: Colors.white)),
-                  ],
+                const SizedBox(height: 24),
+                Text(
+                  'No 2FA Accounts',
+                  style: AppTheme.headlineLarge(theme.colorScheme.onSurface).copyWith(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  textAlign: TextAlign.center,
                 ),
-              ),
+                const SizedBox(height: 12),
+                Text(
+                  'Secure your accounts with two-factor authentication',
+                  style: AppTheme.bodyMedium(theme.colorScheme.onSurface).copyWith(
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                    height: 1.5,
+                    fontSize: 15,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 32),
+                AnimatedButton(
+                  onTap: () => _showAddAccountOptions(context),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.primary,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: const [
+                        Icon(Icons.qr_code_scanner, size: 20, color: Colors.white),
+                        SizedBox(width: 12),
+                        Text(
+                          'Add Your First Account',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
             ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 
@@ -188,12 +220,12 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           child: Row(
             children: [
-              const Icon(Icons.security, color: AppTheme.primaryColor, size: 20),
+              Icon(Icons.security, color: theme.colorScheme.primary, size: 20),
               const SizedBox(width: 8),
               Text(
                 '${viewModel.accountsWithOTP.length} Account${viewModel.accountsWithOTP.length == 1 ? '' : 's'}',
                 style: AppTheme.bodyLarge(theme.colorScheme.onSurface).copyWith(
-                  color: AppTheme.primaryColor,
+                  color: theme.colorScheme.primary,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -248,12 +280,21 @@ class _HomeScreenState extends State<HomeScreen> {
                 'Add Account',
                 style: AppTheme.headlineMedium(theme.colorScheme.onSurface),
               ),
+              const SizedBox(height: 8),
+              Text(
+                'Your secrets stay encrypted on this device. Keep a backup so you can restore them if you switch phones.',
+                style: AppTheme.bodyMedium(theme.colorScheme.onSurface).copyWith(
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                  height: 1.4,
+                ),
+                textAlign: TextAlign.center,
+              ),
               const SizedBox(height: 24),
               _buildAddOption(
                 context,
                 icon: Icons.qr_code_scanner,
                 title: 'Scan QR Code',
-                subtitle: 'Quick setup with camera',
+                subtitle: 'Recommended. Point your camera at the QR code provided by the service.',
                 onTap: () {
                   Navigator.pop(context);
                   _navigateToQRScan(context);
@@ -264,7 +305,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 context,
                 icon: Icons.keyboard,
                 title: 'Enter Manually',
-                subtitle: 'Add secret key manually',
+                subtitle: 'Paste or type the secret key if you cannot scan.',
                 onTap: () {
                   Navigator.pop(context);
                   _showManualEntryDialog(context);
@@ -305,10 +346,10 @@ class _HomeScreenState extends State<HomeScreen> {
           width: 44,
           height: 44,
           decoration: BoxDecoration(
-            gradient: AppTheme.primaryGradient,
+            color: theme.colorScheme.primary.withValues(alpha: 0.15),
             borderRadius: BorderRadius.circular(12),
           ),
-          child: Icon(icon, color: Colors.white, size: 20),
+          child: Icon(icon, color: theme.colorScheme.primary, size: 20),
         ),
         title: Text(title, style: AppTheme.bodyLarge(theme.colorScheme.onSurface)),
         subtitle: Text(subtitle, style: AppTheme.caption(theme.colorScheme.onSurface)),
@@ -327,35 +368,33 @@ class _HomeScreenState extends State<HomeScreen> {
     final theme = Theme.of(context);
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         backgroundColor: theme.colorScheme.surface,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: Text('Add Account', style: AppTheme.headlineMedium(theme.colorScheme.onSurface)),
         content: ManualEntryForm(
           onAccountAdded: (account) {
-            Navigator.pop(context);
-            _addAccount(context, account);
+            Navigator.pop(dialogContext);
+            // Use the parent context, not the dialog context
+            _addAccount(account);
           },
         ),
       ),
     );
   }
 
-  void _addAccount(BuildContext context, Account account) async {
+  void _addAccount(Account account) async {
     final viewModel = context.read<AccountViewModel>();
-    final messenger = ScaffoldMessenger.of(context);
 
     // Check duplicate early and provide a clear message
     final exists = await viewModel.accountExists(account);
     if (exists) {
       if (!mounted) return;
-      messenger.showSnackBar(
-        SnackBar(
-          content: const Text('Account already exists'),
-          backgroundColor: AppTheme.errorColor,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        ),
+      CustomSnackbar.show(
+        context,
+        title: account.issuer,
+        message: 'This account is already in your vault',
+        type: SnackbarType.info,
       );
       return;
     }
@@ -365,93 +404,54 @@ class _HomeScreenState extends State<HomeScreen> {
     if (!mounted) return;
 
     if (success) {
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text('${account.issuer} account added successfully!'),
-          backgroundColor: AppTheme.successColor,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        ),
+      CustomSnackbar.show(
+        context,
+        title: '${account.issuer} Added',
+        message: 'Your account has been securely added to the vault',
+        type: SnackbarType.success,
       );
     } else {
-      messenger.showSnackBar(
-        SnackBar(
-          content: const Text('Failed to add account'),
-          backgroundColor: AppTheme.errorColor,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        ),
+      CustomSnackbar.show(
+        context,
+        title: 'Failed',
+        message: 'Unable to add account. Please try again.',
+        type: SnackbarType.error,
       );
     }
   }
 
-  void _deleteAccount(BuildContext context, String accountId) {
-    final theme = Theme.of(context);
-
-  // Capture the current view model and index synchronously to avoid using
-    // BuildContext across async gaps inside the dialog callbacks.
+  Future<void> _deleteAccount(BuildContext context, String accountId) async {
     final viewModel = context.read<AccountViewModel>();
     final index = viewModel.accountsWithOTP.indexWhere((a) => a.account.id == accountId);
-  final messenger = ScaffoldMessenger.of(context);
 
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: theme.colorScheme.surface,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text('Delete Account', style: AppTheme.headlineMedium(theme.colorScheme.onSurface)),
-        content: Text(
-          'Are you sure you want to delete this account? This action cannot be undone.',
-          style: AppTheme.bodyMedium(theme.colorScheme.onSurface),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text('Cancel', style: AppTheme.bodyMedium(theme.colorScheme.onSurface)),
-          ),
-          TextButton(
-            onPressed: () async {
-              Navigator.pop(context);
+    if (index != -1) {
+      try {
+        await _listController.removeAt(index, (removedItem, animation) {
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: OTPCard(
+              account: removedItem,
+              onDelete: () {},
+              onTap: () {},
+            ),
+          );
+        });
+      } catch (_) {
+        // ignore animation errors and continue to delete
+      }
+    }
 
-              // If we have a valid index and a list controller, animate removal first,
-              // then perform the authoritative deletion in the ViewModel.
-              if (index != -1) {
-                try {
-                  await _listController.removeAt(index, (removedItem, animation) {
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: OTPCard(
-                        account: removedItem,
-                        onDelete: () {},
-                        onTap: () {},
-                      ),
-                    );
-                  });
-                } catch (_) {
-                  // ignore animation errors and continue to delete
-                }
-              }
+    final success = await viewModel.deleteAccount(accountId);
+    if (!mounted) return;
 
-              final success = await viewModel.deleteAccount(accountId);
-              if (!mounted) return;
-
-              if (success) {
-                messenger.showSnackBar(
-                  SnackBar(
-                    content: const Text('Account deleted'),
-                    backgroundColor: AppTheme.successColor,
-                    behavior: SnackBarBehavior.floating,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                );
-              }
-            },
-            style: TextButton.styleFrom(foregroundColor: AppTheme.errorColor),
-            child: Text('Delete', style: AppTheme.bodyMedium(theme.colorScheme.onSurface)),
-          ),
-        ],
-      ),
-    );
+    if (success) {
+      CustomSnackbar.show(
+        context,
+        title: 'Account Deleted',
+        message: 'This account and its OTPs were removed from Authenticator.',
+        type: SnackbarType.error,
+      );
+    }
   }
 }
 
@@ -539,7 +539,7 @@ class _ManualEntryFormState extends State<ManualEntryForm> {
               child: Container(
                 padding: const EdgeInsets.symmetric(vertical: 14),
                 decoration: BoxDecoration(
-                  color: AppTheme.primaryColor,
+                  color: theme.colorScheme.primary,
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Center(child: const Text('Add Account', style: TextStyle(color: Colors.white))),
@@ -561,9 +561,11 @@ class _ManualEntryFormState extends State<ManualEntryForm> {
       // Validate secret decodability before adding (give clearer feedback)
       final totp = TOTPService();
       if (!totp.validateSecret(account.secretKey)) {
-        final messenger = ScaffoldMessenger.of(context);
-        messenger.showSnackBar(
-          SnackBar(content: const Text('Invalid secret key. Please check Base32 format.'), backgroundColor: AppTheme.errorColor),
+        CustomSnackbar.show(
+          context,
+          title: 'Invalid Secret Key',
+          message: 'Please check the Base32 format and try again',
+          type: SnackbarType.error,
         );
         return;
       }

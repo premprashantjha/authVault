@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../app/theme.dart';
@@ -5,7 +7,7 @@ import '../../models/account.dart';
 import '../../services/icon_service.dart';
 import '../../widgets/animated/animated_button.dart';
 
-class OTPCard extends StatelessWidget {
+class OTPCard extends StatefulWidget {
   final AccountWithOTP account;
   final VoidCallback onDelete;
   final VoidCallback onTap;
@@ -18,10 +20,34 @@ class OTPCard extends StatelessWidget {
   });
 
   @override
+  State<OTPCard> createState() => _OTPCardState();
+}
+
+class _OTPCardState extends State<OTPCard> {
+  bool _copied = false;
+  Timer? _copyResetTimer;
+
+  @override
+  void dispose() {
+    _copyResetTimer?.cancel();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final serviceIcon = IconService.getIconForService(account.account.issuer);
-    final serviceColor = IconService.getColorForService(account.account.issuer);
+    final colorScheme = theme.colorScheme;
+    final serviceIcon = IconService.getIconForService(widget.account.account.issuer);
+    final serviceColor = IconService.getColorForService(widget.account.account.issuer);
+    const cardPadding = EdgeInsets.all(16);
+    const headerSpacing = 16.0;
+    const labelGap = 6.0;
+    const otpFontSize = 24.0;
+    const issuerGap = 10.0;
+    const avatarSize = 36.0;
+    const avatarIconSize = 18.0;
+    const timerSize = 40.0;
+    const progressStroke = 3.5;
     
     return Card(
       elevation: 2,
@@ -30,10 +56,10 @@ class OTPCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
       ),
       child: InkWell(
-        onTap: onTap,
+        onTap: widget.onTap,
         borderRadius: BorderRadius.circular(20),
         child: Padding(
-          padding: const EdgeInsets.all(20),
+          padding: cardPadding,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -41,8 +67,8 @@ class OTPCard extends StatelessWidget {
               Row(
                 children: [
                   Container(
-                    width: 40,
-                    height: 40,
+                    width: avatarSize,
+                    height: avatarSize,
                     decoration: BoxDecoration(
                       color: serviceColor,
                       borderRadius: BorderRadius.circular(12),
@@ -50,16 +76,16 @@ class OTPCard extends StatelessWidget {
                     child: Icon(
                       serviceIcon,
                       color: Colors.white,
-                      size: 20,
+                      size: avatarIconSize,
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  SizedBox(width: issuerGap),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          account.account.issuer,
+                          widget.account.account.issuer,
                           style: AppTheme.bodyLarge(theme.colorScheme.onSurface).copyWith(
                             fontWeight: FontWeight.w600,
                           ),
@@ -68,7 +94,7 @@ class OTPCard extends StatelessWidget {
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          account.account.accountName,
+                          widget.account.account.accountName,
                           style: AppTheme.caption(theme.colorScheme.onSurface),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -85,13 +111,13 @@ class OTPCard extends StatelessWidget {
                   ),
                 ],
               ),
-              const SizedBox(height: 20),
+              SizedBox(height: headerSpacing),
               // OTP Code
               Row(
                 children: [
                   Expanded(
                     child: GestureDetector(
-                      onTap: () => _copyToClipboard(context, account.otp),
+                      onTap: () => _copyToClipboard(context, widget.account.otp),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -101,19 +127,26 @@ class OTPCard extends StatelessWidget {
                                 'Verification Code',
                                 style: AppTheme.caption(theme.colorScheme.onSurface),
                               ),
-                              const SizedBox(width: 8),
-                              Icon(
-                                Icons.copy,
-                                size: 14,
-                                color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                              SizedBox(width: labelGap),
+                              AnimatedSwitcher(
+                                duration: const Duration(milliseconds: 200),
+                                child: _copied
+                                    ? Icon(Icons.check_circle,
+                                      key: const ValueKey('copied_icon'),
+                                      size: 16,
+                                      color: colorScheme.tertiary)
+                                    : Icon(Icons.copy,
+                                        key: const ValueKey('copy_icon'),
+                                        size: 14,
+                                        color: theme.colorScheme.onSurface.withValues(alpha: 0.6)),
                               ),
                             ],
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            _formatOTP(account.otp),
+                            _formatOTP(widget.account.otp),
                             style: TextStyle(
-                              fontSize: 28,
+                              fontSize: otpFontSize,
                               fontWeight: FontWeight.w700,
                               fontFamily: 'Monospace',
                               letterSpacing: 4,
@@ -128,37 +161,37 @@ class OTPCard extends StatelessWidget {
                   Column(
                     children: [
                       SizedBox(
-                        width: 44,
-                        height: 44,
+                        width: timerSize,
+                        height: timerSize,
                         child: Stack(
                           alignment: Alignment.center,
                           children: [
                             CircularProgressIndicator(
-                              value: account.progress,
-                              strokeWidth: 4,
+                              value: widget.account.progress,
+                              strokeWidth: progressStroke,
                               backgroundColor: theme.colorScheme.onSurface.withValues(alpha: 0.1),
                               valueColor: AlwaysStoppedAnimation<Color>(
-                                account.secondsRemaining > 10 
-                                    ? AppTheme.primaryColor 
-                                    : AppTheme.errorColor,
+                                widget.account.secondsRemaining > 10 
+                                    ? colorScheme.primary 
+                                    : colorScheme.error,
                               ),
                             ),
                             Center(
                               child: Text(
-                                '${account.secondsRemaining}',
+                                '${widget.account.secondsRemaining}',
                                 textAlign: TextAlign.center,
                                 style: AppTheme.bodyMedium(theme.colorScheme.onSurface).copyWith(
                                   fontWeight: FontWeight.w600,
-                                  color: account.secondsRemaining > 10 
-                                      ? AppTheme.primaryColor 
-                                      : AppTheme.errorColor,
+                                  color: widget.account.secondsRemaining > 10 
+                                      ? colorScheme.primary 
+                                      : colorScheme.error,
                                 ),
                               ),
                             ),
                           ],
                         ),
                       ),
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 2),
                       Text(
                         'seconds',
                         style: AppTheme.caption(theme.colorScheme.onSurface),
@@ -167,17 +200,17 @@ class OTPCard extends StatelessWidget {
                   ),
                 ],
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 6),
               // Progress bar
               LinearProgressIndicator(
-                value: account.progress,
+                value: widget.account.progress,
                 backgroundColor: theme.colorScheme.onSurface.withValues(alpha: 0.1),
                 valueColor: AlwaysStoppedAnimation<Color>(
-                  account.secondsRemaining > 10 
-                      ? AppTheme.primaryColor 
-                      : AppTheme.errorColor,
+                    widget.account.secondsRemaining > 10 
+                      ? colorScheme.primary 
+                      : colorScheme.error,
                 ),
-                borderRadius: BorderRadius.circular(4),
+                borderRadius: BorderRadius.circular(3),
               ),
             ],
           ),
@@ -197,19 +230,21 @@ class OTPCard extends StatelessWidget {
   void _copyToClipboard(BuildContext context, String otp) {
     Clipboard.setData(ClipboardData(text: otp));
     HapticFeedback.lightImpact();
-    
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Text('OTP code copied to clipboard'),
-        backgroundColor: AppTheme.successColor,
-        behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 1),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      ),
-    );
 
-    // Auto-clear clipboard after 60 seconds for security
-    Future.delayed(const Duration(seconds: 60), () {
+    setState(() {
+      _copied = true;
+    });
+    _copyResetTimer?.cancel();
+    _copyResetTimer = Timer(const Duration(seconds: 2), () {
+      if (mounted) {
+        setState(() {
+          _copied = false;
+        });
+      }
+    });
+
+    // Auto-clear clipboard after 30 seconds for security
+    Future.delayed(const Duration(seconds: 30), () {
       Clipboard.setData(const ClipboardData(text: ''));
     });
   }
@@ -217,6 +252,8 @@ class OTPCard extends StatelessWidget {
   showDialog(
     context: context,
     builder: (BuildContext context) {
+      final theme = Theme.of(context);
+      final colorScheme = theme.colorScheme;
       return Dialog(
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(20),
@@ -234,19 +271,19 @@ class OTPCard extends StatelessWidget {
                     width: 40,
                     height: 40,
                     decoration: BoxDecoration(
-                      color: AppTheme.errorColor.withValues(alpha:0.1),
+                      color: colorScheme.error.withValues(alpha:0.1),
                       shape: BoxShape.circle,
                     ),
                     child: Icon(
                       Icons.delete_outline,
-                      color: AppTheme.errorColor,
+                      color: colorScheme.error,
                       size: 20,
                     ),
                   ),
                   const SizedBox(width: 12),
                   Text(
                     'Delete Account',
-                    style: AppTheme.bodyLarge(Theme.of(context).colorScheme.onSurface)
+                    style: AppTheme.bodyLarge(theme.colorScheme.onSurface)
                         .copyWith(fontWeight: FontWeight.w600),
                   ),
                 ],
@@ -255,9 +292,9 @@ class OTPCard extends StatelessWidget {
               
               // Message
               Text(
-                'This will permanently remove ${account.account.displayName} from your Authenticator. '
+                'This will permanently remove ${widget.account.account.displayName} from your Authenticator. '
                 'You will no longer be able to generate OTP codes for this account.',
-                style: AppTheme.bodyMedium(Theme.of(context).colorScheme.onSurface.withValues(alpha:0.7)),
+                style: AppTheme.bodyMedium(theme.colorScheme.onSurface.withValues(alpha:0.7)),
               ),
               const SizedBox(height: 24),
               
@@ -275,7 +312,7 @@ class OTPCard extends StatelessWidget {
                       ),
                       child: Text(
                         'Cancel',
-                        style: AppTheme.bodyMedium(Theme.of(context).colorScheme.onSurface),
+                        style: AppTheme.bodyMedium(theme.colorScheme.onSurface),
                       ),
                     ),
                   ),
@@ -284,12 +321,12 @@ class OTPCard extends StatelessWidget {
                     child: AnimatedButton(
                       onTap: () {
                         Navigator.of(context).pop();
-                        onDelete();
+                        widget.onDelete();
                       },
                       child: Container(
                         padding: const EdgeInsets.symmetric(vertical: 12),
                         decoration: BoxDecoration(
-                          color: AppTheme.errorColor,
+                          color: colorScheme.error,
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Center(child: Text('Delete', style: AppTheme.bodyMedium(Colors.white))),

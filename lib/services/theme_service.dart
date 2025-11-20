@@ -4,11 +4,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 class ThemeService extends ChangeNotifier {
   static const String _themeKey = 'authenticator_theme_mode';
   
-  ThemeMode _themeMode = ThemeMode.dark;
-  bool _isDarkMode = true;
+  ThemeMode _themeMode = ThemeMode.system;
 
   ThemeMode get themeMode => _themeMode;
-  bool get isDarkMode => _isDarkMode;
+  bool get isDarkMode => _themeMode == ThemeMode.dark;
 
   ThemeService() {
     _loadTheme();
@@ -17,24 +16,54 @@ class ThemeService extends ChangeNotifier {
   Future<void> _loadTheme() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final isDark = prefs.getBool(_themeKey) ?? true; // Default to dark mode
-      _isDarkMode = isDark;
-      _themeMode = isDark ? ThemeMode.dark : ThemeMode.light;
+      final themeString = prefs.getString(_themeKey) ?? 'system';
+      _themeMode = _parseThemeMode(themeString);
       notifyListeners();
     } catch (e) {
-      // If loading fails, use default dark mode
-      _isDarkMode = true;
-      _themeMode = ThemeMode.dark;
+      _themeMode = ThemeMode.system;
+    }
+  }
+
+  ThemeMode _parseThemeMode(String value) {
+    switch (value) {
+      case 'light':
+        return ThemeMode.light;
+      case 'dark':
+        return ThemeMode.dark;
+      case 'system':
+      default:
+        return ThemeMode.system;
+    }
+  }
+
+  String _themeModeToString(ThemeMode mode) {
+    switch (mode) {
+      case ThemeMode.light:
+        return 'light';
+      case ThemeMode.dark:
+        return 'dark';
+      case ThemeMode.system:
+        return 'system';
     }
   }
 
   Future<void> toggleTheme() async {
-    _isDarkMode = !_isDarkMode;
-    _themeMode = _isDarkMode ? ThemeMode.dark : ThemeMode.light;
+    // Cycle through: system → light → dark → system
+    switch (_themeMode) {
+      case ThemeMode.system:
+        _themeMode = ThemeMode.light;
+        break;
+      case ThemeMode.light:
+        _themeMode = ThemeMode.dark;
+        break;
+      case ThemeMode.dark:
+        _themeMode = ThemeMode.system;
+        break;
+    }
     
     try {
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setBool(_themeKey, _isDarkMode);
+      await prefs.setString(_themeKey, _themeModeToString(_themeMode));
     } catch (e) {
       // If saving fails, continue with the theme change
     }
@@ -44,11 +73,10 @@ class ThemeService extends ChangeNotifier {
 
   Future<void> setTheme(ThemeMode mode) async {
     _themeMode = mode;
-    _isDarkMode = mode == ThemeMode.dark;
     
     try {
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setBool(_themeKey, _isDarkMode);
+      await prefs.setString(_themeKey, _themeModeToString(mode));
     } catch (e) {
       // If saving fails, continue with the theme change
     }

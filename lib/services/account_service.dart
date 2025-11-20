@@ -1,4 +1,4 @@
-import 'dart:developer' as developer;
+import 'package:flutter/foundation.dart';
 import '../models/account.dart';
 import 'database_service.dart';
 
@@ -10,12 +10,10 @@ class AccountService {
 
   Future<List<Account>> getAllAccounts() async {
     try {
-      developer.log('AccountService: Calling databaseService.getAllAccounts()', level: 800);
       final accounts = await databaseService.getAllAccounts();
-      developer.log('AccountService: Got ${accounts.length} accounts from database', level: 800);
       return accounts;
     } catch (e) {
-      developer.log('Error loading accounts', error: e, level: 1000);
+      debugPrint('Error loading accounts: $e');
       return [];
     }
   }
@@ -33,8 +31,9 @@ class AccountService {
       }
 
       await databaseService.addAccount(newAccount);
+      debugPrint('Account added successfully');
     } catch (e) {
-      developer.log('Error adding account', error: e, level: 1000);
+      debugPrint('Error adding account: $e');
       rethrow;
     }
   }
@@ -43,7 +42,7 @@ class AccountService {
     try {
       await databaseService.deleteAccount(accountId);
     } catch (e) {
-      developer.log('Error deleting account', error: e, level: 1000);
+      debugPrint('AccountService: Error deleting account: $e');
       throw Exception('Failed to delete account');
     }
   }
@@ -55,7 +54,7 @@ class AccountService {
         account.accountName,
       );
     } catch (e) {
-      developer.log('Error checking account existence', error: e, level: 1000);
+      debugPrint('AccountService: Error checking account existence: $e');
       return false;
     }
   }
@@ -64,7 +63,7 @@ class AccountService {
     try {
       await databaseService.updateAccount(updatedAccount);
     } catch (e) {
-      developer.log('Error updating account', error: e, level: 1000);
+      debugPrint('AccountService: Error updating account: $e');
       throw Exception('Failed to update account');
     }
   }

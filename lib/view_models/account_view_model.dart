@@ -22,11 +22,7 @@ class AccountViewModel with ChangeNotifier {
     required this.totpService,
     bool autoInit = true,
   }) {
-    debugPrint('AccountViewModel constructor called, autoInit=$autoInit');
-    developer.log('AccountViewModel constructor called, autoInit=$autoInit', level: 800);
     if (autoInit) {
-      debugPrint('Calling _loadAccounts from constructor');
-      developer.log('Calling _loadAccounts from constructor', level: 800);
       _loadAccounts();
       _startOTPTimer();
     }
@@ -38,37 +34,27 @@ class AccountViewModel with ChangeNotifier {
   bool get hasAccounts => _accounts.isNotEmpty;
 
   Future<void> _loadAccounts() async {
-    debugPrint('_loadAccounts() called');
-    developer.log('_loadAccounts() called', level: 800);
     _isLoading = true;
     notifyListeners();
 
     try {
-      debugPrint('Calling accountService.getAllAccounts()');
       _accounts = await accountService.getAllAccounts();
-      debugPrint('Received ${_accounts.length} accounts from accountService');
-      developer.log('Loaded ${_accounts.length} accounts from database', level: 800);
       _generateOTPs();
     } catch (e) {
-      debugPrint('Error in _loadAccounts: $e');
-      developer.log('Error loading accounts: $e', error: e, level: 1000);
+      debugPrint('Error loading accounts: $e');
     } finally {
       _isLoading = false;
-      developer.log('Finished loading. hasAccounts: $hasAccounts, accountsWithOTP: ${_accountsWithOTP.length}', level: 800);
       notifyListeners();
     }
   }
 
   Future<bool> addAccount(Account account) async {
     try {
-      developer.log('Adding account: ${account.issuer} - ${account.accountName}', level: 800);
       await accountService.addAccount(account);
-      developer.log('Account added to DB, reloading...', level: 800);
       await _loadAccounts(); // Reload to get updated list
-      developer.log('Reload complete. Total accounts: ${_accounts.length}', level: 800);
       return true;
     } catch (e) {
-      developer.log('Error adding account: $e', error: e, level: 1000);
+      debugPrint('Error adding account: $e');
       return false;
     }
   }
@@ -85,6 +71,7 @@ class AccountViewModel with ChangeNotifier {
   }
 
   void _startOTPTimer() {
+    _timer?.cancel();
     // Only update every second for UI, but regenerate OTPs only when time step changes
     int lastTimeStep = -1;
     
@@ -147,6 +134,21 @@ class AccountViewModel with ChangeNotifier {
       developer.log('Error updating account', error: e, level: 1000);
       return false;
     }
+  }
+
+  Future<void> reloadAfterUnlock() async {
+    if (_timer == null) {
+      _startOTPTimer();
+    }
+    await _loadAccounts();
+  }
+
+  void purgeSensitiveData() {
+    _timer?.cancel();
+    _timer = null;
+    _accounts = [];
+    _accountsWithOTP = [];
+    notifyListeners();
   }
 
   @override

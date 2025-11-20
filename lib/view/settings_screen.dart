@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../app/theme.dart';
 import '../services/auth_service.dart';
 import '../services/theme_service.dart';
+import '../services/pin_validator.dart';
 import '../widgets/animated/animated_button.dart';
 import '../widgets/animated/skeleton.dart';
+import '../widgets/custom_snackbar.dart';
 
 class SettingsScreen extends StatefulWidget {
   final AuthService authService;
@@ -131,12 +134,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
             _authEnabled = false;
             _biometricEnabled = false;
           });
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: const Text('Authentication disabled'),
-              backgroundColor: AppTheme.successColor,
-              behavior: SnackBarBehavior.floating,
-            ),
+          CustomSnackbar.show(
+            context,
+            title: 'Authentication Disabled',
+            message: 'App lock has been turned off. Anyone with this device can open Authenticator.',
+            type: SnackbarType.error,
           );
         }
       }
@@ -175,18 +177,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   controller: pinController,
                   obscureText: true,
                   keyboardType: TextInputType.number,
+                  maxLength: 10,
                   decoration: InputDecoration(
-                    labelText: 'Enter PIN (4-6 digits)',
+                    labelText: 'Enter PIN (6+ digits)',
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    helperText: 'Use a strong PIN (avoid 123456, 000000, etc.)',
                   ),
                   validator: (value) {
                     if (value == null || value.isEmpty) {
                       return 'Please enter a PIN';
                     }
-                    if (value.length < 4 || value.length > 6) {
-                      return 'PIN must be 4-6 digits';
-                    }
-                    return null;
+                    final validation = PinValidator.validatePin(value);
+                    return validation; // Returns null if valid, error message if not
                   },
                 ),
                 const SizedBox(height: 16),
@@ -222,12 +224,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   if (!mounted) return;
                   dialogNavigator.pop(success);
                   if (success) {
-                    messenger.showSnackBar(
-                      SnackBar(
-                        content: Text(isAddMode ? 'PIN added successfully' : 'PIN set successfully'),
-                        backgroundColor: AppTheme.successColor,
-                        behavior: SnackBarBehavior.floating,
-                      ),
+                    CustomSnackbar.show(
+                      context,
+                      title: 'Success',
+                      message: isAddMode ? 'PIN has been added successfully' : 'PIN has been set successfully',
+                      type: SnackbarType.success,
                     );
                   }
                 }
@@ -280,13 +281,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
       final hasPin = await widget.authService.hasPin();
       if (!hasPin) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: const Text('Please set up a PIN first as a fallback'),
-              backgroundColor: AppTheme.errorColor,
-              behavior: SnackBarBehavior.floating,
-              duration: const Duration(seconds: 3),
-            ),
+          CustomSnackbar.show(
+            context,
+            title: 'PIN Required',
+            message: 'Please set up a PIN first as a fallback option',
+            type: SnackbarType.warning,
           );
         }
         // Reset toggle
@@ -306,12 +305,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
             _biometricToggleLoading = false;
           });
           if (success) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: const Text('Biometric authentication enabled'),
-                backgroundColor: AppTheme.successColor,
-                behavior: SnackBarBehavior.floating,
-              ),
+            CustomSnackbar.show(
+              context,
+              title: 'Success',
+              message: 'Biometric authentication has been enabled',
+              type: SnackbarType.success,
             );
           }
         }
@@ -321,13 +319,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
             _biometricEnabled = false;
             _biometricToggleLoading = false;
           });
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(e.toString().replaceFirst('Exception: ', '')),
-              backgroundColor: AppTheme.errorColor,
-              behavior: SnackBarBehavior.floating,
-              duration: const Duration(seconds: 3),
-            ),
+          CustomSnackbar.show(
+            context,
+            title: 'Error',
+            message: e.toString().replaceFirst('Exception: ', ''),
+            type: SnackbarType.error,
           );
         }
       }
@@ -337,12 +333,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
       await prefs.setBool('authenticator_biometric_enabled', false);
       if (mounted) {
         setState(() => _biometricEnabled = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Biometric authentication disabled'),
-            backgroundColor: AppTheme.successColor,
-            behavior: SnackBarBehavior.floating,
-          ),
+        CustomSnackbar.show(
+          context,
+          title: 'Biometric Disabled',
+          message: 'Face/Touch unlock is off until you re-enable it.',
+          type: SnackbarType.error,
         );
       }
     }
@@ -416,12 +411,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
       if (verified != true) {
       if (!mounted) return;
       if (verified == false) {
-        messenger.showSnackBar(
-          SnackBar(
-            content: const Text('Incorrect PIN'),
-            backgroundColor: AppTheme.errorColor,
-            behavior: SnackBarBehavior.floating,
-          ),
+        CustomSnackbar.show(
+          context,
+          title: 'Invalid PIN',
+          message: 'The PIN you entered is incorrect',
+          type: SnackbarType.error,
         );
       }
       return;
@@ -448,16 +442,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 obscureText: true,
                 keyboardType: TextInputType.number,
                 autofocus: true,
+                maxLength: 10,
                 decoration: InputDecoration(
-                  labelText: 'Enter new PIN (4-6 digits)',
+                  labelText: 'Enter new PIN (6+ digits)',
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  helperText: 'Use a strong PIN',
                 ),
                 validator: (value) {
                   if (value == null || value.isEmpty) {
                     return 'Please enter a new PIN';
                   }
-                  if (value.length < 4 || value.length > 6) {
-                    return 'PIN must be 4-6 digits';
+                  final validation = PinValidator.validatePin(value);
+                  if (validation != null) {
+                    return validation;
                   }
                   if (value == oldPinController.text) {
                     return 'New PIN must be different from current PIN';
@@ -510,20 +507,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     if (!mounted) return;
     if (result == true) {
-      messenger.showSnackBar(
-        SnackBar(
-          content: const Text('PIN changed successfully'),
-          backgroundColor: AppTheme.successColor,
-          behavior: SnackBarBehavior.floating,
-        ),
+      CustomSnackbar.show(
+        context,
+        title: 'Success',
+        message: 'Your PIN has been changed successfully',
+        type: SnackbarType.success,
       );
     } else if (result == false) {
-      messenger.showSnackBar(
-        SnackBar(
-          content: const Text('Failed to change PIN'),
-          backgroundColor: AppTheme.errorColor,
-          behavior: SnackBarBehavior.floating,
-        ),
+      CustomSnackbar.show(
+        context,
+        title: 'Error',
+        message: 'Failed to change PIN. Please try again',
+        type: SnackbarType.error,
       );
     }
   }
@@ -566,24 +561,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
             _authEnabled = false;
             _biometricEnabled = false;
           });
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: const Text('PIN and biometric disabled'),
-              backgroundColor: AppTheme.successColor,
-              behavior: SnackBarBehavior.floating,
-            ),
+          CustomSnackbar.show(
+            context,
+            title: 'PIN Removed',
+            message: 'App lock and biometrics are now off for this device.',
+            type: SnackbarType.error,
           );
           // Reload settings to update UI
           _loadSettings();
         }
       } catch (e) {
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(e.toString().replaceFirst('Exception: ', '')),
-            backgroundColor: AppTheme.errorColor,
-            behavior: SnackBarBehavior.floating,
-          ),
+        CustomSnackbar.show(
+          context,
+          title: 'Error',
+          message: e.toString().replaceFirst('Exception: ', ''),
+          type: SnackbarType.error,
         );
       }
     }
@@ -597,6 +590,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
         title: Text(
           'Settings',
           style: AppTheme.headlineMedium(theme.colorScheme.onSurface),
@@ -622,7 +619,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   trailing: Switch(
                     value: _authEnabled,
                     onChanged: _toggleAuthentication,
-                    activeColor: AppTheme.primaryColor,
                   ),
                 ),
                 if (_authEnabled) ...[
@@ -691,47 +687,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                 child: SizedBox(
                                   width: 18,
                                   height: 18,
-                                  child: CircularProgressIndicator(strokeWidth: 2, valueColor: AlwaysStoppedAnimation(AppTheme.primaryColor)),
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    valueColor: AlwaysStoppedAnimation(theme.colorScheme.primary),
+                                  ),
                                 ),
                               ),
                             )
                           : Switch(
                               value: _biometricEnabled,
                               onChanged: _toggleBiometric,
-                              activeColor: AppTheme.primaryColor,
                             ),
-                    ),
-                    // Add a small debug/test button to validate biometric on device
-                    const SizedBox(height: 8),
-                    _buildSettingCard(
-                      context,
-                      icon: Icons.bug_report,
-                      title: 'Test Biometric',
-                      subtitle: 'Run a quick biometric check',
-                      trailing: IconButton(
-                        icon: const Icon(Icons.play_arrow),
-                        onPressed: () async {
-                          final available = await widget.authService.isBiometricAvailable();
-                          await widget.authService.getAvailableBiometrics();
-                          if (!available) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: const Text('Biometric not available on this device'), backgroundColor: AppTheme.errorColor),
-                            );
-                            return;
-                          }
-                          // Try authenticate and show result
-                          final result = await widget.authService.authenticateWithBiometric();
-                          if (result) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: const Text('Biometric test passed'), backgroundColor: AppTheme.successColor),
-                            );
-                          } else {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: const Text('Biometric test failed or cancelled'), backgroundColor: AppTheme.errorColor),
-                            );
-                          }
-                        },
-                      ),
                     ),
                   ] else ...[
                     // Show message if biometric not available
@@ -757,13 +723,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 const SizedBox(height: 8),
                 _buildSettingCard(
                   context,
-                  icon: themeService.isDarkMode ? Icons.dark_mode : Icons.light_mode,
+                  icon: themeService.themeMode == ThemeMode.system
+                      ? Icons.brightness_auto
+                      : themeService.themeMode == ThemeMode.dark
+                          ? Icons.dark_mode
+                          : Icons.light_mode,
                   title: 'Theme',
-                  subtitle: themeService.isDarkMode ? 'Dark Mode' : 'Light Mode',
+                  subtitle: themeService.themeMode == ThemeMode.system
+                      ? 'Follow System'
+                      : themeService.themeMode == ThemeMode.dark
+                          ? 'Dark Mode'
+                          : 'Light Mode',
                   trailing: IconButton(
                     icon: Icon(
-                      themeService.isDarkMode ? Icons.light_mode : Icons.dark_mode,
-                      color: theme.colorScheme.onSurface,
+                      themeService.themeMode == ThemeMode.system
+                          ? Icons.brightness_auto
+                          : themeService.themeMode == ThemeMode.dark
+                              ? Icons.light_mode
+                              : Icons.dark_mode,
+                      color: theme.colorScheme.primary,
                     ),
                     onPressed: () => themeService.toggleTheme(),
                   ),
@@ -784,11 +762,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     color: theme.colorScheme.onSurface.withValues(alpha: 0.3),
                   ),
                   onTap: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: const Text('Backup feature coming soon'),
-                        behavior: SnackBarBehavior.floating,
-                      ),
+                    CustomSnackbar.show(
+                      context,
+                      title: 'Coming Soon',
+                      message: 'Backup feature will be available in a future update',
+                      type: SnackbarType.info,
                     );
                   },
                 ),

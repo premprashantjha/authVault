@@ -181,13 +181,20 @@ class _AuthScreenState extends State<AuthScreen> {
                   width: 120,
                   height: 120,
                   decoration: BoxDecoration(
-                    gradient: AppTheme.primaryGradient,
+                    color: theme.colorScheme.primaryContainer,
                     shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: theme.colorScheme.primary.withValues(alpha: 0.2),
+                        blurRadius: 24,
+                        offset: const Offset(0, 12),
+                      ),
+                    ],
                   ),
-                  child: const Icon(
+                  child: Icon(
                     Icons.lock_outline,
-                    size: 50,
-                    color: Colors.white,
+                    size: 52,
+                    color: theme.colorScheme.primary,
                   ),
                 ),
                 const SizedBox(height: 32),
@@ -217,29 +224,42 @@ class _AuthScreenState extends State<AuthScreen> {
                     fontSize: 32,
                   ),
                   maxLength: 6,
+                  inputFormatters: [
+                    FilteringTextInputFormatter.digitsOnly,
+                  ],
+                  obscuringCharacter: '•',
                   decoration: InputDecoration(
-                    hintText: '••••',
+                    labelText: 'ENTER PIN',
+                    labelStyle: AppTheme.bodyMedium(theme.colorScheme.onSurface).copyWith(
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                    ),
+                    hintText: '• • • •',
                     hintStyle: TextStyle(
-                      color: theme.colorScheme.onSurface.withValues(alpha: 0.3),
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.25),
                       letterSpacing: 8,
+                      fontSize: 20,
                     ),
                     counterText: '',
+                    filled: true,
+                    fillColor: theme.colorScheme.surfaceVariant.withValues(alpha: 0.6),
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(16),
-                      borderSide: BorderSide(
-                        color: theme.colorScheme.onSurface.withValues(alpha: 0.2),
-                      ),
+                      borderRadius: BorderRadius.circular(20),
+                      borderSide: BorderSide(color: theme.colorScheme.outline.withValues(alpha: 0.3)),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(20),
+                      borderSide: BorderSide(color: theme.colorScheme.outline.withValues(alpha: 0.2)),
                     ),
                     focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(16),
-                      borderSide: const BorderSide(
-                        color: AppTheme.primaryColor,
+                      borderRadius: BorderRadius.circular(20),
+                      borderSide: BorderSide(
+                        color: theme.colorScheme.primary,
                         width: 2,
                       ),
                     ),
                     suffixIcon: IconButton(
                       icon: Icon(
-                        _obscurePin ? Icons.visibility : Icons.visibility_off,
+                        _obscurePin ? Icons.visibility_off : Icons.visibility,
                         color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
                       ),
                       onPressed: () {
@@ -255,7 +275,7 @@ class _AuthScreenState extends State<AuthScreen> {
                   const SizedBox(height: 16),
                   Text(
                     _errorMessage!,
-                    style: AppTheme.bodyMedium(AppTheme.errorColor),
+                    style: AppTheme.bodyMedium(theme.colorScheme.error),
                     textAlign: TextAlign.center,
                   ),
                 ],
@@ -271,7 +291,7 @@ class _AuthScreenState extends State<AuthScreen> {
                       child: Container(
                         padding: const EdgeInsets.symmetric(vertical: 16),
                         decoration: BoxDecoration(
-                          color: _isAuthenticating ? Colors.grey : AppTheme.primaryColor,
+                          color: _isAuthenticating ? theme.colorScheme.primary.withValues(alpha: 0.4) : theme.colorScheme.primary,
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Center(

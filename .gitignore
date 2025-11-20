@@ -43,3 +43,14 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Keystore files - NEVER commit to Git
+*.keystore
+*.jks
+android/app/release.keystore
+android/app/upload-keystore.jks
+
+# Environment variables and secrets
+.env
+.env.local
+*.properties

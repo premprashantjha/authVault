@@ -32,3 +32,49 @@
 -keep class io.flutter.embedding.android.FlutterPlayStoreSplitApplication { *; }
 -dontwarn io.flutter.embedding.android.FlutterPlayStoreSplitApplication
 
+# ========================
+# SECURITY ENHANCEMENTS
+# ========================
+
+# Remove all logging in release builds (security & performance)
+-assumenosideeffects class android.util.Log {
+    public static *** d(...);
+    public static *** v(...);
+    public static *** i(...);
+    public static *** w(...);
+    public static *** e(...);
+    public static *** wtf(...);
+}
+
+# Obfuscate package names and class names
+-repackageclasses ''
+-allowaccessmodification
+
+# Aggressive optimization
+-optimizationpasses 5
+-optimizations !code/simplification/arithmetic,!code/simplification/cast,!field/*,!class/merging/*
+
+# Obfuscate with custom dictionary for better security
+-obfuscationdictionary proguard-dictionary.txt
+-classobfuscationdictionary proguard-dictionary.txt
+-packageobfuscationdictionary proguard-dictionary.txt
+
+# Protect against reverse engineering
+-dontskipnonpubliclibraryclasses
+-dontpreverify
+-verbose
+
+# Keep security-related classes (Keystore, Crypto)
+-keep class * extends android.security.keystore.** { *; }
+-keep class javax.crypto.** { *; }
+-keep class java.security.** { *; }
+
+# Keep application class
+-keep class com.example.authenticator.** { *; }
+
+# Don't warn about missing classes
+-dontwarn javax.annotation.**
+-dontwarn kotlin.reflect.**
+-dontwarn org.bouncycastle.**
+-dontwarn org.conscrypt.**
+
