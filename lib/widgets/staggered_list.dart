@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import '../../theme/animations.dart';
+import '../app/animations.dart';
 import '../../models/account.dart';
 
 typedef StaggeredItemBuilder<T> = Widget Function(BuildContext context, int index, T item, Animation<double> animation);

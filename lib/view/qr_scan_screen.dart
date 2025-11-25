@@ -8,7 +8,7 @@ import 'package:provider/provider.dart';
 import '../app/theme.dart';
 import '../models/account.dart';
 import '../view_models/account_view_model.dart';
-import '../widgets/animated/animated_button.dart';
+import '../widgets/animated_button.dart';
 import '../widgets/custom_snackbar.dart';
 
 class QRScanScreen extends StatefulWidget {

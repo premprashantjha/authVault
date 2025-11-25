@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:lottie/lottie.dart';
 import '../../app/theme.dart';
-import '../../widgets/animated/animated_button.dart';
+import 'animated_button.dart';
 
 class EmptyStateWidget extends StatelessWidget {
   final VoidCallback onAddAccount;

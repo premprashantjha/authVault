@@ -5,10 +5,8 @@ import '../models/account.dart';
 import '../view_models/account_view_model.dart';
 import '../services/totp_service.dart';
 import 'qr_scan_screen.dart';
-import '../animations/animation_service.dart';
-import '../animations/custom_page_route.dart';
 import '../app/theme.dart';
-import '../widgets/animated/animated_button.dart';
+import '../widgets/animated_button.dart';
 import '../widgets/custom_snackbar.dart';
 
 class AddAccountScreen extends StatefulWidget {
@@ -143,7 +141,7 @@ class _AddAccountScreenState extends State<AddAccountScreen> {
   }
 
   Future<void> _scanQRCode() async {
-    final result = await AnimationService.pushWithStyle(context, const QRScanScreen(), style: PageTransitionStyle.slideRight);
+    final result = await Navigator.of(context).push(MaterialPageRoute(builder: (context) => const QRScanScreen()));
 
     if (result != null && result is OTPAuthURI) {
       _fillFormFromQR(result);

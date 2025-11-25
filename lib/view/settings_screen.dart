@@ -3,10 +3,10 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../app/theme.dart';
 import '../services/auth_service.dart';
-import '../widgets/animated/animated_button.dart';
-import '../widgets/animated/skeleton.dart';
+import '../widgets/animated_button.dart';
+import '../widgets/skeleton.dart';
 import '../widgets/custom_snackbar.dart';
-import 'onboarding/onboarding_screen.dart';
+import 'onboarding_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   final AuthService authService;

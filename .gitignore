@@ -54,3 +54,13 @@ android/app/upload-keystore.jks
 .env
 .env.local
 *.properties
+
+# Development scripts (PowerShell)
+*.ps1
+# But allow the release build script
+!build-release.ps1
+
+# Documentation (consolidated in README.md)
+*_GUIDE.md
+SECURITY_*.md
+PUBLIC_API.md

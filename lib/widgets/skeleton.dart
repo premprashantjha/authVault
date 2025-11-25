@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../theme/animations.dart';
+import '../app/animations.dart';
 
 class Skeleton extends StatefulWidget {
   final double height;

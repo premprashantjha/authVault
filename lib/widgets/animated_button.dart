@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../theme/animations.dart';
+import '../app/animations.dart';
 
 typedef ButtonCallback = Future<void> Function();
 

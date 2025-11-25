@@ -1,6 +1,5 @@
-import 'package:authenticator/services/totp_service.dart';
-import 'package:authenticator/widgets/animated/animated_button.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -12,30 +11,24 @@ import '../view_models/account_view_model.dart';
 
 // Services
 import '../services/auth_service.dart';
-
-// Components
-import 'components/search_bar_widget.dart';
-import 'components/empty_state_widget.dart';
-import 'components/no_results_widget.dart';
-import 'components/accounts_header_widget.dart';
-import 'components/add_account_modal.dart';
-import 'components/manual_entry_form.dart';
+import '../services/totp_service.dart';
 
 // Widgets
-import 'widget/otp_card.dart';
-import '../widgets/animated/staggered_list.dart';
-import '../widgets/animated/animated_fab.dart';
-import '../widgets/animated/skeleton.dart';
+import '../widgets/animated_button.dart';
+import '../widgets/animated_fab.dart';
+import '../widgets/skeleton.dart';
+import '../widgets/staggered_list.dart';
 import '../widgets/custom_snackbar.dart';
 import '../widgets/filter_modal.dart';
+import '../widgets/empty_state_widget.dart';
+import '../widgets/no_results_widget.dart';
+import '../widgets/accounts_header_widget.dart';
+import '../widgets/add_account_modal.dart';
+import '../widgets/otp_card.dart';
 
 // Screens
 import 'qr_scan_screen.dart';
 import 'settings_screen.dart';
-
-// Animations
-import '../animations/animation_service.dart';
-import '../animations/custom_page_route.dart';
 
 // Theme
 import '../app/theme.dart';
@@ -76,7 +69,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     final authService = AuthService(prefs: prefs);
     if (!mounted) return;
 
-    await navigator.push(CustomPageRoute(page: SettingsScreen(authService: authService), style: PageTransitionStyle.scale));
+    await navigator.push(MaterialPageRoute(builder: (context) => SettingsScreen(authService: authService)));
   }
 
   Future<void> _openFilterModal() async {
@@ -212,6 +205,62 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
 
   void _toggleSearchBar() {
     final viewModel = context.read<AccountViewModel>();
+    if (viewModel.totalAccountCount == 0 && !_isSearchVisible) {
+      // Haptic feedback for better UX
+      HapticFeedback.lightImpact();
+      
+      // Show elegant message at top using MaterialBanner
+      ScaffoldMessenger.of(context).showMaterialBanner(
+        MaterialBanner(
+          content: Row(
+            children: [
+              Icon(
+                Icons.info_outline,
+                color: Theme.of(context).colorScheme.onPrimaryContainer,
+                size: 22,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'Add accounts to start searching',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                    color: Theme.of(context).colorScheme.onPrimaryContainer,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+          actions: [
+            TextButton(
+              onPressed: () {
+                ScaffoldMessenger.of(context).hideCurrentMaterialBanner();
+              },
+              child: Text(
+                'OK',
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.primary,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        ),
+      );
+      
+      // Auto-dismiss after 2.5 seconds
+      Future.delayed(const Duration(milliseconds: 2500), () {
+        if (mounted) {
+          ScaffoldMessenger.of(context).hideCurrentMaterialBanner();
+        }
+      });
+      
+      return;
+    }
+    
     setState(() => _isSearchVisible = !_isSearchVisible);
     if (_isSearchVisible) {
       // Slight delay ensures the animation starts before requesting focus
@@ -307,7 +356,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
   }
 
   void _navigateToQRScan(BuildContext context) async {
-    await AnimationService.pushWithStyle(context, const QRScanScreen(), style: PageTransitionStyle.slideRight);
+    await Navigator.of(context).push(MaterialPageRoute(builder: (context) => const QRScanScreen()));
     // No explicit refresh needed - addAccount() in QR scan already calls _loadAccounts() which notifies listeners
   }
 

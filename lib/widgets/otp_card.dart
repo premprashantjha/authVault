@@ -5,7 +5,7 @@ import 'package:flutter/services.dart';
 import '../../app/theme.dart';
 import '../../models/account.dart';
 import '../../services/icon_service.dart';
-import '../../widgets/animated/animated_button.dart';
+import 'animated_button.dart';
 
 class OTPCard extends StatefulWidget {
   final AccountWithOTP account;

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../../app/theme.dart';
 import '../../models/account.dart';
 import '../../services/totp_service.dart';
-import '../../widgets/animated/animated_button.dart';
+import 'animated_button.dart';
 import '../../widgets/custom_snackbar.dart';
 
 class ManualEntryForm extends StatefulWidget {

@@ -1,5 +1,5 @@
 import 'package:authenticator/view/auth_wrapper.dart';
-import 'package:authenticator/view/onboarding/onboarding_screen.dart';
+import 'package:authenticator/view/onboarding_screen.dart';
 import 'package:flutter/material.dart';
 import 'theme.dart';
 
