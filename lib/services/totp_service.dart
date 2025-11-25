@@ -39,12 +39,18 @@ class TOTPService {
   bool validateSecret(String secret) {
     try {
       final cleanSecret = secret.trim().toUpperCase().replaceAll(' ', '');
-      debugPrint('TOTPService: Validating secret: "$secret" -> "$cleanSecret" (length: ${cleanSecret.length})');
+      if (kDebugMode) {
+        debugPrint('TOTPService: Validating secret: "$secret" -> "$cleanSecret" (length: ${cleanSecret.length})');
+      }
       final decoded = base32.decode(cleanSecret);
-      debugPrint('TOTPService: Secret validation successful, decoded length: ${decoded.length}');
+      if (kDebugMode) {
+        debugPrint('TOTPService: Secret validation successful, decoded length: ${decoded.length}');
+      }
       return true;
     } catch (e) {
-      debugPrint('TOTPService: Secret validation failed: $e');
+      if (kDebugMode) {
+        debugPrint('TOTPService: Secret validation failed: $e');
+      }
       return false;
     }
   }

@@ -1,4 +1,5 @@
 // no extra dart:async required
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
@@ -92,25 +93,35 @@ class _QRScanScreenState extends State<QRScanScreen> with WidgetsBindingObserver
     final account = Account.fromOTPAuthURI(otpAuth);
     final viewModel = context.read<AccountViewModel>();
 
-    debugPrint('QR: Adding account ${account.issuer} - ${account.accountName}');
+    if (kDebugMode) {
+      debugPrint('QR: Adding account ${account.issuer} - ${account.accountName}');
+    }
 
     // Check if account already exists
     final exists = await viewModel.accountExists(account);
 
     if (exists && mounted) {
-      debugPrint('QR: Account already exists, showing dialog');
+      if (kDebugMode) {
+        debugPrint('QR: Account already exists, showing dialog');
+      }
       _showDuplicateAccountDialog(account, viewModel);
     } else {
-      debugPrint('QR: Calling viewModel.addAccount...');
+      if (kDebugMode) {
+        debugPrint('QR: Calling viewModel.addAccount...');
+      }
       final success = await viewModel.addAccount(account);
-      debugPrint('QR: addAccount returned: $success');
+      if (kDebugMode) {
+        debugPrint('QR: addAccount returned: $success');
+      }
 
       if (success && mounted) {
         HapticFeedback.lightImpact();
 
         final navigator = Navigator.of(context);
 
-        debugPrint('QR: Popping back to Home...');
+        if (kDebugMode) {
+          debugPrint('QR: Popping back to Home...');
+        }
         CustomSnackbar.show(
           context,
           title: 'Account Added',

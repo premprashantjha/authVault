@@ -3,6 +3,7 @@ import 'package:path/path.dart';
 import 'package:flutter/foundation.dart';
 import '../models/account.dart';
 import 'encryption_service.dart';
+import 'integrity_service.dart';
 
 /// Database service for storing accounts with encrypted secrets
 class DatabaseService {
@@ -12,9 +13,13 @@ class DatabaseService {
   static const String _tableName = 'accounts';
   
   final EncryptionService _encryptionService;
+  final IntegrityService _integrityService;
 
-  DatabaseService({EncryptionService? encryptionService})
-      : _encryptionService = encryptionService ?? EncryptionService();
+  DatabaseService({
+    EncryptionService? encryptionService,
+    IntegrityService? integrityService,
+  })  : _encryptionService = encryptionService ?? EncryptionService(),
+        _integrityService = integrityService ?? IntegrityService();
 
   Future<Database> get database async {
     if (_database != null) return _database!;
@@ -75,16 +80,25 @@ class DatabaseService {
             'secretKey': decryptedSecret,
           }));
         } catch (e) {
-          debugPrint('Error decrypting account ${map['id']}: $e');
+          if (kDebugMode) {
+            debugPrint('Error decrypting account ${map['id']}: $e');
+          }
           // Skip corrupted accounts
         }
       }
 
       return accounts;
     } catch (e) {
-      debugPrint('Error loading accounts: $e');
+      if (kDebugMode) {
+        debugPrint('Error loading accounts: $e');
+      }
       return [];
     }
+  }
+
+  /// Verify database integrity before loading
+  Future<bool> verifyIntegrity() async {
+    return await _integrityService.verifyDatabaseIntegrity();
   }
 
   /// Add a new account
@@ -106,16 +120,23 @@ class DatabaseService {
         },
         conflictAlgorithm: ConflictAlgorithm.fail,
       );
+      
+      // Update integrity checksum after modification
+      await _integrityService.updateDatabaseChecksum();
     } on DatabaseException catch (e) {
       // Handle unique constraint violations explicitly
       final message = e.toString().toLowerCase();
       if (message.contains('unique') || message.contains('unique constraint')) {
         throw Exception('Account already exists');
       }
-      debugPrint('Database error adding account: $e');
+      if (kDebugMode) {
+        debugPrint('Database error adding account: $e');
+      }
       throw Exception('Failed to add account');
     } catch (e) {
-      debugPrint('Error adding account: $e');
+      if (kDebugMode) {
+        debugPrint('Error adding account: $e');
+      }
       throw Exception('Failed to add account');
     }
   }
@@ -138,8 +159,13 @@ class DatabaseService {
         where: 'id = ?',
         whereArgs: [account.id],
       );
+      
+      // Update integrity checksum after modification
+      await _integrityService.updateDatabaseChecksum();
     } catch (e) {
-      debugPrint('DatabaseService: Error updating account: $e');
+      if (kDebugMode) {
+        debugPrint('DatabaseService: Error updating account: $e');
+      }
       throw Exception('Failed to update account');
     }
   }
@@ -153,8 +179,13 @@ class DatabaseService {
         where: 'id = ?',
         whereArgs: [accountId],
       );
+      
+      // Update integrity checksum after modification
+      await _integrityService.updateDatabaseChecksum();
     } catch (e) {
-      debugPrint('DatabaseService: Error deleting account: $e');
+      if (kDebugMode) {
+        debugPrint('DatabaseService: Error deleting account: $e');
+      }
       throw Exception('Failed to delete account');
     }
   }
@@ -171,7 +202,9 @@ class DatabaseService {
       );
       return result.isNotEmpty;
     } catch (e) {
-      debugPrint('DatabaseService: Error checking account existence: $e');
+      if (kDebugMode) {
+        debugPrint('DatabaseService: Error checking account existence: $e');
+      }
       return false;
     }
   }
@@ -188,8 +221,13 @@ class DatabaseService {
     try {
       final db = await database;
       await db.delete(_tableName);
+      
+      // Update integrity checksum after modification
+      await _integrityService.updateDatabaseChecksum();
     } catch (e) {
-      debugPrint('DatabaseService: Error clearing accounts: $e');
+      if (kDebugMode) {
+        debugPrint('DatabaseService: Error clearing accounts: $e');
+      }
       throw Exception('Failed to clear accounts');
     }
   }

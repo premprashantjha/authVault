@@ -35,11 +35,18 @@ android {
     signingConfigs {
         create("release") {
             // Use environment variables for security (set in CI/CD or local env)
-            // Set these environment variables:
-            // AUTHENTICATOR_KEYSTORE_FILE, AUTHENTICATOR_KEYSTORE_PASSWORD, 
-            // AUTHENTICATOR_KEY_ALIAS, AUTHENTICATOR_KEY_PASSWORD
-            storeFile = System.getenv("AUTHENTICATOR_KEYSTORE_FILE")?.let { file(it) }
-                ?: file("release.keystore") // Fallback to same directory
+            // PERMANENT FIX: Use File() constructor for absolute path resolution
+            val keystorePath = System.getenv("AUTHENTICATOR_KEYSTORE_FILE")
+            storeFile = if (keystorePath != null) {
+                // If path starts with / or C:\ it's absolute, otherwise relative to this file
+                if (keystorePath.startsWith("/") || keystorePath.matches(Regex("^[A-Za-z]:.*"))) {
+                    File(keystorePath) // Absolute path
+                } else {
+                    file(keystorePath) // Relative to android/app/
+                }
+            } else {
+                file("release.keystore") // Fallback to android/app/release.keystore
+            }
             storePassword = System.getenv("AUTHENTICATOR_KEYSTORE_PASSWORD") ?: "android"
             keyAlias = System.getenv("AUTHENTICATOR_KEY_ALIAS") ?: "release"
             keyPassword = System.getenv("AUTHENTICATOR_KEY_PASSWORD") ?: "android"

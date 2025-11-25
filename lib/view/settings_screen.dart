@@ -1,14 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
-import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../app/theme.dart';
 import '../services/auth_service.dart';
-import '../services/theme_service.dart';
-import '../services/pin_validator.dart';
 import '../widgets/animated/animated_button.dart';
 import '../widgets/animated/skeleton.dart';
 import '../widgets/custom_snackbar.dart';
+import 'onboarding/onboarding_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   final AuthService authService;
@@ -34,6 +32,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void initState() {
     super.initState();
     _loadSettings();
+  }
+
+  void _openSecurityGuide({int initialPage = 0}) {
+    final navigator = Navigator.of(context);
+    navigator.push(
+      MaterialPageRoute(
+        builder: (_) => OnboardingScreen(
+          allowSkip: false,
+          isReviewMode: true,
+          initialPageIndex: initialPage,
+          onFinished: () {
+            navigator.pop();
+          },
+        ),
+      ),
+    );
   }
 
   // Lightweight skeletons for settings loading state
@@ -177,18 +191,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   controller: pinController,
                   obscureText: true,
                   keyboardType: TextInputType.number,
-                  maxLength: 10,
+                  maxLength: 6,
                   decoration: InputDecoration(
-                    labelText: 'Enter PIN (6+ digits)',
+                    labelText: 'Enter 6-digit PIN',
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                    helperText: 'Use a strong PIN (avoid 123456, 000000, etc.)',
+                    
                   ),
                   validator: (value) {
                     if (value == null || value.isEmpty) {
                       return 'Please enter a PIN';
                     }
-                    final validation = PinValidator.validatePin(value);
-                    return validation; // Returns null if valid, error message if not
+                    if (value.length != 6) {
+                      return 'PIN must be exactly 6 digits';
+                    }
+                    return null;
                   },
                 ),
                 const SizedBox(height: 16),
@@ -219,7 +235,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
               onTap: () async {
                 if (formKey.currentState!.validate()) {
                   final dialogNavigator = Navigator.of(context);
-                  final messenger = ScaffoldMessenger.of(context);
                   final success = await widget.authService.enablePinAuth(pinController.text);
                   if (!mounted) return;
                   dialogNavigator.pop(success);
@@ -236,7 +251,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                 decoration: BoxDecoration(color: AppTheme.primaryColor, borderRadius: BorderRadius.circular(8)),
-                child: Text(isAddMode ? 'Add PIN' : 'Set PIN', style: const TextStyle(color: Colors.white)),
+                child: Text(
+                  isAddMode ? 'Add PIN' : 'Set PIN',
+                  style: AppTheme.bodyMedium(theme.colorScheme.onPrimary).copyWith(
+                    fontWeight: AppTheme.weightSemiBold,
+                  ),
+                ),
               ),
             ),
           ],
@@ -349,7 +369,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
   // ignore: use_build_context_synchronously
   Future<void> _showChangePinDialog() async {
     final theme = Theme.of(context);
-    final messenger = ScaffoldMessenger.of(context);
     final oldPinController = TextEditingController();
     final newPinController = TextEditingController();
     final confirmPinController = TextEditingController();
@@ -401,7 +420,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               decoration: BoxDecoration(color: AppTheme.primaryColor, borderRadius: BorderRadius.circular(8)),
-              child: const Text('Verify', style: TextStyle(color: Colors.white)),
+              child: Text(
+                'Verify',
+                style: AppTheme.bodyMedium(theme.colorScheme.onPrimary).copyWith(
+                  fontWeight: AppTheme.weightSemiBold,
+                ),
+              ),
             ),
           ),
         ],
@@ -442,19 +466,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 obscureText: true,
                 keyboardType: TextInputType.number,
                 autofocus: true,
-                maxLength: 10,
+                maxLength: 6,
                 decoration: InputDecoration(
-                  labelText: 'Enter new PIN (6+ digits)',
+                  labelText: 'Enter new 6-digit PIN',
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                  helperText: 'Use a strong PIN',
+                  
                 ),
                 validator: (value) {
                   if (value == null || value.isEmpty) {
                     return 'Please enter a new PIN';
                   }
-                  final validation = PinValidator.validatePin(value);
-                  if (validation != null) {
-                    return validation;
+                  if (value.length != 6) {
+                    return 'PIN must be exactly 6 digits';
                   }
                   if (value == oldPinController.text) {
                     return 'New PIN must be different from current PIN';
@@ -498,7 +521,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               decoration: BoxDecoration(color: AppTheme.primaryColor, borderRadius: BorderRadius.circular(8)),
-              child: const Text('Change PIN', style: TextStyle(color: Colors.white)),
+              child: Text(
+                'Change PIN',
+                style: AppTheme.bodyMedium(theme.colorScheme.onPrimary).copyWith(
+                  fontWeight: AppTheme.weightSemiBold,
+                ),
+              ),
             ),
           ),
         ],
@@ -585,7 +613,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final themeService = Provider.of<ThemeService>(context);
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
@@ -601,9 +628,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
         backgroundColor: theme.colorScheme.surface,
         elevation: 0,
       ),
-    body: _isLoading
-      ? _buildLoadingSkeletons()
-      : ListView(
+      body: _isLoading
+          ? _buildLoadingSkeletons()
+          : ListView(
               padding: const EdgeInsets.all(16),
               children: [
                 // Security Section
@@ -621,6 +648,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     onChanged: _toggleAuthentication,
                   ),
                 ),
+                const SizedBox(height: 12),
                 if (_authEnabled) ...[
                   // PIN Management
                   const SizedBox(height: 12),
@@ -718,44 +746,32 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ],
                 const SizedBox(height: 24),
 
-                // Appearance Section
+                // Appearance Section - Removed theme toggle to keep native/Flutter splash in sync
+                // App always follows system theme for professional, seamless experience
                 _buildSectionHeader('Appearance', theme),
                 const SizedBox(height: 8),
                 _buildSettingCard(
                   context,
-                  icon: themeService.themeMode == ThemeMode.system
-                      ? Icons.brightness_auto
-                      : themeService.themeMode == ThemeMode.dark
-                          ? Icons.dark_mode
-                          : Icons.light_mode,
+                  icon: Icons.brightness_auto,
                   title: 'Theme',
-                  subtitle: themeService.themeMode == ThemeMode.system
-                      ? 'Follow System'
-                      : themeService.themeMode == ThemeMode.dark
-                          ? 'Dark Mode'
-                          : 'Light Mode',
-                  trailing: IconButton(
-                    icon: Icon(
-                      themeService.themeMode == ThemeMode.system
-                          ? Icons.brightness_auto
-                          : themeService.themeMode == ThemeMode.dark
-                              ? Icons.light_mode
-                              : Icons.dark_mode,
-                      color: theme.colorScheme.primary,
-                    ),
-                    onPressed: () => themeService.toggleTheme(),
+                  subtitle: 'Follows system theme (Light/Dark)',
+                  trailing: Icon(
+                    Icons.info_outline,
+                    size: 20,
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
                   ),
+                  onTap: null,
                 ),
                 const SizedBox(height: 24),
 
-                // Backup & Sync Section (Future)
-                _buildSectionHeader('Backup & Sync', theme),
+                // Backup & Recovery Section (Future)
+                _buildSectionHeader('Backup & Recovery', theme),
                 const SizedBox(height: 8),
                 _buildSettingCard(
                   context,
                   icon: Icons.cloud_upload,
-                  title: 'Backup & Restore',
-                  subtitle: 'Coming soon',
+                  title: 'Automated Backup (Future)',
+                  subtitle: 'Manual steps only for now—automation coming soon',
                   trailing: Icon(
                     Icons.arrow_forward_ios,
                     size: 16,
@@ -765,10 +781,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     CustomSnackbar.show(
                       context,
                       title: 'Coming Soon',
-                      message: 'Backup feature will be available in a future update',
+                      message: 'Automated backup/export will arrive in a future update. Keep offline copies of secrets until then.',
                       type: SnackbarType.info,
                     );
                   },
+                ),
+                const SizedBox(height: 24),
+
+                // Guides & Reference Section
+                _buildSectionHeader('Guides & Reference', theme),
+                const SizedBox(height: 8),
+                _buildSettingCard(
+                  context,
+                  icon: Icons.verified_user_outlined,
+                  title: 'Review Security Guide',
+                  subtitle: 'Walk through onboarding tips again',
+                  trailing: Icon(
+                    Icons.arrow_forward_ios,
+                    size: 16,
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.3),
+                  ),
+                  onTap: () => _openSecurityGuide(),
                 ),
                 const SizedBox(height: 24),
 
@@ -842,7 +875,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         fontWeight: FontWeight.w600,
                       ),
                     ),
+
                     const SizedBox(height: 4),
+
                     Text(
                       subtitle,
                       style: AppTheme.caption(theme.colorScheme.onSurface),
@@ -858,4 +893,3 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 }
-

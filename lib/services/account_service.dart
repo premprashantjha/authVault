@@ -13,7 +13,9 @@ class AccountService {
       final accounts = await databaseService.getAllAccounts();
       return accounts;
     } catch (e) {
-      debugPrint('Error loading accounts: $e');
+      if (kDebugMode) {
+        debugPrint('Error loading accounts: $e');
+      }
       return [];
     }
   }
@@ -31,9 +33,13 @@ class AccountService {
       }
 
       await databaseService.addAccount(newAccount);
-      debugPrint('Account added successfully');
+      if (kDebugMode) {
+        debugPrint('Account added successfully');
+      }
     } catch (e) {
-      debugPrint('Error adding account: $e');
+      if (kDebugMode) {
+        debugPrint('Error adding account: $e');
+      }
       rethrow;
     }
   }
@@ -42,7 +48,9 @@ class AccountService {
     try {
       await databaseService.deleteAccount(accountId);
     } catch (e) {
-      debugPrint('AccountService: Error deleting account: $e');
+      if (kDebugMode) {
+        debugPrint('AccountService: Error deleting account: $e');
+      }
       throw Exception('Failed to delete account');
     }
   }
@@ -54,7 +62,9 @@ class AccountService {
         account.accountName,
       );
     } catch (e) {
-      debugPrint('AccountService: Error checking account existence: $e');
+      if (kDebugMode) {
+        debugPrint('AccountService: Error checking account existence: $e');
+      }
       return false;
     }
   }
@@ -63,7 +73,9 @@ class AccountService {
     try {
       await databaseService.updateAccount(updatedAccount);
     } catch (e) {
-      debugPrint('AccountService: Error updating account: $e');
+      if (kDebugMode) {
+        debugPrint('AccountService: Error updating account: $e');
+      }
       throw Exception('Failed to update account');
     }
   }

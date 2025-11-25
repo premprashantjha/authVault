@@ -4,16 +4,40 @@ import Security
 
 @main
 @objc class AppDelegate: FlutterAppDelegate {
+  private var keystoreChannel: FlutterMethodChannel?
+  
   override func application(
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
+    // Optimize startup: register plugins first (required)
     GeneratedPluginRegistrant.register(with: self)
-    // Keystore method channel for wrapping/unwrapping keys
-    let controller : FlutterViewController = window?.rootViewController as! FlutterViewController
-    let channel = FlutterMethodChannel(name: "authenticator/keystore", binaryMessenger: controller.binaryMessenger)
-
-    channel.setMethodCallHandler { (call: FlutterMethodCall, result: @escaping FlutterResult) in
+    
+    // Defer keystore channel setup to avoid blocking startup
+    // This will be initialized on first use
+    DispatchQueue.main.async { [weak self] in
+      self?.setupKeystoreChannel()
+    }
+    
+    return super.application(application, didFinishLaunchingWithOptions: launchOptions)
+  }
+  
+  private func setupKeystoreChannel() {
+    guard let controller = window?.rootViewController as? FlutterViewController else {
+      return
+    }
+    
+    keystoreChannel = FlutterMethodChannel(
+      name: "authenticator/keystore",
+      binaryMessenger: controller.binaryMessenger
+    )
+    
+    keystoreChannel?.setMethodCallHandler { [weak self] (call: FlutterMethodCall, result: @escaping FlutterResult) ining FlutterResult) in
+      guard let self = self else {
+        result(FlutterError(code: "internal_error", message: "AppDelegate deallocated", details: nil))
+        return
+      }
+      
       switch call.method {
       case "generateKey":
         let args = call.arguments as? [String: Any]

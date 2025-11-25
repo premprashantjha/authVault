@@ -9,6 +9,44 @@ class AppTheme {
   static const Color errorColor = Color(0xFFFF6B6B);
   static const Color successColor = tertiaryColor;
 
+  // Typography - Professional & Clean
+  static const String fontFamily = 'SF Pro Display'; // Fallback to system default
+  
+  // Text Alignment - Centralized Control
+  static const TextAlign textAlignStart = TextAlign.start;
+  static const TextAlign textAlignCenter = TextAlign.center;
+  static const TextAlign textAlignEnd = TextAlign.end;
+  
+  // Content Alignment - Consistent Throughout App
+  static const MainAxisAlignment mainAxisStart = MainAxisAlignment.start;
+  static const MainAxisAlignment mainAxisCenter = MainAxisAlignment.center;
+  static const MainAxisAlignment mainAxisEnd = MainAxisAlignment.end;
+  static const MainAxisAlignment mainAxisSpaceBetween = MainAxisAlignment.spaceBetween;
+  
+  static const CrossAxisAlignment crossAxisStart = CrossAxisAlignment.start;
+  static const CrossAxisAlignment crossAxisCenter = CrossAxisAlignment.center;
+  static const CrossAxisAlignment crossAxisEnd = CrossAxisAlignment.end;
+  
+  // Default Text Alignment for Body Content (Left-aligned for professional look)
+  static const TextAlign defaultTextAlign = TextAlign.start;
+  static const CrossAxisAlignment defaultCrossAlign = CrossAxisAlignment.start;
+  
+  // Font Sizes - Moderate & Refined
+  static const double fontSizeHeadlineLarge = 24.0;
+  static const double fontSizeHeadlineMedium = 18.0;
+  static const double fontSizeTitle = 16.0;
+  static const double fontSizeBodyLarge = 15.0;
+  static const double fontSizeBody = 14.0;
+  static const double fontSizeCaption = 12.0;
+  static const double fontSizeSmall = 11.0;
+  
+  // Font Weights - Consistent & Elegant
+  static const FontWeight weightBold = FontWeight.w700;
+  static const FontWeight weightSemiBold = FontWeight.w600;
+  static const FontWeight weightMedium = FontWeight.w500;
+  static const FontWeight weightRegular = FontWeight.w400;
+  static const FontWeight weightLight = FontWeight.w300;
+
   // Light tokens
   static const Color lightBackgroundColor = Color(0xFFF5F5FA);
   static const Color lightSurfaceColor = Color(0xFFFFFFFF);
@@ -93,16 +131,28 @@ class AppTheme {
 
   static ThemeData _buildTheme(ColorScheme colorScheme) {
     final isDark = colorScheme.brightness == Brightness.dark;
-    final base = ThemeData(useMaterial3: true, colorScheme: colorScheme, brightness: colorScheme.brightness);
+    final base = ThemeData(
+      useMaterial3: true,
+      colorScheme: colorScheme,
+      brightness: colorScheme.brightness,
+      fontFamily: fontFamily,
+    );
+    
     final textTheme = base.textTheme.apply(
       bodyColor: colorScheme.onSurface,
       displayColor: colorScheme.onSurface,
+      fontFamily: fontFamily,
     ).copyWith(
-      bodyLarge: base.textTheme.bodyLarge?.copyWith(fontSize: 16, fontWeight: FontWeight.w500, height: 1.4),
-      bodyMedium: base.textTheme.bodyMedium?.copyWith(fontSize: 14, height: 1.4),
-      bodySmall: base.textTheme.bodySmall?.copyWith(fontSize: 12, letterSpacing: 0.1),
-      titleLarge: base.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w600),
-      titleMedium: base.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+      displayLarge: TextStyle(fontSize: fontSizeHeadlineLarge, fontWeight: weightBold, height: 1.2, letterSpacing: -0.5),
+      displayMedium: TextStyle(fontSize: fontSizeHeadlineMedium, fontWeight: weightSemiBold, height: 1.3),
+      titleLarge: TextStyle(fontSize: fontSizeTitle, fontWeight: weightSemiBold, height: 1.3),
+      titleMedium: TextStyle(fontSize: fontSizeBodyLarge, fontWeight: weightMedium, height: 1.3),
+      bodyLarge: TextStyle(fontSize: fontSizeBodyLarge, fontWeight: weightRegular, height: 1.5),
+      bodyMedium: TextStyle(fontSize: fontSizeBody, fontWeight: weightRegular, height: 1.5),
+      bodySmall: TextStyle(fontSize: fontSizeCaption, fontWeight: weightRegular, height: 1.4),
+      labelLarge: TextStyle(fontSize: fontSizeBody, fontWeight: weightMedium, letterSpacing: 0.1),
+      labelMedium: TextStyle(fontSize: fontSizeCaption, fontWeight: weightMedium, letterSpacing: 0.5),
+      labelSmall: TextStyle(fontSize: fontSizeSmall, fontWeight: weightMedium, letterSpacing: 0.5),
     );
 
     return base.copyWith(
@@ -115,7 +165,12 @@ class AppTheme {
         elevation: 0,
         centerTitle: false,
         systemOverlayStyle: isDark ? SystemUiOverlayStyle.light : SystemUiOverlayStyle.dark,
-        titleTextStyle: headlineMedium(colorScheme.onSurface),
+        titleTextStyle: TextStyle(
+          fontSize: fontSizeHeadlineMedium,
+          fontWeight: weightSemiBold,
+          color: colorScheme.onSurface,
+          fontFamily: fontFamily,
+        ),
       ),
       cardTheme: CardThemeData(
         color: colorScheme.surface,
@@ -134,13 +189,29 @@ class AppTheme {
         backgroundColor: colorScheme.surface,
         surfaceTintColor: colorScheme.surface,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        titleTextStyle: headlineMedium(colorScheme.onSurface),
-        contentTextStyle: bodyMedium(colorScheme.onSurface),
+        titleTextStyle: TextStyle(
+          fontSize: fontSizeHeadlineMedium,
+          fontWeight: weightSemiBold,
+          color: colorScheme.onSurface,
+          fontFamily: fontFamily,
+        ),
+        contentTextStyle: TextStyle(
+          fontSize: fontSizeBody,
+          fontWeight: weightRegular,
+          color: colorScheme.onSurface,
+          fontFamily: fontFamily,
+          height: 1.5,
+        ),
       ),
       snackBarTheme: SnackBarThemeData(
         behavior: SnackBarBehavior.floating,
         backgroundColor: colorScheme.inverseSurface,
-        contentTextStyle: bodyMedium(colorScheme.onInverseSurface),
+        contentTextStyle: TextStyle(
+          fontSize: fontSizeBody,
+          fontWeight: weightRegular,
+          color: colorScheme.onInverseSurface,
+          fontFamily: fontFamily,
+        ),
         actionTextColor: colorScheme.inversePrimary,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
@@ -162,15 +233,31 @@ class AppTheme {
           borderRadius: BorderRadius.circular(14),
           borderSide: BorderSide(color: colorScheme.primary, width: 1.4),
         ),
-        hintStyle: bodyMedium(colorScheme.onSurface).copyWith(color: colorScheme.onSurface.withValues(alpha: 0.55)),
-        labelStyle: bodyMedium(colorScheme.onSurface).copyWith(color: colorScheme.onSurface.withValues(alpha: 0.7)),
+        hintStyle: TextStyle(
+          fontSize: fontSizeBody,
+          fontWeight: weightRegular,
+          color: colorScheme.onSurface.withValues(alpha: 0.55),
+          fontFamily: fontFamily,
+        ),
+        labelStyle: TextStyle(
+          fontSize: fontSizeBody,
+          fontWeight: weightRegular,
+          color: colorScheme.onSurface.withValues(alpha: 0.7),
+          fontFamily: fontFamily,
+        ),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           backgroundColor: colorScheme.primary,
           foregroundColor: colorScheme.onPrimary,
           minimumSize: const Size.fromHeight(48),
-          textStyle: bodyLarge(colorScheme.onPrimary).copyWith(fontWeight: FontWeight.w600),
+          textStyle: TextStyle(
+            fontSize: fontSizeBodyLarge,
+            fontWeight: weightSemiBold,
+            color: colorScheme.onPrimary,
+            fontFamily: fontFamily,
+            letterSpacing: 0.2,
+          ),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         ),
       ),
@@ -178,7 +265,13 @@ class AppTheme {
         style: OutlinedButton.styleFrom(
           foregroundColor: colorScheme.onSurface,
           minimumSize: const Size.fromHeight(48),
-          textStyle: bodyLarge(colorScheme.onSurface).copyWith(fontWeight: FontWeight.w600),
+          textStyle: TextStyle(
+            fontSize: fontSizeBodyLarge,
+            fontWeight: weightSemiBold,
+            color: colorScheme.onSurface,
+            fontFamily: fontFamily,
+            letterSpacing: 0.2,
+          ),
           side: BorderSide(color: colorScheme.outline.withValues(alpha: 0.5)),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         ),
@@ -186,7 +279,13 @@ class AppTheme {
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
           foregroundColor: colorScheme.primary,
-          textStyle: bodyMedium(colorScheme.primary).copyWith(fontWeight: FontWeight.w600),
+          textStyle: TextStyle(
+            fontSize: fontSizeBody,
+            fontWeight: weightSemiBold,
+            color: colorScheme.primary,
+            fontFamily: fontFamily,
+            letterSpacing: 0.1,
+          ),
         ),
       ),
       checkboxTheme: CheckboxThemeData(
@@ -234,41 +333,72 @@ class AppTheme {
       chipTheme: base.chipTheme.copyWith(
         backgroundColor: colorScheme.surfaceVariant,
         selectedColor: colorScheme.primaryContainer,
-        labelStyle: bodyMedium(colorScheme.onSurface),
+        labelStyle: TextStyle(
+          fontSize: fontSizeBody,
+          fontWeight: weightRegular,
+          color: colorScheme.onSurface,
+          fontFamily: fontFamily,
+        ),
       ),
     );
   }
 
-  // Text helpers keep existing call sites concise
-  static TextStyle headlineLarge(Color onSurfaceColor) => TextStyle(
-        fontSize: 28,
-        fontWeight: FontWeight.bold,
-        color: onSurfaceColor,
+  // Text Style Helpers - Centralized & Consistent
+  static TextStyle headlineLarge(Color color) => TextStyle(
+        fontSize: fontSizeHeadlineLarge,
+        fontWeight: weightBold,
+        color: color,
+        fontFamily: fontFamily,
         letterSpacing: -0.5,
+        height: 1.2,
       );
 
-  static TextStyle headlineMedium(Color onSurfaceColor) => TextStyle(
-        fontSize: 22,
-        fontWeight: FontWeight.w600,
-        color: onSurfaceColor,
+  static TextStyle headlineMedium(Color color) => TextStyle(
+        fontSize: fontSizeHeadlineMedium,
+        fontWeight: weightSemiBold,
+        color: color,
+        fontFamily: fontFamily,
+        height: 1.3,
       );
 
-  static TextStyle bodyLarge(Color onSurfaceColor) => TextStyle(
-        fontSize: 16,
-        fontWeight: FontWeight.w500,
-        color: onSurfaceColor,
+  static TextStyle title(Color color) => TextStyle(
+        fontSize: fontSizeTitle,
+        fontWeight: weightSemiBold,
+        color: color,
+        fontFamily: fontFamily,
+        height: 1.3,
       );
 
-  static TextStyle bodyMedium(Color onSurfaceColor) => TextStyle(
-        fontSize: 14,
-        fontWeight: FontWeight.normal,
-        color: onSurfaceColor,
+  static TextStyle bodyLarge(Color color) => TextStyle(
+        fontSize: fontSizeBodyLarge,
+        fontWeight: weightRegular,
+        color: color,
+        fontFamily: fontFamily,
+        height: 1.5,
       );
 
-  static TextStyle caption(Color onSurfaceColor) => TextStyle(
-        fontSize: 12,
-        fontWeight: FontWeight.normal,
-        color: onSurfaceColor.withValues(alpha: 0.7),
+  static TextStyle bodyMedium(Color color) => TextStyle(
+        fontSize: fontSizeBody,
+        fontWeight: weightRegular,
+        color: color,
+        fontFamily: fontFamily,
+        height: 1.5,
+      );
+
+  static TextStyle caption(Color color) => TextStyle(
+        fontSize: fontSizeCaption,
+        fontWeight: weightRegular,
+        color: color,
+        fontFamily: fontFamily,
+        height: 1.4,
+      );
+
+  static TextStyle small(Color color) => TextStyle(
+        fontSize: fontSizeSmall,
+        fontWeight: weightRegular,
+        color: color,
+        fontFamily: fontFamily,
+        height: 1.3,
       );
 
   // Gradients and shadows still available for custom widgets

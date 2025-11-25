@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:bcrypt/bcrypt.dart';
 import 'dart:developer' as developer;
+import 'package:flutter/foundation.dart';
 import 'secure_storage_service.dart';
 
 /// Service for handling app-level authentication (PIN/Biometric)
@@ -52,7 +53,11 @@ class AuthService {
       return await _localAuth.canCheckBiometrics ||
           await _localAuth.isDeviceSupported();
     } catch (e) {
-      developer.log('Error checking biometric availability', error: e, level: 1000);
+      if (kDebugMode) {
+
+        developer.log('Error checking biometric availability', error: e, level: 1000);
+
+      }
       return false;
     }
   }
@@ -62,7 +67,11 @@ class AuthService {
     try {
       return await _localAuth.getAvailableBiometrics();
     } catch (e) {
-      developer.log('Error getting biometrics', error: e, level: 1000);
+      if (kDebugMode) {
+
+        developer.log('Error getting biometrics', error: e, level: 1000);
+
+      }
       return [];
     }
   }
@@ -86,7 +95,11 @@ class AuthService {
       
       return true;
     } catch (e) {
-      developer.log('Error enabling PIN auth', error: e, level: 1000);
+      if (kDebugMode) {
+
+        developer.log('Error enabling PIN auth', error: e, level: 1000);
+
+      }
       return false;
     }
   }
@@ -126,7 +139,11 @@ class AuthService {
       await prefs.setBool(_authEnabledKey, true);
       return true;
     } catch (e) {
-      developer.log('Error enabling biometric auth', error: e, level: 1000);
+      if (kDebugMode) {
+
+        developer.log('Error enabling biometric auth', error: e, level: 1000);
+
+      }
       rethrow;
     }
   }
@@ -146,12 +163,20 @@ class AuthService {
       // If no longer available, disable it automatically
       if (!available) {
         await prefs.setBool(_biometricEnabledKey, false);
-        developer.log('Biometric no longer available, automatically disabled', name: 'AuthService');
+        if (kDebugMode) {
+
+          developer.log('Biometric no longer available, automatically disabled', name: 'AuthService');
+
+        }
       }
       
       return available;
     } catch (e) {
-      developer.log('Error checking biometric availability', error: e, level: 1000);
+      if (kDebugMode) {
+
+        developer.log('Error checking biometric availability', error: e, level: 1000);
+
+      }
       return false;
     }
   }
@@ -172,14 +197,22 @@ class AuthService {
       
       // If auth is enabled but no methods available, disable auth
       if (!hasPin && (!biometricEnabled || !biometricAvailable)) {
-        developer.log('Auth enabled but no valid methods, disabling auth', name: 'AuthService');
+        if (kDebugMode) {
+
+          developer.log('Auth enabled but no valid methods, disabling auth', name: 'AuthService');
+
+        }
         await disableAuth();
         return false;
       }
       
       return true;
     } catch (e) {
-      developer.log('Error validating auth state', error: e, level: 1000);
+      if (kDebugMode) {
+
+        developer.log('Error validating auth state', error: e, level: 1000);
+
+      }
       return false;
     }
   }
@@ -233,7 +266,11 @@ class AuthService {
       }
     } catch (e) {
       if (e is Exception) rethrow;
-      developer.log('Error authenticating with PIN', error: e, level: 1000);
+      if (kDebugMode) {
+
+        developer.log('Error authenticating with PIN', error: e, level: 1000);
+
+      }
       return false;
     }
   }
@@ -298,10 +335,18 @@ class AuthService {
       
       return result;
     } on PlatformException catch (e) {
-      developer.log('Biometric authentication error', error: e, level: 1000);
+      if (kDebugMode) {
+
+        developer.log('Biometric authentication error', error: e, level: 1000);
+
+      }
       return false;
     } catch (e) {
-      developer.log('Error authenticating with biometric', error: e, level: 1000);
+      if (kDebugMode) {
+
+        developer.log('Error authenticating with biometric', error: e, level: 1000);
+
+      }
       return false;
     }
   }
@@ -327,7 +372,11 @@ class AuthService {
 
       return false;
     } catch (e) {
-      developer.log('Error during authentication', error: e, level: 1000);
+      if (kDebugMode) {
+
+        developer.log('Error during authentication', error: e, level: 1000);
+
+      }
       return false;
     }
   }
@@ -361,7 +410,11 @@ class AuthService {
       
       return true;
     } catch (e) {
-      developer.log('Error removing PIN', error: e, level: 1000);
+      if (kDebugMode) {
+
+        developer.log('Error removing PIN', error: e, level: 1000);
+
+      }
       rethrow;
     }
   }
@@ -400,7 +453,11 @@ class AuthService {
       final prefs = await _preferences;
       await prefs.setString(_lastUnlockTimeKey, DateTime.now().toIso8601String());
     } catch (e) {
-      developer.log('Error updating unlock time', error: e, level: 1000);
+      if (kDebugMode) {
+
+        developer.log('Error updating unlock time', error: e, level: 1000);
+
+      }
     }
   }
   

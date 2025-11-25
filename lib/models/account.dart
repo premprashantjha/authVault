@@ -71,10 +71,25 @@ class AccountWithOTP {
   final String otp;
   final int secondsRemaining;
   final double progress;
+  final bool isFavorite;
 
   AccountWithOTP({
     required this.account,
     required this.otp,
     required this.secondsRemaining,
+    this.isFavorite = false,
   }) : progress = secondsRemaining / 30.0;
+
+  AccountWithOTP copyWith({
+    String? otp,
+    int? secondsRemaining,
+    bool? isFavorite,
+  }) {
+    return AccountWithOTP(
+      account: account,
+      otp: otp ?? this.otp,
+      secondsRemaining: secondsRemaining ?? this.secondsRemaining,
+      isFavorite: isFavorite ?? this.isFavorite,
+    );
+  }
 }

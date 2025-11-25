@@ -1,4 +1,5 @@
 import 'dart:developer' as developer;
+import 'package:flutter/foundation.dart';
 
 class OTPAuthURI {
   final String type;
@@ -76,7 +77,11 @@ class OTPAuthURI {
     }
 
     // Removed sensitive logging - don't log issuer/account details
-    developer.log('QR Code parsed successfully', name: 'QRScanner');
+    if (kDebugMode) {
+
+      developer.log('QR Code parsed successfully', name: 'QRScanner');
+
+    }
 
     return OTPAuthURI(
       type: type,

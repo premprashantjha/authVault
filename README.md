@@ -267,6 +267,46 @@ Replace `assets/images/AuthenticatorLaunch.json` with your Lottie animation.
 
 ---
 
+## 💻 Development Setup
+
+### Wireless Development
+
+For wireless Flutter development without USB cable:
+
+```powershell
+# One-time setup (with USB connected)
+.\wireless-connect.ps1
+
+# Check connection status
+.\wireless-status.ps1
+
+# Run app wirelessly
+flutter run
+.\flutter-wireless.ps1 -Mode profile
+
+# Troubleshoot issues
+.\wireless-troubleshoot.ps1
+```
+
+See [WIRELESS_DEVELOPMENT_GUIDE.md](WIRELESS_DEVELOPMENT_GUIDE.md) for complete setup.
+
+### Release Builds
+
+```powershell
+# Load keystore credentials
+.\load_env.ps1
+
+# Build release APK
+flutter build apk --release
+
+# Or run release build directly
+.\flutter-wireless.ps1 -Mode release
+```
+
+See [KEYSTORE_SHARING_GUIDE.md](KEYSTORE_SHARING_GUIDE.md) for keystore setup.
+
+---
+
 ## 🤝 Contributing
 
 Contributions are welcome! Please follow these steps:

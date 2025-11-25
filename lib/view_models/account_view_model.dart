@@ -1,18 +1,27 @@
 import 'dart:async';
 import 'dart:developer' as developer;
-import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/account.dart';
 import '../services/account_service.dart';
 import '../services/totp_service.dart';
 
 class AccountViewModel with ChangeNotifier {
+  static const _favoriteAccountsKey = 'favorite_account_ids';
+
   final AccountService accountService;
   final TOTPService totpService;
+  SharedPreferences? _prefs;
   
   List<Account> _accounts = [];
   List<AccountWithOTP> _accountsWithOTP = [];
+  List<AccountWithOTP> _filteredAccounts = [];
   Timer? _timer;
   bool _isLoading = false;
+  final Set<String> _favoriteAccountIds = <String>{};
+  final Set<String> _selectedIssuers = <String>{};
+  String _searchQuery = '';
+  bool _favoritesOnly = false;
 
   /// If [autoInit] is true (default) the view model will load accounts
   /// and start the OTP timer immediately. Tests may set autoInit=false to
@@ -26,12 +35,36 @@ class AccountViewModel with ChangeNotifier {
       _loadAccounts();
       _startOTPTimer();
     }
+    _loadFavorites();
   }
 
   List<Account> get accounts => _accounts;
   List<AccountWithOTP> get accountsWithOTP => _accountsWithOTP;
+  List<AccountWithOTP> get filteredAccounts => _filteredAccounts;
   bool get isLoading => _isLoading;
   bool get hasAccounts => _accounts.isNotEmpty;
+  bool get hasActiveFilters =>
+      _searchQuery.isNotEmpty || _selectedIssuers.isNotEmpty || _favoritesOnly;
+  bool get hasFilterSelections => _selectedIssuers.isNotEmpty || _favoritesOnly;
+  bool get favoritesOnly => _favoritesOnly;
+  Set<String> get selectedIssuers => Set.unmodifiable(_selectedIssuers);
+  int get totalAccountCount => _accounts.length;
+
+  List<String> get issuerFilters {
+    final Map<String, int> counts = {};
+    for (final account in _accounts) {
+      final issuer = account.issuer.trim();
+      if (issuer.isEmpty) continue;
+      counts[issuer] = (counts[issuer] ?? 0) + 1;
+    }
+    final entries = counts.entries.toList()
+      ..sort((a, b) {
+        final compareCount = b.value.compareTo(a.value);
+        if (compareCount != 0) return compareCount;
+        return a.key.toLowerCase().compareTo(b.key.toLowerCase());
+      });
+    return entries.map((entry) => entry.key).toList();
+  }
 
   Future<void> _loadAccounts() async {
     _isLoading = true;
@@ -41,7 +74,9 @@ class AccountViewModel with ChangeNotifier {
       _accounts = await accountService.getAllAccounts();
       _generateOTPs();
     } catch (e) {
-      debugPrint('Error loading accounts: $e');
+      if (kDebugMode) {
+        debugPrint('Error loading accounts: $e');
+      }
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -54,7 +89,9 @@ class AccountViewModel with ChangeNotifier {
       await _loadAccounts(); // Reload to get updated list
       return true;
     } catch (e) {
-      debugPrint('Error adding account: $e');
+      if (kDebugMode) {
+        debugPrint('Error adding account: $e');
+      }
       return false;
     }
   }
@@ -65,7 +102,9 @@ class AccountViewModel with ChangeNotifier {
       await _loadAccounts(); // Reload to get updated list
       return true;
     } catch (e) {
-      developer.log('Error deleting account', error: e, level: 1000);
+      if (kDebugMode) {
+        developer.log('Error deleting account', error: e, level: 1000);
+      }
       return false;
     }
   }
@@ -91,7 +130,9 @@ class AccountViewModel with ChangeNotifier {
   }
 
   void _generateOTPs() {
-    developer.log('Generating OTPs for ${_accounts.length} accounts', level: 800);
+    if (kDebugMode) {
+      developer.log('Generating OTPs for ${_accounts.length} accounts', level: 800);
+    }
     _accountsWithOTP = _accounts.map((account) {
       final otp = totpService.generateTOTP(account.secretKey);
       final secondsRemaining = totpService.getRemainingSeconds();
@@ -99,22 +140,21 @@ class AccountViewModel with ChangeNotifier {
         account: account,
         otp: otp,
         secondsRemaining: secondsRemaining,
+        isFavorite: _favoriteAccountIds.contains(account.id),
       );
     }).toList();
-    developer.log('Generated ${_accountsWithOTP.length} OTPs, calling notifyListeners()', level: 800);
-    notifyListeners();
+    if (kDebugMode) {
+      developer.log('Generated ${_accountsWithOTP.length} OTPs, calling notifyListeners()', level: 800);
+    }
+    _applyFilters();
   }
 
   void _updateSecondsRemaining(int secondsRemaining) {
     // Update only the seconds remaining without regenerating OTPs
-    _accountsWithOTP = _accountsWithOTP.map((accountWithOTP) {
-      return AccountWithOTP(
-        account: accountWithOTP.account,
-        otp: accountWithOTP.otp, // Keep existing OTP
-        secondsRemaining: secondsRemaining,
-      );
-    }).toList();
-    notifyListeners();
+    _accountsWithOTP = _accountsWithOTP
+        .map((accountWithOTP) => accountWithOTP.copyWith(secondsRemaining: secondsRemaining))
+        .toList();
+    _applyFilters();
   }
 
   void refreshOTPs() {
@@ -131,7 +171,9 @@ class AccountViewModel with ChangeNotifier {
       await _loadAccounts();
       return true;
     } catch (e) {
-      developer.log('Error updating account', error: e, level: 1000);
+      if (kDebugMode) {
+        developer.log('Error updating account', error: e, level: 1000);
+      }
       return false;
     }
   }
@@ -148,6 +190,108 @@ class AccountViewModel with ChangeNotifier {
     _timer = null;
     _accounts = [];
     _accountsWithOTP = [];
+    _filteredAccounts = [];
+    notifyListeners();
+  }
+
+  void setSearchQuery(String value) {
+    _searchQuery = value.trim();
+    _applyFilters();
+  }
+
+  void toggleIssuerFilter(String issuer) {
+    if (_selectedIssuers.contains(issuer)) {
+      _selectedIssuers.remove(issuer);
+    } else {
+      _selectedIssuers.add(issuer);
+    }
+    _applyFilters();
+  }
+
+  void clearAllFilters() {
+    _searchQuery = '';
+    _favoritesOnly = false;
+    _selectedIssuers.clear();
+    _applyFilters();
+  }
+
+  void toggleFavoritesOnly() {
+    _favoritesOnly = !_favoritesOnly;
+    _applyFilters();
+  }
+
+  void setFilters({Set<String>? issuers, bool? favoritesOnly}) {
+    if (issuers != null) {
+      _selectedIssuers
+        ..clear()
+        ..addAll(issuers);
+    }
+    if (favoritesOnly != null) {
+      _favoritesOnly = favoritesOnly;
+    }
+    _applyFilters();
+  }
+
+  Future<void> toggleFavorite(String accountId) async {
+    await _ensurePrefs();
+    if (_favoriteAccountIds.contains(accountId)) {
+      _favoriteAccountIds.remove(accountId);
+    } else {
+      _favoriteAccountIds.add(accountId);
+    }
+    await _prefs?.setStringList(_favoriteAccountsKey, _favoriteAccountIds.toList());
+    _applyFilters();
+  }
+
+  Future<void> _loadFavorites() async {
+    try {
+      await _ensurePrefs();
+      final stored = _prefs?.getStringList(_favoriteAccountsKey) ?? const [];
+      _favoriteAccountIds
+        ..clear()
+        ..addAll(stored);
+      _applyFilters();
+    } catch (e) {
+      if (kDebugMode) {
+        developer.log('Error loading favorites', error: e, level: 1000);
+      }
+    }
+  }
+
+  Future<void> _ensurePrefs() async {
+    _prefs ??= await SharedPreferences.getInstance();
+  }
+
+  void _applyFilters() {
+    List<AccountWithOTP> working = _accountsWithOTP
+        .map((item) => item.copyWith(isFavorite: _favoriteAccountIds.contains(item.account.id)))
+        .toList();
+
+    if (_searchQuery.isNotEmpty) {
+      final query = _searchQuery.toLowerCase();
+      working = working.where((item) {
+        final issuer = item.account.issuer.toLowerCase();
+        final label = item.account.accountName.toLowerCase();
+        return issuer.contains(query) || label.contains(query);
+      }).toList();
+    }
+
+    if (_selectedIssuers.isNotEmpty) {
+      working = working.where((item) => _selectedIssuers.contains(item.account.issuer)).toList();
+    }
+
+    if (_favoritesOnly) {
+      working = working.where((item) => item.isFavorite).toList();
+    }
+
+    working.sort((a, b) {
+      if (a.isFavorite != b.isFavorite) {
+        return a.isFavorite ? -1 : 1;
+      }
+      return a.account.issuer.toLowerCase().compareTo(b.account.issuer.toLowerCase());
+    });
+
+    _filteredAccounts = working;
     notifyListeners();
   }
 

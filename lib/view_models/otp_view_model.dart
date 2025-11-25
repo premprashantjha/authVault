@@ -1,5 +1,5 @@
 import 'dart:async';
-
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../models/account.dart';
 import '../services/totp_service.dart';
@@ -47,7 +47,9 @@ class OTPViewModel with ChangeNotifier {
       }).toList();
       notifyListeners();
     } catch (e) {
-      debugPrint('Error generating OTPs: $e');
+      if (kDebugMode) {
+        debugPrint('Error generating OTPs: $e');
+      }
     }
   }
 

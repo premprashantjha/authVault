@@ -1,25 +1,44 @@
-import 'package:authenticator/models/account.dart';
-import 'package:authenticator/view/widget/otp_card.dart';
+import 'package:authenticator/services/totp_service.dart';
+import 'package:authenticator/widgets/animated/animated_button.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
-import 'package:lottie/lottie.dart';
-import 'dart:io' show Platform;
-import 'package:flutter_windowmanager/flutter_windowmanager.dart';
-import '../app/theme.dart';
-import '../view_models/account_view_model.dart';
-import '../services/auth_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'qr_scan_screen.dart';
-import '../services/totp_service.dart';
-import 'settings_screen.dart';
-import '../animations/animation_service.dart';
-import '../animations/custom_page_route.dart';
+
+// Models
+import '../models/account.dart';
+
+// View Models
+import '../view_models/account_view_model.dart';
+
+// Services
+import '../services/auth_service.dart';
+
+// Components
+import 'components/search_bar_widget.dart';
+import 'components/empty_state_widget.dart';
+import 'components/no_results_widget.dart';
+import 'components/accounts_header_widget.dart';
+import 'components/add_account_modal.dart';
+import 'components/manual_entry_form.dart';
+
+// Widgets
+import 'widget/otp_card.dart';
 import '../widgets/animated/staggered_list.dart';
 import '../widgets/animated/animated_fab.dart';
-import '../widgets/animated/animated_button.dart';
 import '../widgets/animated/skeleton.dart';
 import '../widgets/custom_snackbar.dart';
+import '../widgets/filter_modal.dart';
+
+// Screens
+import 'qr_scan_screen.dart';
+import 'settings_screen.dart';
+
+// Animations
+import '../animations/animation_service.dart';
+import '../animations/custom_page_route.dart';
+
+// Theme
+import '../app/theme.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -28,26 +47,24 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateMixin {
   bool _fabOpen = false;
   final StaggeredListController<AccountWithOTP> _listController = StaggeredListController<AccountWithOTP>();
+  final TextEditingController _searchController = TextEditingController();
+  final FocusNode _searchFocusNode = FocusNode();
+  bool _isSearchVisible = false;
   
   @override
   void initState() {
     super.initState();
-    _enableScreenshotPrevention();
     // Accounts are automatically loaded in the ViewModel constructor
   }
 
-  /// Enable screenshot prevention (FLAG_SECURE) on Android
-  Future<void> _enableScreenshotPrevention() async {
-    if (!kDebugMode && Platform.isAndroid) {
-      try {
-        await FlutterWindowManager.addFlags(FlutterWindowManager.FLAG_SECURE);
-      } catch (e) {
-        // Silently fail - not critical
-      }
-    }
+  @override
+  void dispose() {
+    _searchController.dispose();
+    _searchFocusNode.dispose();
+    super.dispose();
   }
 
   void _navigateToSettings(BuildContext context) async {
@@ -60,6 +77,33 @@ class _HomeScreenState extends State<HomeScreen> {
     if (!mounted) return;
 
     await navigator.push(CustomPageRoute(page: SettingsScreen(authService: authService), style: PageTransitionStyle.scale));
+  }
+
+  Future<void> _openFilterModal() async {
+    final viewModel = context.read<AccountViewModel>();
+    final result = await showModalBottomSheet<FilterSelectionResult>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return FilterModal(
+          issuers: viewModel.issuerFilters,
+          initialSelection: viewModel.selectedIssuers,
+          favoritesOnly: viewModel.favoritesOnly,
+        );
+      },
+    );
+
+    if (result == null) return;
+
+    if (result.clearRequested) {
+      viewModel.setFilters(issuers: <String>{}, favoritesOnly: false);
+      return;
+    }
+
+    if (!mounted) return;
+
+    viewModel.setFilters(issuers: result.selectedIssuers, favoritesOnly: result.favoritesOnly);
   }
 
   @override
@@ -76,6 +120,45 @@ class _HomeScreenState extends State<HomeScreen> {
         backgroundColor: theme.colorScheme.surface,
         elevation: 0,
         actions: [
+          IconButton(
+            tooltip: _isSearchVisible ? 'Close search' : 'Search accounts',
+            icon: Icon(
+              _isSearchVisible ? Icons.close : Icons.search,
+              color: theme.colorScheme.onSurface,
+            ),
+            onPressed: _toggleSearchBar,
+          ),
+          Consumer<AccountViewModel>(
+            builder: (context, viewModel, _) {
+              final hasFilters = viewModel.hasFilterSelections;
+              return Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  IconButton(
+                    tooltip: 'Filter accounts',
+                    icon: Icon(
+                      Icons.filter_alt,
+                      color: hasFilters ? theme.colorScheme.primary : theme.colorScheme.onSurface,
+                    ),
+                    onPressed: _openFilterModal,
+                  ),
+                  if (hasFilters)
+                    Positioned(
+                      right: 12,
+                      top: 12,
+                      child: Container(
+                        width: 8,
+                        height: 8,
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.primary,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                    ),
+                ],
+              );
+            },
+          ),
           IconButton(
             icon: Icon(
               Icons.settings,
@@ -105,7 +188,9 @@ class _HomeScreenState extends State<HomeScreen> {
           }
 
           if (!viewModel.hasAccounts) {
-            return _buildEmptyState();
+            return EmptyStateWidget(
+              onAddAccount: () => _showAddAccountOptions(context),
+            );
           }
 
           return _buildAccountsList(viewModel);
@@ -125,141 +210,21 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildEmptyState() {
-    final theme = Theme.of(context);
-    
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        return SingleChildScrollView(
-          padding: const EdgeInsets.all(32),
-          child: ConstrainedBox(
-            constraints: BoxConstraints(minHeight: constraints.maxHeight - 64),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                // Lottie animation showing QR scan interaction
-                SizedBox(
-                  width: 280,
-                  height: 280,
-                  child: Lottie.asset(
-                    'assets/images/AuthenticatorWelcomeScreen.json',
-                    fit: BoxFit.contain,
-                    repeat: true,
-                    animate: true,
-                  ),
-                ),
-                const SizedBox(height: 24),
-                Text(
-                  'No 2FA Accounts',
-                  style: AppTheme.headlineLarge(theme.colorScheme.onSurface).copyWith(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  'Secure your accounts with two-factor authentication',
-                  style: AppTheme.bodyMedium(theme.colorScheme.onSurface).copyWith(
-                    color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-                    height: 1.5,
-                    fontSize: 15,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 32),
-                AnimatedButton(
-                  onTap: () => _showAddAccountOptions(context),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.primary,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: const [
-                        Icon(Icons.qr_code_scanner, size: 20, color: Colors.white),
-                        SizedBox(width: 12),
-                        Text(
-                          'Add Your First Account',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildAccountsList(AccountViewModel viewModel) {
-    final theme = Theme.of(context);
-    return Column(
-      children: [
-        // Header
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: theme.colorScheme.surface,
-            border: Border(
-              bottom: BorderSide(
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.1),
-                width: 1,
-              ),
-            ),
-          ),
-          child: Row(
-            children: [
-              Icon(Icons.security, color: theme.colorScheme.primary, size: 20),
-              const SizedBox(width: 8),
-              Text(
-                '${viewModel.accountsWithOTP.length} Account${viewModel.accountsWithOTP.length == 1 ? '' : 's'}',
-                style: AppTheme.bodyLarge(theme.colorScheme.onSurface).copyWith(
-                  color: theme.colorScheme.primary,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const Spacer(),
-              Text(
-                'Auto-refresh in ${viewModel.accountsWithOTP.isNotEmpty ? viewModel.accountsWithOTP.first.secondsRemaining : 30}s',
-                style: AppTheme.caption(theme.colorScheme.onSurface),
-              ),
-            ],
-          ),
-        ),
-        // Accounts List
-        Expanded(
-            child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: StaggeredList<AccountWithOTP>(
-              key: ValueKey('accounts_${viewModel.accountsWithOTP.length}'),
-              controller: _listController,
-              items: viewModel.accountsWithOTP,
-              itemBuilder: (context, index, item, animation) {
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: OTPCard(
-                    account: item,
-                    onDelete: () => _deleteAccount(context, item.account.id),
-                    onTap: () {},
-                  ),
-                );
-              },
-            ),
-          ),
-        ),
-      ],
-    );
+  void _toggleSearchBar() {
+    final viewModel = context.read<AccountViewModel>();
+    setState(() => _isSearchVisible = !_isSearchVisible);
+    if (_isSearchVisible) {
+      // Slight delay ensures the animation starts before requesting focus
+      Future.delayed(const Duration(milliseconds: 150), () {
+        if (mounted) _searchFocusNode.requestFocus();
+      });
+    } else {
+      _searchFocusNode.unfocus();
+      if (_searchController.text.isNotEmpty) {
+        _searchController.clear();
+        viewModel.setSearchQuery('');
+      }
+    }
   }
 
   Future<void> _showAddAccountOptions(BuildContext context) {
@@ -270,93 +235,75 @@ class _HomeScreenState extends State<HomeScreen> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      builder: (context) {
-        return Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                'Add Account',
-                style: AppTheme.headlineMedium(theme.colorScheme.onSurface),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Your secrets stay encrypted on this device. Keep a backup so you can restore them if you switch phones.',
-                style: AppTheme.bodyMedium(theme.colorScheme.onSurface).copyWith(
-                  color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-                  height: 1.4,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 24),
-              _buildAddOption(
-                context,
-                icon: Icons.qr_code_scanner,
-                title: 'Scan QR Code',
-                subtitle: 'Recommended. Point your camera at the QR code provided by the service.',
-                onTap: () {
-                  Navigator.pop(context);
-                  _navigateToQRScan(context);
-                },
-              ),
-              const SizedBox(height: 16),
-              _buildAddOption(
-                context,
-                icon: Icons.keyboard,
-                title: 'Enter Manually',
-                subtitle: 'Paste or type the secret key if you cannot scan.',
-                onTap: () {
-                  Navigator.pop(context);
-                  _showManualEntryDialog(context);
-                },
-              ),
-              const SizedBox(height: 16),
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: Text(
-                  'Cancel',
-                  style: AppTheme.bodyMedium(theme.colorScheme.onSurface).copyWith(color: theme.colorScheme.onSurface.withValues(alpha: 0.6)),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
+      builder: (context) => AddAccountModal(
+        onScanQR: () {
+          Navigator.pop(context);
+          _navigateToQRScan(context);
+        },
+        onManualEntry: () {
+          Navigator.pop(context);
+          _showManualEntryDialog(context);
+        },
+      ),
     );
   }
 
-  Widget _buildAddOption(
-    BuildContext context, {
-    required IconData icon,
-    required String title,
-    required String subtitle,
-    required VoidCallback onTap,
-  }) {
-    final theme = Theme.of(context);
-    return Card(
-      color: theme.colorScheme.surface.withValues(alpha: 0.8),
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: theme.colorScheme.onSurface.withValues(alpha: 0.1)),
-      ),
-      child: ListTile(
-        leading: Container(
-          width: 44,
-          height: 44,
-          decoration: BoxDecoration(
-            color: theme.colorScheme.primary.withValues(alpha: 0.15),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Icon(icon, color: theme.colorScheme.primary, size: 20),
+  Widget _buildAccountsList(AccountViewModel viewModel) {
+    final filteredAccounts = viewModel.filteredAccounts;
+    final secondsRemaining = viewModel.accountsWithOTP.isNotEmpty
+        ? viewModel.accountsWithOTP.first.secondsRemaining
+        : 30;
+
+    return Column(
+      children: [
+        // Header
+        AccountsHeaderWidget(
+          viewModel: viewModel,
+          searchController: _searchController,
+          searchFocusNode: _searchFocusNode,
+          isSearchVisible: _isSearchVisible,
+          onSearchChanged: viewModel.setSearchQuery,
+          onSearchClear: () {
+            _searchController.clear();
+            viewModel.setSearchQuery('');
+          },
+          secondsRemaining: secondsRemaining,
         ),
-        title: Text(title, style: AppTheme.bodyLarge(theme.colorScheme.onSurface)),
-        subtitle: Text(subtitle, style: AppTheme.caption(theme.colorScheme.onSurface)),
-        trailing: Icon(Icons.arrow_forward_ios, size: 16, color: theme.colorScheme.onSurface.withValues(alpha: 0.6)),
-        onTap: onTap,
-      ),
+        // Accounts List
+        Expanded(
+          child: filteredAccounts.isEmpty
+              ? NoResultsWidget(
+                  viewModel: viewModel,
+                  onClearFilters: () => _clearFilters(viewModel),
+                )
+              : Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: StaggeredList<AccountWithOTP>(
+                    key: ValueKey('accounts_${filteredAccounts.length}_${viewModel.hasActiveFilters}'),
+                    controller: _listController,
+                    items: filteredAccounts,
+                    itemBuilder: (context, index, item, animation) {
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: OTPCard(
+                          account: item,
+                          onDelete: () => _deleteAccount(context, item.account.id),
+                          onTap: () {},
+                          onFavoriteToggle: () => viewModel.toggleFavorite(item.account.id),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+        ),
+      ],
     );
+  }
+
+  void _clearFilters(AccountViewModel viewModel) {
+    _searchController.clear();
+    _searchFocusNode.unfocus();
+    viewModel.clearAllFilters();
   }
 
   void _navigateToQRScan(BuildContext context) async {
@@ -422,7 +369,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _deleteAccount(BuildContext context, String accountId) async {
     final viewModel = context.read<AccountViewModel>();
-    final index = viewModel.accountsWithOTP.indexWhere((a) => a.account.id == accountId);
+    final index = viewModel.filteredAccounts.indexWhere((a) => a.account.id == accountId);
 
     if (index != -1) {
       try {
@@ -433,6 +380,7 @@ class _HomeScreenState extends State<HomeScreen> {
               account: removedItem,
               onDelete: () {},
               onTap: () {},
+              onFavoriteToggle: () {},
             ),
           );
         });
@@ -538,11 +486,18 @@ class _ManualEntryFormState extends State<ManualEntryForm> {
               onTap: _addAccount,
               child: Container(
                 padding: const EdgeInsets.symmetric(vertical: 14),
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.primary,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Center(child: const Text('Add Account', style: TextStyle(color: Colors.white))),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.primary,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Center(
+                    child: Text(
+                      'Add Account',
+                      style: AppTheme.bodyMedium(theme.colorScheme.onPrimary).copyWith(
+                        fontWeight: AppTheme.weightSemiBold,
+                      ),
+                    ),
+                  ),
               ),
             ),
           ),

@@ -11,12 +11,14 @@ class OTPCard extends StatefulWidget {
   final AccountWithOTP account;
   final VoidCallback onDelete;
   final VoidCallback onTap;
+  final VoidCallback onFavoriteToggle;
 
   const OTPCard({
     super.key,
     required this.account,
     required this.onDelete,
     required this.onTap,
+    required this.onFavoriteToggle,
   });
 
   @override
@@ -104,6 +106,16 @@ class _OTPCardState extends State<OTPCard> {
                   ),
                   IconButton(
                     icon: Icon(
+                      widget.account.isFavorite ? Icons.star : Icons.star_border,
+                      color: widget.account.isFavorite
+                          ? AppTheme.primaryColor
+                          : theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                    ),
+                    tooltip: widget.account.isFavorite ? 'Remove from favorites' : 'Mark as favorite',
+                    onPressed: widget.onFavoriteToggle,
+                  ),
+                  IconButton(
+                    icon: Icon(
                       Icons.delete_outline,
                       color: theme.colorScheme.onSurface.withValues(alpha:0.6),
                     ),
@@ -179,7 +191,7 @@ class _OTPCardState extends State<OTPCard> {
                             Center(
                               child: Text(
                                 '${widget.account.secondsRemaining}',
-                                textAlign: TextAlign.center,
+                                textAlign: AppTheme.textAlignCenter,
                                 style: AppTheme.bodyMedium(theme.colorScheme.onSurface).copyWith(
                                   fontWeight: FontWeight.w600,
                                   color: widget.account.secondsRemaining > 10 

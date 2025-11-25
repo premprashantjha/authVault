@@ -40,7 +40,9 @@ class EncryptionService {
     if (wrapped != null) {
       await _secureStorage.deleteSecret(_wrappedKeyKey);
       await _secureStorage.deleteSecret(_keystoreAvailableKey);
-      debugPrint('Info: Cleaned up old keystore-wrapped keys');
+      if (kDebugMode) {
+        debugPrint('Info: Cleaned up old keystore-wrapped keys');
+      }
     }
 
     // Generate new key and store directly
@@ -48,7 +50,9 @@ class EncryptionService {
     final keyBytes = List<int>.generate(_keyLength, (i) => random.nextInt(256));
     final keyBase64 = base64Encode(keyBytes);
     await _secureStorage.saveSecret(_encryptionKeyKey, keyBase64);
-    debugPrint('Info: Generated new encryption key in secure storage');
+    if (kDebugMode) {
+      debugPrint('Info: Generated new encryption key in secure storage');
+    }
     return Key(Uint8List.fromList(keyBytes));
   }
 

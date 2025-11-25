@@ -27,6 +27,8 @@ class _AddAccountScreenState extends State<AddAccountScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    
     return Scaffold(
       appBar: AppBar(
         title: const Text('Add Account'),
@@ -123,7 +125,14 @@ class _AddAccountScreenState extends State<AddAccountScreen> {
                     color: AppTheme.primaryColor,
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: const Center(child: Text('Add Account', style: TextStyle(color: Colors.white))),
+                  child: Center(
+                    child: Text(
+                      'Add Account',
+                      style: AppTheme.bodyMedium(theme.colorScheme.onPrimary).copyWith(
+                        fontWeight: AppTheme.weightSemiBold,
+                      ),
+                    ),
+                  ),
                 ),
               ),
             ],
