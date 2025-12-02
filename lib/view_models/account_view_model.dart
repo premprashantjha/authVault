@@ -99,7 +99,13 @@ class AccountViewModel with ChangeNotifier {
   Future<bool> deleteAccount(String accountId) async {
     try {
       await accountService.deleteAccount(accountId);
-      await _loadAccounts(); // Reload to get updated list
+      
+      // Remove from local lists without full reload for smoother UX
+      _accounts.removeWhere((account) => account.id == accountId);
+      _accountsWithOTP.removeWhere((item) => item.account.id == accountId);
+      _favoriteAccountIds.remove(accountId);
+      
+      _applyFilters();
       return true;
     } catch (e) {
       if (kDebugMode) {
@@ -240,7 +246,9 @@ class AccountViewModel with ChangeNotifier {
       _favoriteAccountIds.add(accountId);
     }
     await _prefs?.setStringList(_favoriteAccountsKey, _favoriteAccountIds.toList());
-    _applyFilters();
+    
+    // Trigger reorder animation by applying filters with sort
+    _applyFilters(skipSort: false);
   }
 
   Future<void> _loadFavorites() async {
@@ -262,7 +270,7 @@ class AccountViewModel with ChangeNotifier {
     _prefs ??= await SharedPreferences.getInstance();
   }
 
-  void _applyFilters() {
+  void _applyFilters({bool skipSort = false}) {
     List<AccountWithOTP> working = _accountsWithOTP
         .map((item) => item.copyWith(isFavorite: _favoriteAccountIds.contains(item.account.id)))
         .toList();
@@ -284,12 +292,15 @@ class AccountViewModel with ChangeNotifier {
       working = working.where((item) => item.isFavorite).toList();
     }
 
-    working.sort((a, b) {
-      if (a.isFavorite != b.isFavorite) {
-        return a.isFavorite ? -1 : 1;
-      }
-      return a.account.issuer.toLowerCase().compareTo(b.account.issuer.toLowerCase());
-    });
+    // Only sort if not skipped (skip during favorite toggle to keep items in place)
+    if (!skipSort) {
+      working.sort((a, b) {
+        if (a.isFavorite != b.isFavorite) {
+          return a.isFavorite ? -1 : 1;
+        }
+        return a.account.issuer.toLowerCase().compareTo(b.account.issuer.toLowerCase());
+      });
+    }
 
     _filteredAccounts = working;
     notifyListeners();

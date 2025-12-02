@@ -3,10 +3,17 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../app/theme.dart';
 import '../services/auth_service.dart';
+import '../services/backup_service.dart';
+import '../services/encryption_service.dart';
+import '../services/integrity_service.dart';
+import '../services/database_service.dart';
+import '../services/account_service.dart';
 import '../widgets/animated_button.dart';
 import '../widgets/skeleton.dart';
 import '../widgets/custom_snackbar.dart';
 import 'onboarding_screen.dart';
+import 'backup_screen.dart';
+import 'privacy_policy_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   final AuthService authService;
@@ -192,6 +199,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   obscureText: true,
                   keyboardType: TextInputType.number,
                   maxLength: 6,
+                  style: AppTheme.bodyMedium(theme.colorScheme.onSurface),
+                  cursorColor: theme.colorScheme.onSurface,
                   decoration: InputDecoration(
                     labelText: 'Enter 6-digit PIN',
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
@@ -212,6 +221,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   controller: confirmPinController,
                   obscureText: true,
                   keyboardType: TextInputType.number,
+                  style: AppTheme.bodyMedium(theme.colorScheme.onSurface),
+                  cursorColor: theme.colorScheme.onSurface,
                   decoration: InputDecoration(
                     labelText: 'Confirm PIN',
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
@@ -391,6 +402,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
             obscureText: true,
             keyboardType: TextInputType.number,
             autofocus: true,
+            style: AppTheme.bodyMedium(theme.colorScheme.onSurface),
+            cursorColor: theme.colorScheme.onSurface,
             decoration: InputDecoration(
               labelText: 'Enter current PIN',
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
@@ -467,6 +480,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 keyboardType: TextInputType.number,
                 autofocus: true,
                 maxLength: 6,
+                style: AppTheme.bodyMedium(theme.colorScheme.onSurface),
+                cursorColor: theme.colorScheme.onSurface,
                 decoration: InputDecoration(
                   labelText: 'Enter new 6-digit PIN',
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
@@ -490,6 +505,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 controller: confirmPinController,
                 obscureText: true,
                 keyboardType: TextInputType.number,
+                style: AppTheme.bodyMedium(theme.colorScheme.onSurface),
+                cursorColor: theme.colorScheme.onSurface,
                 decoration: InputDecoration(
                   labelText: 'Confirm new PIN',
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
@@ -549,6 +566,34 @@ class _SettingsScreenState extends State<SettingsScreen> {
         type: SnackbarType.error,
       );
     }
+  }
+
+  void _navigateToBackup(BuildContext context) {
+    // Create backup service with dependencies
+    final encryptionService = EncryptionService();
+    final integrityService = IntegrityService();
+    final databaseService = DatabaseService(
+      encryptionService: encryptionService,
+      integrityService: integrityService,
+    );
+    final accountService = AccountService(databaseService: databaseService);
+    final backupService = BackupService(accountService: accountService);
+    
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => BackupScreen(backupService: backupService),
+      ),
+    );
+  }
+
+  void _navigateToPrivacyPolicy(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const PrivacyPolicyScreen(),
+      ),
+    );
   }
 
   Future<void> _showRemovePinDialog() async {
@@ -764,27 +809,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
                 const SizedBox(height: 24),
 
-                // Backup & Recovery Section (Future)
-                _buildSectionHeader('Backup & Recovery', theme),
+                // Backup & Recovery Section
+                _buildSectionHeader('Data Management', theme),
                 const SizedBox(height: 8),
                 _buildSettingCard(
                   context,
-                  icon: Icons.cloud_upload,
-                  title: 'Automated Backup (Future)',
-                  subtitle: 'Manual steps only for now—automation coming soon',
+                  icon: Icons.backup,
+                  title: 'Backup & Restore',
+                  subtitle: 'Encrypted backups of your accounts',
                   trailing: Icon(
                     Icons.arrow_forward_ios,
                     size: 16,
                     color: theme.colorScheme.onSurface.withValues(alpha: 0.3),
                   ),
-                  onTap: () {
-                    CustomSnackbar.show(
-                      context,
-                      title: 'Coming Soon',
-                      message: 'Automated backup/export will arrive in a future update. Keep offline copies of secrets until then.',
-                      type: SnackbarType.info,
-                    );
-                  },
+                  onTap: () => _navigateToBackup(context),
                 ),
                 const SizedBox(height: 24),
 
@@ -802,6 +840,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     color: theme.colorScheme.onSurface.withValues(alpha: 0.3),
                   ),
                   onTap: () => _openSecurityGuide(),
+                ),
+                const SizedBox(height: 24),
+
+                // Legal Section
+                _buildSectionHeader('Legal', theme),
+                const SizedBox(height: 8),
+                _buildSettingCard(
+                  context,
+                  icon: Icons.privacy_tip_outlined,
+                  title: 'Privacy Policy',
+                  subtitle: 'How we protect your data',
+                  trailing: Icon(
+                    Icons.arrow_forward_ios,
+                    size: 16,
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.3),
+                  ),
+                  onTap: () => _navigateToPrivacyPolicy(context),
                 ),
                 const SizedBox(height: 24),
 

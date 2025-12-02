@@ -6,7 +6,7 @@ plugins {
 }
 
 android {
-    namespace = "com.example.authenticator"
+    namespace = "com.cdac.authenticator"
     // mobile_scanner 7.x requires compileSdk 36
     compileSdk = 36
     ndkVersion = "29.0.14206865"
@@ -21,8 +21,8 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "com.example.authenticator"
+        // Application ID for CDAC Authenticator
+        applicationId = "com.cdac.authenticator"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
     // mobile_scanner 7.x requires minSdk 23 or higher
@@ -37,8 +37,14 @@ android {
             // Load keystore from environment variables or fallback to local file
             val keystoreFile = System.getenv("AUTHENTICATOR_KEYSTORE_FILE") ?: "release.keystore"
             
-            // Always treat as relative to android/app/ directory (where this build.gradle.kts is)
-            storeFile = file(keystoreFile)
+            // Use absolute path resolution to avoid path duplication issues
+            storeFile = if (keystoreFile.startsWith("/") || keystoreFile.contains(":")) {
+                // Absolute path provided
+                file(keystoreFile)
+            } else {
+                // Relative path - resolve from android/app/ directory
+                file("${projectDir}/${keystoreFile}")
+            }
             storePassword = System.getenv("AUTHENTICATOR_KEYSTORE_PASSWORD")
             keyAlias = System.getenv("AUTHENTICATOR_KEY_ALIAS") ?: "release"
             keyPassword = System.getenv("AUTHENTICATOR_KEY_PASSWORD")

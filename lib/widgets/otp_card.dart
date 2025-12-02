@@ -5,7 +5,6 @@ import 'package:flutter/services.dart';
 import '../../app/theme.dart';
 import '../../models/account.dart';
 import '../../services/icon_service.dart';
-import 'animated_button.dart';
 
 class OTPCard extends StatefulWidget {
   final AccountWithOTP account;
@@ -105,11 +104,21 @@ class _OTPCardState extends State<OTPCard> {
                     ),
                   ),
                   IconButton(
-                    icon: Icon(
-                      widget.account.isFavorite ? Icons.star : Icons.star_border,
-                      color: widget.account.isFavorite
-                          ? AppTheme.primaryColor
-                          : theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                    icon: AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 300),
+                      transitionBuilder: (child, animation) {
+                        return ScaleTransition(
+                          scale: animation,
+                          child: child,
+                        );
+                      },
+                      child: Icon(
+                        widget.account.isFavorite ? Icons.star : Icons.star_border,
+                        key: ValueKey(widget.account.isFavorite),
+                        color: widget.account.isFavorite
+                            ? AppTheme.primaryColor
+                            : theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                      ),
                     ),
                     tooltip: widget.account.isFavorite ? 'Remove from favorites' : 'Mark as favorite',
                     onPressed: widget.onFavoriteToggle,
@@ -261,97 +270,83 @@ class _OTPCardState extends State<OTPCard> {
     });
   }
   void _showDeleteConfirmationDialog(BuildContext context) {
-  showDialog(
-    context: context,
-    builder: (BuildContext context) {
-      final theme = Theme.of(context);
-      final colorScheme = theme.colorScheme;
-      return Dialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Header
-              Row(
-                children: [
-                  Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: colorScheme.error.withValues(alpha:0.1),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      Icons.delete_outline,
-                      color: colorScheme.error,
-                      size: 20,
-                    ),
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return Dialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 56,
+                  height: 56,
+                  decoration: BoxDecoration(
+                    color: colorScheme.error.withValues(alpha: 0.1),
+                    shape: BoxShape.circle,
                   ),
-                  const SizedBox(width: 12),
-                  Text(
-                    'Delete Account',
-                    style: AppTheme.bodyLarge(theme.colorScheme.onSurface)
-                        .copyWith(fontWeight: FontWeight.w600),
+                  child: Icon(
+                    Icons.delete_outline,
+                    color: colorScheme.error,
+                    size: 28,
                   ),
-                ],
-              ),
-              const SizedBox(height: 20),
-              
-              // Message
-              Text(
-                'This will permanently remove ${widget.account.account.displayName} from your Authenticator. '
-                'You will no longer be able to generate OTP codes for this account.',
-                style: AppTheme.bodyMedium(theme.colorScheme.onSurface.withValues(alpha:0.7)),
-              ),
-              const SizedBox(height: 24),
-              
-              // Buttons
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () => Navigator.of(context).pop(),
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 8),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Delete ${widget.account.account.issuer}?',
+                  style: AppTheme.headlineMedium(colorScheme.onSurface),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'This will permanently remove this account and you won\'t be able to generate codes.',
+                  style: AppTheme.bodyMedium(colorScheme.onSurface.withValues(alpha: 0.7)),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 24),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
                         ),
-                      ),
-                      child: Text(
-                        'Cancel',
-                        style: AppTheme.bodyMedium(theme.colorScheme.onSurface),
+                        child: Text('Cancel', style: AppTheme.bodyMedium(colorScheme.onSurface)),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: AnimatedButton(
-                      onTap: () {
-                        Navigator.of(context).pop();
-                        widget.onDelete();
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        decoration: BoxDecoration(
-                          color: colorScheme.error,
-                          borderRadius: BorderRadius.circular(12),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: () {
+                          Navigator.of(context).pop();
+                          widget.onDelete();
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: colorScheme.error,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
                         ),
-                        child: Center(child: Text('Delete', style: AppTheme.bodyMedium(Colors.white))),
+                        child: const Text('Delete', style: TextStyle(color: Colors.white)),
                       ),
                     ),
-                  ),
-                ],
-              ),
-            ],
+                  ],
+                ),
+              ],
+            ),
           ),
-        ),
-      );
-    },
-  );
-}
+        );
+      },
+    );
+  }
 }

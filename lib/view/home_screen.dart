@@ -17,7 +17,6 @@ import '../services/totp_service.dart';
 import '../widgets/animated_button.dart';
 import '../widgets/animated_fab.dart';
 import '../widgets/skeleton.dart';
-import '../widgets/staggered_list.dart';
 import '../widgets/custom_snackbar.dart';
 import '../widgets/filter_modal.dart';
 import '../widgets/empty_state_widget.dart';
@@ -25,6 +24,7 @@ import '../widgets/no_results_widget.dart';
 import '../widgets/accounts_header_widget.dart';
 import '../widgets/add_account_modal.dart';
 import '../widgets/otp_card.dart';
+import '../widgets/animated_account_list.dart';
 
 // Screens
 import 'qr_scan_screen.dart';
@@ -42,7 +42,6 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateMixin {
   bool _fabOpen = false;
-  final StaggeredListController<AccountWithOTP> _listController = StaggeredListController<AccountWithOTP>();
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
   bool _isSearchVisible = false;
@@ -318,35 +317,210 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
           },
           secondsRemaining: secondsRemaining,
         ),
-        // Accounts List
+        // Accounts List with Pull-to-Refresh
         Expanded(
           child: filteredAccounts.isEmpty
               ? NoResultsWidget(
                   viewModel: viewModel,
                   onClearFilters: () => _clearFilters(viewModel),
                 )
-              : Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: StaggeredList<AccountWithOTP>(
-                    key: ValueKey('accounts_${filteredAccounts.length}_${viewModel.hasActiveFilters}'),
-                    controller: _listController,
-                    items: filteredAccounts,
-                    itemBuilder: (context, index, item, animation) {
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 12),
-                        child: OTPCard(
-                          account: item,
-                          onDelete: () => _deleteAccount(context, item.account.id),
-                          onTap: () {},
-                          onFavoriteToggle: () => viewModel.toggleFavorite(item.account.id),
-                        ),
-                      );
-                    },
+              : RefreshIndicator(
+                  onRefresh: () async {
+                    HapticFeedback.lightImpact();
+                    await viewModel.reloadAfterUnlock();
+                  },
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: AnimatedAccountList(
+                      items: filteredAccounts,
+                      itemBuilder: (context, item, animation) {
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: _buildSwipeableCard(context, item, viewModel),
+                        );
+                      },
+                    ),
                   ),
                 ),
         ),
       ],
     );
+  }
+
+  Widget _buildSwipeableCard(BuildContext context, AccountWithOTP item, AccountViewModel viewModel) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    
+    return Dismissible(
+      key: Key(item.account.id),
+      background: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        decoration: BoxDecoration(
+          color: AppTheme.primaryColor,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        alignment: Alignment.centerLeft,
+        padding: const EdgeInsets.only(left: 24),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              item.isFavorite ? Icons.star_border : Icons.star,
+              color: Colors.white,
+              size: 28,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              item.isFavorite ? 'Unfavorite' : 'Favorite',
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
+      secondaryBackground: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        decoration: BoxDecoration(
+          color: colorScheme.error,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 24),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: const [
+            Icon(
+              Icons.delete_outline,
+              color: Colors.white,
+              size: 28,
+            ),
+            SizedBox(height: 4),
+            Text(
+              'Delete',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
+      confirmDismiss: (direction) async {
+        if (direction == DismissDirection.startToEnd) {
+          // Swipe right - Toggle favorite
+          HapticFeedback.mediumImpact();
+          await viewModel.toggleFavorite(item.account.id);
+          return false; // Don't dismiss
+        } else {
+          // Swipe left - Delete with confirmation
+          HapticFeedback.mediumImpact();
+          final confirmed = await _showQuickDeleteConfirmation(context, item);
+          return confirmed; // Return true to dismiss if confirmed
+        }
+      },
+      onDismissed: (direction) async {
+        // Only called when confirmDismiss returns true (delete confirmed)
+        if (direction == DismissDirection.endToStart) {
+          final success = await viewModel.deleteAccount(item.account.id);
+          if (mounted && success) {
+            CustomSnackbar.show(
+              context,
+              title: 'Account Deleted',
+              message: '${item.account.issuer} was removed from Authenticator.',
+              type: SnackbarType.error,
+            );
+          }
+        }
+      },
+      child: OTPCard(
+        account: item,
+        onDelete: () => _deleteAccountWithButton(context, item.account.id),
+        onTap: () {},
+        onFavoriteToggle: () => viewModel.toggleFavorite(item.account.id),
+      ),
+    );
+  }
+
+  Future<bool> _showQuickDeleteConfirmation(BuildContext context, AccountWithOTP item) async {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 56,
+                height: 56,
+                decoration: BoxDecoration(
+                  color: colorScheme.error.withValues(alpha: 0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.delete_outline,
+                  color: colorScheme.error,
+                  size: 28,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Delete ${item.account.issuer}?',
+                style: AppTheme.headlineMedium(colorScheme.onSurface),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'This will permanently remove this account and you won\'t be able to generate codes.',
+                style: AppTheme.bodyMedium(colorScheme.onSurface.withValues(alpha: 0.7)),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 24),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.of(context).pop(false),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: Text('Cancel', style: AppTheme.bodyMedium(colorScheme.onSurface)),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () => Navigator.of(context).pop(true),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: colorScheme.error,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: const Text('Delete', style: TextStyle(color: Colors.white)),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    
+    return result ?? false;
   }
 
   void _clearFilters(AccountViewModel viewModel) {
@@ -416,28 +590,16 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     }
   }
 
-  Future<void> _deleteAccount(BuildContext context, String accountId) async {
+  // Delete via button click (with dialog confirmation)
+  Future<void> _deleteAccountWithButton(BuildContext context, String accountId) async {
     final viewModel = context.read<AccountViewModel>();
-    final index = viewModel.filteredAccounts.indexWhere((a) => a.account.id == accountId);
-
-    if (index != -1) {
-      try {
-        await _listController.removeAt(index, (removedItem, animation) {
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: OTPCard(
-              account: removedItem,
-              onDelete: () {},
-              onTap: () {},
-              onFavoriteToggle: () {},
-            ),
-          );
-        });
-      } catch (_) {
-        // ignore animation errors and continue to delete
-      }
-    }
-
+    final account = viewModel.filteredAccounts.firstWhere((a) => a.account.id == accountId);
+    
+    // Show confirmation dialog
+    final confirmed = await _showQuickDeleteConfirmation(context, account);
+    if (!confirmed) return;
+    
+    // Delete the account
     final success = await viewModel.deleteAccount(accountId);
     if (!mounted) return;
 
@@ -445,7 +607,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
       CustomSnackbar.show(
         context,
         title: 'Account Deleted',
-        message: 'This account and its OTPs were removed from Authenticator.',
+        message: '${account.account.issuer} was removed from Authenticator.',
         type: SnackbarType.error,
       );
     }

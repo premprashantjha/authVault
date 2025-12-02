@@ -71,10 +71,14 @@ class DatabaseService {
       final List<Account> accounts = [];
       for (final map in maps) {
         try {
-          // Decrypt secret key
+          // Decrypt secret key (bind to issuer|accountName as AAD)
           final encryptedSecret = map['secretKey'] as String;
-          final decryptedSecret = await _encryptionService.decrypt(encryptedSecret);
-          
+          final associatedData = '${map['issuer']}|${map['accountName']}';
+          final decryptedSecret = await _encryptionService.decrypt(
+            encryptedSecret,
+            associatedData: associatedData,
+          );
+
           accounts.add(Account.fromMap({
             ...map,
             'secretKey': decryptedSecret,
@@ -106,8 +110,12 @@ class DatabaseService {
     try {
       final db = await database;
       
-      // Encrypt secret key before storage
-      final encryptedSecret = await _encryptionService.encrypt(account.secretKey);
+      // Encrypt secret key before storage and bind ciphertext to issuer|accountName
+      final associatedData = '${account.issuer}|${account.accountName}';
+      final encryptedSecret = await _encryptionService.encrypt(
+        account.secretKey,
+        associatedData: associatedData,
+      );
       
       await db.insert(
         _tableName,
@@ -146,8 +154,12 @@ class DatabaseService {
     try {
       final db = await database;
       
-      // Encrypt secret key before storage
-      final encryptedSecret = await _encryptionService.encrypt(account.secretKey);
+      // Encrypt secret key before storage and bind ciphertext to issuer|accountName
+      final associatedData = '${account.issuer}|${account.accountName}';
+      final encryptedSecret = await _encryptionService.encrypt(
+        account.secretKey,
+        associatedData: associatedData,
+      );
       
       await db.update(
         _tableName,
@@ -206,6 +218,45 @@ class DatabaseService {
         debugPrint('DatabaseService: Error checking account existence: $e');
       }
       return false;
+    }
+  }
+
+  /// Get an account by issuer and accountName (returns decrypted secret)
+  Future<Account?> getAccountByIssuerAndName(String issuer, String accountName) async {
+    try {
+      final db = await database;
+      final result = await db.query(
+        _tableName,
+        where: 'issuer = ? AND accountName = ?',
+        whereArgs: [issuer, accountName],
+        limit: 1,
+      );
+
+      if (result.isEmpty) return null;
+
+      final map = result.first;
+      try {
+        final encryptedSecret = map['secretKey'] as String;
+        final associatedData = '${map['issuer']}|${map['accountName']}';
+        final decryptedSecret = await _encryptionService.decrypt(
+          encryptedSecret,
+          associatedData: associatedData,
+        );
+        return Account.fromMap({
+          ...map,
+          'secretKey': decryptedSecret,
+        });
+      } catch (e) {
+        if (kDebugMode) {
+          debugPrint('DatabaseService: Error decrypting account ${map['id']}: $e');
+        }
+        return null;
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('DatabaseService: Error fetching account by issuer/name: $e');
+      }
+      return null;
     }
   }
 

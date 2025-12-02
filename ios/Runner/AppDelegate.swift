@@ -13,6 +13,14 @@ import Security
     // Optimize startup: register plugins first (required)
     GeneratedPluginRegistrant.register(with: self)
     
+    // Prevent screenshots and screen recording for security
+    NotificationCenter.default.addObserver(
+      self,
+      selector: #selector(applicationWillResignActive),
+      name: UIApplication.willResignActiveNotification,
+      object: nil
+    )
+    
     // Defer keystore channel setup to avoid blocking startup
     // This will be initialized on first use
     DispatchQueue.main.async { [weak self] in
@@ -20,6 +28,25 @@ import Security
     }
     
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
+  }
+  
+  @objc func applicationWillResignActive(_ notification: Notification) {
+    // Hide sensitive content when app goes to background
+    // This prevents screenshots in app switcher
+    if let window = self.window {
+      let blurEffect = UIBlurEffect(style: .light)
+      let blurView = UIVisualEffectView(effect: blurEffect)
+      blurView.frame = window.bounds
+      blurView.tag = 999 // Tag to identify and remove later
+      window.addSubview(blurView)
+    }
+  }
+  
+  override func applicationDidBecomeActive(_ application: UIApplication) {
+    // Remove blur overlay when app becomes active
+    if let window = self.window {
+      window.subviews.filter { $0.tag == 999 }.forEach { $0.removeFromSuperview() }
+    }
   }
   
   private func setupKeystoreChannel() {
@@ -68,11 +95,37 @@ import Security
         } catch {
           result(FlutterError(code: "keystore_error", message: error.localizedDescription, details: nil))
         }
+      case "isKeyHardwareBacked":
+        let args = call.arguments as? [String: Any]
+        let alias = args?["alias"] as? String ?? "authenticator_key"
+        let isHw = self.isKeyHardwareBacked(alias: alias)
+        result(isHw)
       default:
         result(FlutterMethodNotImplemented)
       }
     }
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
+  }
+
+  // Check whether a key with the given alias is stored in Secure Enclave
+  private func isKeyHardwareBacked(alias: String) -> Bool {
+    let tag = alias.data(using: .utf8)!
+    let query: [String: Any] = [kSecClass as String: kSecClassKey,
+                                kSecAttrApplicationTag as String: tag,
+                                kSecAttrKeyType as String: kSecAttrKeyTypeRSA,
+                                kSecReturnRef as String: true]
+    var item: CFTypeRef?
+    let status = SecItemCopyMatching(query as CFDictionary, &item)
+    if status != errSecSuccess { return false }
+    guard let key = item as! SecKey? else { return false }
+
+    // Inspect attributes - token ID indicates Secure Enclave
+    if let attrs = SecKeyCopyAttributes(key) as? [CFString: Any],
+       let tokenId = attrs[kSecAttrTokenID] as? String {
+      return tokenId == kSecAttrTokenIDSecureEnclave as String
+    }
+
+    return false
   }
 
   // iOS Secure Enclave / Keychain helpers

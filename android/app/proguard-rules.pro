@@ -70,7 +70,7 @@
 -keep class java.security.** { *; }
 
 # Keep application class
--keep class com.example.authenticator.** { *; }
+-keep class com.cdac.authenticator.** { *; }
 
 # Don't warn about missing classes
 -dontwarn javax.annotation.**

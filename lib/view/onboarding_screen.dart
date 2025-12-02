@@ -20,6 +20,10 @@ class OnboardingScreen extends StatefulWidget {
   final bool allowSkip;
   final bool isReviewMode;
   final int initialPageIndex;
+  final VoidCallback? onSetupPin;
+  final VoidCallback? onEnableBiometrics;
+  final VoidCallback? onOpenDiagnostics;
+  final VoidCallback? onEnablePassphrase;
 
   const OnboardingScreen({
     super.key,
@@ -27,6 +31,10 @@ class OnboardingScreen extends StatefulWidget {
     this.allowSkip = true,
     this.isReviewMode = false,
     this.initialPageIndex = 0,
+    this.onSetupPin,
+    this.onEnableBiometrics,
+    this.onOpenDiagnostics,
+    this.onEnablePassphrase,
   });
 
   @override
@@ -41,22 +49,22 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   static const List<OnboardingSlide> _slides = [
     OnboardingSlide(
       title: 'Your Vault Stays Local',
-      description: 'All secrets are encrypted with AES-256 and never leave this device.',
+      description: 'All secrets are encrypted with XChaCha20-Poly1305 and never leave this device.',
       icon: Icons.security,
       tips: [
         'No cloud sync or telemetry',
-        'Hardware-backed key storage',
+        'Hybrid key storage: secure-storage + keystore when available',
         'Only you control your data',
       ],
     ),
     OnboardingSlide(
       title: 'Lock It Down',
-      description: 'Add a strong PIN and enable biometrics to protect the vault.',
+      description: 'Add a strong PIN and enable biometrics to protect the vault and app access.',
       icon: Icons.lock_outline,
       tips: [
-        'Use 6+ digit PIN that is unique',
+        'Use 6 digit PIN that is unique',
         'Biometric is optional but convenient',
-        'App relocks automatically after 5 minutes',
+        'App relocks automatically after configurable timeout',
       ],
     ),
     OnboardingSlide(
@@ -78,6 +86,16 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         'Save each provider\'s backup codes or recovery paths in the same protected location',
         'Use an encrypted password manager, hardware key, or physical safe—never screenshots or email',
         'Test recovery on a spare device before wiping or upgrading your primary phone',
+      ],
+    ),
+    OnboardingSlide(
+      title: 'Optional Extra Protection',
+      description: 'Enable an optional passphrase or open diagnostics to verify keystore and storage mode.',
+      icon: Icons.verified_user,
+      tips: [
+        'Add a passphrase to protect keys on compromised devices',
+        'Open diagnostics to see if the keystore is hardware-backed',
+        'Passphrase can be required to export or restore backups',
       ],
     ),
   ];
@@ -199,6 +217,64 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                             ),
                           ),
                         ),
+                        const SizedBox(height: 8),
+                        // Actions for specific slides
+                        if (slide.title == 'Lock It Down')
+                          Padding(
+                            padding: const EdgeInsets.only(top: 8.0),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: OutlinedButton.icon(
+                                    onPressed: widget.onSetupPin,
+                                    icon: const Icon(Icons.pin),
+                                    label: const Text('Set PIN'),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: ElevatedButton.icon(
+                                    onPressed: widget.onEnableBiometrics,
+                                    icon: const Icon(Icons.fingerprint),
+                                    label: const Text('Enable Biometrics'),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+
+                        if (slide.title == 'Optional Extra Protection')
+                          Padding(
+                            padding: const EdgeInsets.only(top: 8.0),
+                            child: Column(
+                              children: [
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: OutlinedButton(
+                                        onPressed: widget.onEnablePassphrase,
+                                        child: const Text('Add Passphrase'),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: ElevatedButton(
+                                        onPressed: widget.onOpenDiagnostics,
+                                        child: const Text('Open Diagnostics'),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  'Passphrase is optional but provides protection on rooted devices and during backups.',
+                                  style: AppTheme.small(theme.colorScheme.onSurface).copyWith(
+                                    color: theme.colorScheme.onSurface.withValues(alpha: 0.75),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
                       ],
                     ),
                   );
