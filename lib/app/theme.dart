@@ -2,12 +2,28 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 class AppTheme {
-  // Brand palette
-  static const Color primaryColor = Color(0xFF7C3AED);
-  static const Color secondaryColor = Color(0xFFEC4899);
-  static const Color tertiaryColor = Color(0xFF22C55E);
-  static const Color errorColor = Color(0xFFFF6B6B);
+  // CDAC Brand Colors - Professional Navy Blue Palette
+  static const Color primaryColor = Color(0xFF03176D); // CDAC Navy Blue
+  static const Color primaryLight = Color(0xFF1E3A8A); // Lighter navy for accents
+  static const Color primaryDark = Color(0xFF020F4D); // Darker navy for depth
+  static const Color accentColor = Color(0xFF3B82F6); // Bright blue for highlights
+  static const Color secondaryColor = Color(0xFF0EA5E9); // Sky blue for secondary actions
+  static const Color tertiaryColor = Color(0xFF10B981); // Success green
+  static const Color errorColor = Color(0xFFEF4444); // Error red
+  static const Color warningColor = Color(0xFFF59E0B); // Warning amber
   static const Color successColor = tertiaryColor;
+  
+  // Neutral Colors - Professional Gray Scale
+  static const Color neutralGray50 = Color(0xFFF8FAFC);
+  static const Color neutralGray100 = Color(0xFFF1F5F9);
+  static const Color neutralGray200 = Color(0xFFE2E8F0);
+  static const Color neutralGray300 = Color(0xFFCBD5E1);
+  static const Color neutralGray400 = Color(0xFF94A3B8);
+  static const Color neutralGray500 = Color(0xFF64748B);
+  static const Color neutralGray600 = Color(0xFF475569);
+  static const Color neutralGray700 = Color(0xFF334155);
+  static const Color neutralGray800 = Color(0xFF1E293B);
+  static const Color neutralGray900 = Color(0xFF0F172A);
 
   // Typography - Professional & Clean
   static const String fontFamily = 'SF Pro Display'; // Fallback to system default
@@ -47,83 +63,83 @@ class AppTheme {
   static const FontWeight weightRegular = FontWeight.w400;
   static const FontWeight weightLight = FontWeight.w300;
 
-  // Light tokens
-  static const Color lightBackgroundColor = Color(0xFFF5F5FA);
-  static const Color lightSurfaceColor = Color(0xFFFFFFFF);
-  static const Color lightOnSurfaceColor = Color(0xFF1A1B2E);
+  // Light Theme Colors - Clean & Professional
+  static const Color lightBackgroundColor = neutralGray50;
+  static const Color lightSurfaceColor = Colors.white;
+  static const Color lightOnSurfaceColor = neutralGray900;
 
-  // Dark tokens
-  static const Color darkBackgroundColor = Color(0xFF0F1020);
-  static const Color darkSurfaceColor = Color(0xFF191A2C);
-  static const Color darkOnSurfaceColor = Color(0xFFE2E8F0);
+  // Dark Theme Colors - Sophisticated Navy
+  static const Color darkBackgroundColor = Color(0xFF0A0E1F); // Very dark navy
+  static const Color darkSurfaceColor = Color(0xFF141829); // Dark navy surface
+  static const Color darkOnSurfaceColor = neutralGray100;
 
-  // High-contrast Material 3 color schemes
+  // High-contrast Material 3 color schemes with CDAC branding
   static const ColorScheme _lightColorScheme = ColorScheme(
     brightness: Brightness.light,
-    primary: primaryColor,
+    primary: primaryColor, // CDAC Navy
     onPrimary: Colors.white,
-    primaryContainer: Color(0xFFE8DDFF),
-    onPrimaryContainer: Color(0xFF2E1065),
-    secondary: secondaryColor,
+    primaryContainer: Color(0xFFDBE3FF), // Light blue container
+    onPrimaryContainer: primaryDark,
+    secondary: secondaryColor, // Sky blue
     onSecondary: Colors.white,
-    secondaryContainer: Color(0xFFFFD3E8),
-    onSecondaryContainer: Color(0xFF4A0F2F),
-    tertiary: tertiaryColor,
-    onTertiary: Color(0xFF00270E),
-    tertiaryContainer: Color(0xFFA8F2C3),
-    onTertiaryContainer: Color(0xFF00200A),
+    secondaryContainer: Color(0xFFE0F2FE),
+    onSecondaryContainer: Color(0xFF075985),
+    tertiary: tertiaryColor, // Success green
+    onTertiary: Colors.white,
+    tertiaryContainer: Color(0xFFD1FAE5),
+    onTertiaryContainer: Color(0xFF065F46),
     error: errorColor,
     onError: Colors.white,
-    errorContainer: Color(0xFFFFDAD6),
-    onErrorContainer: Color(0xFF410002),
+    errorContainer: Color(0xFFFEE2E2),
+    onErrorContainer: Color(0xFF991B1B),
     background: lightBackgroundColor,
     onBackground: lightOnSurfaceColor,
     surface: lightSurfaceColor,
     onSurface: lightOnSurfaceColor,
-    surfaceVariant: Color(0xFFE3DFF5),
-    onSurfaceVariant: Color(0xFF4A4767),
-    outline: Color(0xFF7C7894),
-    outlineVariant: Color(0xFFC9C4DE),
+    surfaceVariant: neutralGray100,
+    onSurfaceVariant: neutralGray700,
+    outline: neutralGray300,
+    outlineVariant: neutralGray200,
     shadow: Colors.black,
     scrim: Colors.black,
-    inverseSurface: Color(0xFF2F3042),
-    onInverseSurface: Color(0xFFF0EFF9),
-    inversePrimary: Color(0xFFD0BCFF),
+    inverseSurface: neutralGray800,
+    onInverseSurface: neutralGray100,
+    inversePrimary: accentColor,
     surfaceTint: primaryColor,
   );
 
   static const ColorScheme _darkColorScheme = ColorScheme(
     brightness: Brightness.dark,
-    primary: primaryColor,
+    primary: accentColor, // Brighter blue for dark mode
     onPrimary: Colors.white,
-    primaryContainer: Color(0xFF4C1D95),
-    onPrimaryContainer: Color(0xFFF1E4FF),
+    primaryContainer: primaryColor, // CDAC Navy as container
+    onPrimaryContainer: Color(0xFFDBE3FF),
     secondary: secondaryColor,
     onSecondary: Colors.white,
-    secondaryContainer: Color(0xFF6B103D),
-    onSecondaryContainer: Color(0xFFFFE8F4),
+    secondaryContainer: Color(0xFF075985),
+    onSecondaryContainer: Color(0xFFE0F2FE),
     tertiary: tertiaryColor,
-    onTertiary: Color(0xFF00220E),
-    tertiaryContainer: Color(0xFF0D5A2C),
-    onTertiaryContainer: Color(0xFFBFFFD7),
-    error: errorColor,
-    onError: Colors.white,
-    errorContainer: Color(0xFF8C1D18),
-    onErrorContainer: Color(0xFFFFDAD4),
+    onTertiary: Colors.white,
+    tertiaryContainer: Color(0xFF065F46),
+    onTertiaryContainer: Color(0xFFD1FAE5),
+    error: Color(0xFFFCA5A5), // Lighter error for dark mode
+    onError: Color(0xFF7F1D1D),
+    errorContainer: Color(0xFF991B1B),
+    onErrorContainer: Color(0xFFFEE2E2),
     background: darkBackgroundColor,
     onBackground: darkOnSurfaceColor,
     surface: darkSurfaceColor,
     onSurface: darkOnSurfaceColor,
-    surfaceVariant: Color(0xFF2D2F45),
-    onSurfaceVariant: Color(0xFFCAC4DD),
-    outline: Color(0xFF908BA9),
-    outlineVariant: Color(0xFF3F4156),
+    surfaceVariant: Color(0xFF1E293B),
+    onSurfaceVariant: neutralGray300,
+    outline: neutralGray600,
+    outlineVariant: neutralGray700,
     shadow: Colors.black,
     scrim: Colors.black,
-    inverseSurface: Color(0xFFE4E1F7),
-    onInverseSurface: Color(0xFF292A35),
-    inversePrimary: Color(0xFFD0BCFF),
-    surfaceTint: primaryColor,
+    inverseSurface: neutralGray100,
+    onInverseSurface: neutralGray900,
+    inversePrimary: primaryColor,
+    surfaceTint: accentColor,
   );
 
   static ThemeData get lightTheme => _buildTheme(_lightColorScheme);
@@ -164,7 +180,12 @@ class AppTheme {
         foregroundColor: colorScheme.onSurface,
         elevation: 0,
         centerTitle: false,
-        systemOverlayStyle: isDark ? SystemUiOverlayStyle.light : SystemUiOverlayStyle.dark,
+        systemOverlayStyle: isDark 
+            ? SystemUiOverlayStyle.light 
+            : SystemUiOverlayStyle.dark.copyWith(
+                statusBarColor: Colors.transparent,
+                statusBarIconBrightness: Brightness.dark,
+              ),
         titleTextStyle: TextStyle(
           fontSize: fontSizeHeadlineMedium,
           fontWeight: weightSemiBold,
@@ -175,7 +196,8 @@ class AppTheme {
       cardTheme: CardThemeData(
         color: colorScheme.surface,
         margin: EdgeInsets.zero,
-        shadowColor: Colors.black.withValues(alpha: isDark ? 0.25 : 0.08),
+        elevation: isDark ? 2 : 1,
+        shadowColor: Colors.black.withValues(alpha: isDark ? 0.3 : 0.08),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       ),
       bottomSheetTheme: BottomSheetThemeData(
@@ -218,8 +240,8 @@ class AppTheme {
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: isDark
-            ? colorScheme.surface.withValues(alpha: 0.7)
-            : colorScheme.surfaceVariant.withValues(alpha: 0.6),
+            ? colorScheme.surfaceVariant.withValues(alpha: 0.5)
+            : colorScheme.surfaceVariant.withValues(alpha: 0.4),
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
@@ -231,12 +253,20 @@ class AppTheme {
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
-          borderSide: BorderSide(color: colorScheme.primary, width: 1.4),
+          borderSide: BorderSide(color: colorScheme.primary, width: 2),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: BorderSide(color: colorScheme.error, width: 1.5),
+        ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: BorderSide(color: colorScheme.error, width: 2),
         ),
         hintStyle: TextStyle(
           fontSize: fontSizeBody,
           fontWeight: weightRegular,
-          color: colorScheme.onSurface.withValues(alpha: 0.55),
+          color: colorScheme.onSurface.withValues(alpha: 0.5),
           fontFamily: fontFamily,
         ),
         labelStyle: TextStyle(
@@ -251,29 +281,29 @@ class AppTheme {
           backgroundColor: colorScheme.primary,
           foregroundColor: colorScheme.onPrimary,
           minimumSize: const Size.fromHeight(48),
+          elevation: isDark ? 2 : 1,
+          shadowColor: colorScheme.primary.withValues(alpha: 0.3),
           textStyle: TextStyle(
             fontSize: fontSizeBodyLarge,
             fontWeight: weightSemiBold,
-            color: colorScheme.onPrimary,
             fontFamily: fontFamily,
             letterSpacing: 0.2,
           ),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
-          foregroundColor: colorScheme.onSurface,
+          foregroundColor: colorScheme.primary,
           minimumSize: const Size.fromHeight(48),
           textStyle: TextStyle(
             fontSize: fontSizeBodyLarge,
             fontWeight: weightSemiBold,
-            color: colorScheme.onSurface,
             fontFamily: fontFamily,
             letterSpacing: 0.2,
           ),
-          side: BorderSide(color: colorScheme.outline.withValues(alpha: 0.5)),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          side: BorderSide(color: colorScheme.primary.withValues(alpha: 0.5), width: 1.5),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         ),
       ),
       textButtonTheme: TextButtonThemeData(
@@ -282,7 +312,6 @@ class AppTheme {
           textStyle: TextStyle(
             fontSize: fontSizeBody,
             fontWeight: weightSemiBold,
-            color: colorScheme.primary,
             fontFamily: fontFamily,
             letterSpacing: 0.1,
           ),
@@ -304,7 +333,7 @@ class AppTheme {
         }),
         trackColor: MaterialStateProperty.resolveWith((states) {
           if (states.contains(MaterialState.selected)) {
-            return colorScheme.primary.withValues(alpha: 0.7);
+            return colorScheme.primary;
           }
           return colorScheme.surfaceVariant;
         }),
@@ -316,18 +345,19 @@ class AppTheme {
         }),
       ),
       dividerTheme: DividerThemeData(
-        color: colorScheme.outlineVariant.withValues(alpha: 0.4),
+        color: colorScheme.outlineVariant.withValues(alpha: 0.5),
         thickness: 1,
         space: 32,
       ),
       listTileTheme: ListTileThemeData(
-        iconColor: colorScheme.onSurfaceVariant,
+        iconColor: colorScheme.primary,
         textColor: colorScheme.onSurface,
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       ),
       floatingActionButtonTheme: FloatingActionButtonThemeData(
         backgroundColor: colorScheme.primary,
         foregroundColor: colorScheme.onPrimary,
+        elevation: isDark ? 4 : 2,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       ),
       chipTheme: base.chipTheme.copyWith(
@@ -339,6 +369,10 @@ class AppTheme {
           color: colorScheme.onSurface,
           fontFamily: fontFamily,
         ),
+      ),
+      progressIndicatorTheme: ProgressIndicatorThemeData(
+        color: colorScheme.primary,
+        circularTrackColor: colorScheme.surfaceVariant,
       ),
     );
   }
@@ -401,18 +435,45 @@ class AppTheme {
         height: 1.3,
       );
 
-  // Gradients and shadows still available for custom widgets
+  // Gradients with CDAC branding
   static Gradient get primaryGradient => const LinearGradient(
-        colors: [primaryColor, secondaryColor],
+        colors: [primaryColor, primaryLight, accentColor],
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+      );
+      
+  static Gradient get subtleGradient => LinearGradient(
+        colors: [
+          primaryColor.withValues(alpha: 0.1),
+          accentColor.withValues(alpha: 0.05),
+        ],
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
       );
 
   static List<BoxShadow> get cardShadow => [
         BoxShadow(
-          color: Colors.black.withValues(alpha: 0.15),
+          color: primaryColor.withValues(alpha: 0.08),
           blurRadius: 16,
+          offset: const Offset(0, 4),
+        ),
+        BoxShadow(
+          color: Colors.black.withValues(alpha: 0.04),
+          blurRadius: 8,
+          offset: const Offset(0, 2),
+        ),
+      ];
+      
+  static List<BoxShadow> get elevatedShadow => [
+        BoxShadow(
+          color: primaryColor.withValues(alpha: 0.12),
+          blurRadius: 24,
           offset: const Offset(0, 8),
+        ),
+        BoxShadow(
+          color: Colors.black.withValues(alpha: 0.06),
+          blurRadius: 12,
+          offset: const Offset(0, 4),
         ),
       ];
 }

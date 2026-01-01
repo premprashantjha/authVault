@@ -49,10 +49,15 @@ class _QRScanScreenState extends State<QRScanScreen> with WidgetsBindingObserver
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (!mounted) return;
+    
+    // Prevent camera restart during navigation transitions
     if (state == AppLifecycleState.inactive) {
       _cameraController.stop();
     } else if (state == AppLifecycleState.resumed) {
-      _cameraController.start();
+      // Only restart camera if we're still on this screen
+      if (mounted && ModalRoute.of(context)?.isCurrent == true) {
+        _cameraController.start();
+      }
     }
   }
 
@@ -93,42 +98,21 @@ class _QRScanScreenState extends State<QRScanScreen> with WidgetsBindingObserver
     final account = Account.fromOTPAuthURI(otpAuth);
     final viewModel = context.read<AccountViewModel>();
 
-    if (kDebugMode) {
-      debugPrint('QR: Adding account ${account.issuer} - ${account.accountName}');
-    }
-
     // Check if account already exists
     final exists = await viewModel.accountExists(account);
 
     if (exists && mounted) {
-      if (kDebugMode) {
-        debugPrint('QR: Account already exists, showing dialog');
-      }
       _showDuplicateAccountDialog(account, viewModel);
     } else {
-      if (kDebugMode) {
-        debugPrint('QR: Calling viewModel.addAccount...');
-      }
       final success = await viewModel.addAccount(account);
-      if (kDebugMode) {
-        debugPrint('QR: addAccount returned: $success');
-      }
 
       if (success && mounted) {
         HapticFeedback.lightImpact();
 
-        final navigator = Navigator.of(context);
-
-        if (kDebugMode) {
-          debugPrint('QR: Popping back to Home...');
-        }
-        CustomSnackbar.show(
-          context,
-          title: 'Account Added',
-          message: '${account.issuer} account has been securely added.',
-          type: SnackbarType.success,
-        );
-        navigator.pop(true);
+        if (!mounted) return;
+        
+        // Pop and return success
+        Navigator.of(context).pop(true);
       } else if (mounted) {
         _setError('Failed to add account. Please try again.');
       }

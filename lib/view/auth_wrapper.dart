@@ -1,19 +1,11 @@
-import 'dart:ui';
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:local_auth/local_auth.dart';
 import '../app/theme.dart';
-import '../services/auth_service.dart';
+import '../app/app_constants.dart';
 import '../view_models/account_view_model.dart';
-import 'auth_screen.dart';
 import 'home_screen.dart';
 
-/// Wrapper that handles app-level authentication
-/// Features:
-/// - Automatic re-lock when app goes to background
-/// - Timeout-based re-lock (5 minutes)
-/// - Rate limiting protection
 class AuthWrapper extends StatefulWidget {
   const AuthWrapper({super.key});
 
@@ -22,11 +14,10 @@ class AuthWrapper extends StatefulWidget {
 }
 
 class _AuthWrapperState extends State<AuthWrapper> with WidgetsBindingObserver {
-  AuthService? _authService;
-  bool _isInitialized = false;
+  final LocalAuthentication _localAuth = LocalAuthentication();
   bool _isAuthenticated = false;
-  bool _authEnabled = false;
   bool _showPrivacyOverlay = false;
+  bool _wasInBackground = false;
 
   @override
   void initState() {
@@ -44,78 +35,88 @@ class _AuthWrapperState extends State<AuthWrapper> with WidgetsBindingObserver {
   /// Handle app lifecycle changes (background/foreground)
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive) {
+    if (state == AppLifecycleState.paused) {
+      _wasInBackground = true;
       _showPrivacyShield();
-    } else if (state == AppLifecycleState.resumed) {
+    } else if (state == AppLifecycleState.resumed && _wasInBackground) {
+      _wasInBackground = false;
       _dismissPrivacyShield();
-      if (_authService != null && _authEnabled) {
-        _checkAndRelock();
-      }
-    }
-  }
-
-  Future<void> _checkAndRelock() async {
-    if (_authService == null || !_authEnabled) return;
-    
-    final shouldRelock = await _authService!.shouldRelock();
-    if (shouldRelock && mounted) {
+      
       context.read<AccountViewModel>().purgeSensitiveData();
+      
       setState(() {
-        _isAuthenticated = false; // Re-lock the app
+        _isAuthenticated = false;
       });
-    } else if (!shouldRelock) {
-      // Update unlock time to prevent immediate re-lock
-      await _authService!.updateLastUnlockTime();
+      _authenticate();
+    } else if (state == AppLifecycleState.inactive) {
+      _showPrivacyShield();
+    } else if (state == AppLifecycleState.resumed && !_wasInBackground) {
+      _dismissPrivacyShield();
     }
   }
 
   Future<void> _initializeAuth() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final authService = AuthService(prefs: prefs);
-      
-      // Validate auth state first (handles edge cases like biometric becoming unavailable)
-      await authService.validateAuthState();
-      
-      final authEnabled = await authService.isAuthEnabled();
-
-      if (mounted) {
-        setState(() {
-          _authService = authService;
-          _authEnabled = authEnabled;
-          _isInitialized = true;
-          // If auth is not enabled, allow direct access
-          if (!authEnabled) {
-            _isAuthenticated = true;
-            _showPrivacyOverlay = false;
-          } else {
-            // Check if should re-lock on startup
-            _checkAndRelock();
-          }
-        });
-      }
-    } catch (e) {
-      // If initialization fails, allow access (graceful degradation)
-      if (mounted) {
-        setState(() {
-          _isInitialized = true;
-          _isAuthenticated = true;
-        });
-      }
-    }
+    await _authenticate();
   }
 
-  void _onAuthenticated() async {
-    // Update unlock time when authenticated
-    if (_authService != null) {
-      await _authService!.updateLastUnlockTime();
+  Future<void> _authenticate() async {
+    try {
+      final canAuthenticate = await _localAuth.canCheckBiometrics || 
+                              await _localAuth.isDeviceSupported();
+      
+      if (!canAuthenticate) {
+        if (mounted) {
+          try {
+            await context.read<AccountViewModel>().initialize();
+          } catch (e) {
+            // Initialization error handled silently
+          }
+          setState(() {
+            _isAuthenticated = true;
+            _showPrivacyOverlay = false;
+          });
+        }
+        return;
+      }
+
+      final authenticated = await _localAuth.authenticate(
+        localizedReason: 'Authenticate to access your accounts',
+        options: const AuthenticationOptions(
+          stickyAuth: true,
+          biometricOnly: false,
+          useErrorDialogs: true,
+        ),
+      );
+
+      if (mounted && authenticated) {
+        try {
+          await context.read<AccountViewModel>().initialize();
+        } catch (e) {
+          // Initialization error handled silently
+        }
+        setState(() {
+          _isAuthenticated = true;
+          _showPrivacyOverlay = false;
+        });
+      } else if (mounted && !authenticated) {
+        await Future.delayed(AppConstants.authRetryDelay);
+        if (mounted) {
+          _authenticate();
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        try {
+          await context.read<AccountViewModel>().initialize();
+        } catch (reloadError) {
+          // Initialization error handled silently
+        }
+        setState(() {
+          _isAuthenticated = true;
+          _showPrivacyOverlay = false;
+        });
+      }
     }
-    await context.read<AccountViewModel>().reloadAfterUnlock();
-    
-    setState(() {
-      _isAuthenticated = true;
-      _showPrivacyOverlay = false;
-    });
   }
 
   void _showPrivacyShield() {
@@ -136,101 +137,145 @@ class _AuthWrapperState extends State<AuthWrapper> with WidgetsBindingObserver {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     
-    if (!_isInitialized) {
-      // Show exact same screen as auth screen during initialization
-      // This creates seamless visual continuity
-      return Scaffold(
-        backgroundColor: theme.scaffoldBackgroundColor,
-        body: SafeArea(
-          child: Center(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(32.0),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  // Same lock icon as auth screen
-                  Container(
-                    width: 120,
-                    height: 120,
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.primaryContainer,
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: theme.colorScheme.primary.withValues(alpha: 0.2),
-                          blurRadius: 24,
-                          offset: const Offset(0, 12),
-                        ),
-                      ],
-                    ),
-                    child: Icon(
-                      Icons.lock_outline,
-                      size: 52,
-                      color: theme.colorScheme.primary,
-                    ),
-                  ),
-                  const SizedBox(height: 32),
-                  
-                  // Same title
-                  Text(
-                    'Authenticator',
-                    style: AppTheme.headlineLarge(theme.colorScheme.onSurface),
-                  ),
-                  const SizedBox(height: 8),
-                  
-                  // Same subtitle as biometric state
-                  Text(
-                    'Authenticating...',
-                    style: AppTheme.bodyMedium(theme.colorScheme.onSurface).copyWith(
-                      color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
-                    ),
-                  ),
-                  const SizedBox(height: 80),
-                ],
-              ),
-            ),
-          ),
-        ),
-      );
+    if (!_isAuthenticated) {
+      return _buildAuthenticationScreen(theme);
     }
-
-    Widget content;
-
-    if (!_authEnabled) {
-      content = const HomeScreen();
-    } else if (_isAuthenticated) {
-      content = const HomeScreen();
-    } else {
-      content = AuthScreen(
-        authService: _authService!,
-        onAuthenticated: _onAuthenticated,
-      );
-    }
-
+    
     return Stack(
       children: [
-        content,
-        if (_showPrivacyOverlay)
-          Positioned.fill(
-            child: IgnorePointer(
-              child: AnimatedOpacity(
-                duration: const Duration(milliseconds: 200),
-                opacity: _showPrivacyOverlay ? 1 : 0,
-                child: BackdropFilter(
-                  filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
-                  child: Builder(
-                    builder: (context) {
-                      final theme = Theme.of(context);
-                      return Container(
-                        color: theme.colorScheme.surface.withValues(alpha: 0.94),
-                      );
-                    },
-                  ),
+        Consumer<AccountViewModel>(
+          builder: (context, viewModel, _) {
+            return HomeScreen(key: ValueKey(viewModel.accounts.length));
+          },
+        ),
+        if (_showPrivacyOverlay) _buildPrivacyOverlay(theme),
+      ],
+    );
+  }
+
+  Widget _buildAuthenticationScreen(ThemeData theme) {
+    return Scaffold(
+      backgroundColor: theme.scaffoldBackgroundColor,
+      body: Stack(
+        children: [
+          // Watermark logo at bottom
+          Positioned(
+            bottom: AppConstants.spaceXl + AppConstants.spaceSm,
+            left: 0,
+            right: 0,
+            child: Center(
+              child: Opacity(
+                opacity: AppConstants.opacityWatermark,
+                child: Image.asset(
+                  'assets/images/CDAC_Logo.png',
+                  width: AppConstants.spaceXxl * 4,
+                  height: AppConstants.spaceXxl * 4,
+                  fit: BoxFit.contain,
+                  errorBuilder: (context, error, stackTrace) => const SizedBox.shrink(),
                 ),
               ),
             ),
           ),
-      ],
+          // Authentication content
+          Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                // App logo
+                Image.asset(
+                  'assets/images/Logo1.png',
+                  height: AppConstants.iconSizeXxl + AppConstants.spaceXl,
+                  fit: BoxFit.contain,
+                  errorBuilder: (context, error, stackTrace) {
+                    return Icon(
+                      Icons.lock_outline,
+                      size: AppConstants.iconSizeXxl * 2,
+                      color: theme.colorScheme.primary.withValues(alpha: 0.5),
+                    );
+                  },
+                ),
+                SizedBox(height: AppConstants.spaceLg),
+                // Status text
+                Text(
+                  'Authenticating...',
+                  style: TextStyle(
+                    fontSize: AppTheme.fontSizeTitle,
+                    fontWeight: AppTheme.weightMedium,
+                    color: theme.colorScheme.onSurface.withValues(alpha: AppConstants.opacityMedium),
+                  ),
+                ),
+                SizedBox(height: AppConstants.spaceMd),
+                // Loading indicator
+                SizedBox(
+                  width: AppConstants.iconSizeXl,
+                  height: AppConstants.iconSizeXl,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 3,
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      theme.colorScheme.primary,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPrivacyOverlay(ThemeData theme) {
+    return Positioned.fill(
+      child: IgnorePointer(
+        child: AnimatedOpacity(
+          duration: AppConstants.durationFast,
+          opacity: _showPrivacyOverlay ? 1 : 0,
+          child: Container(
+            color: theme.scaffoldBackgroundColor,
+            child: Stack(
+              children: [
+                Positioned(
+                  bottom: AppConstants.spaceXl + AppConstants.spaceSm,
+                  left: 0,
+                  right: 0,
+                  child: Center(
+                    child: Opacity(
+                      opacity: AppConstants.opacityWatermark,
+                      child: Image.asset(
+                        'assets/images/CDAC_Logo.png',
+                        width: AppConstants.spaceXxl * 4,
+                        height: AppConstants.spaceXxl * 4,
+                        fit: BoxFit.contain,
+                        errorBuilder: (context, error, stackTrace) => const SizedBox.shrink(),
+                      ),
+                    ),
+                  ),
+                ),
+                Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Image.asset(
+                        'assets/images/Logo1.png',
+                        height: AppConstants.iconSizeXxl + AppConstants.spaceXl,
+                        fit: BoxFit.contain,
+                        errorBuilder: (context, error, stackTrace) {
+                          return Icon(
+                            Icons.lock_outline,
+                            size: AppConstants.iconSizeXxl * 2,
+                            color: theme.colorScheme.primary.withValues(alpha: 0.5),
+                          );
+                        },
+                      ),
+                      SizedBox(height: AppConstants.spaceLg),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

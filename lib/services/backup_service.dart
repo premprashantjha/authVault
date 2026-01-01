@@ -18,7 +18,7 @@ class BackupService {
   final AccountService _accountService;
   final BackupEncryptionService _encryptionService;
   
-  static const String _backupFileExtension = '.auth';
+  static const String _backupFileExtension = '.cdac';
   static const String _favoriteAccountsKey = 'favorite_account_ids';
 
   BackupService({

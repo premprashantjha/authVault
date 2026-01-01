@@ -69,11 +69,13 @@ class DatabaseService {
       );
 
       final List<Account> accounts = [];
+      
       for (final map in maps) {
         try {
           // Decrypt secret key (bind to issuer|accountName as AAD)
           final encryptedSecret = map['secretKey'] as String;
           final associatedData = '${map['issuer']}|${map['accountName']}';
+          
           final decryptedSecret = await _encryptionService.decrypt(
             encryptedSecret,
             associatedData: associatedData,
@@ -85,16 +87,16 @@ class DatabaseService {
           }));
         } catch (e) {
           if (kDebugMode) {
-            debugPrint('Error decrypting account ${map['id']}: $e');
+            debugPrint('❌ [DatabaseService] Error decrypting account ${map['issuer']}: $e');
           }
-          // Skip corrupted accounts
+          // Skip corrupted accounts but continue processing others
         }
       }
 
       return accounts;
     } catch (e) {
       if (kDebugMode) {
-        debugPrint('Error loading accounts: $e');
+        debugPrint('❌ [DatabaseService] Error loading accounts: $e');
       }
       return [];
     }

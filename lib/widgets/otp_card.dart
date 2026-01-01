@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../app/theme.dart';
+import '../../app/app_constants.dart';
 import '../../models/account.dart';
 import '../../services/icon_service.dart';
 
@@ -27,10 +28,44 @@ class OTPCard extends StatefulWidget {
 class _OTPCardState extends State<OTPCard> {
   bool _copied = false;
   Timer? _copyResetTimer;
+  Timer? _displayTimer;
+  late int _displaySecondsRemaining;
+  late double _displayProgress;
+
+  @override
+  void initState() {
+    super.initState();
+    _displaySecondsRemaining = widget.account.secondsRemaining;
+    _displayProgress = widget.account.progress;
+    _startDisplayTimer();
+  }
+
+  @override
+  void didUpdateWidget(OTPCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Update display values when widget updates (e.g., new OTP code)
+    if (oldWidget.account.otp != widget.account.otp) {
+      _displaySecondsRemaining = widget.account.secondsRemaining;
+      _displayProgress = widget.account.progress;
+    }
+  }
+
+  void _startDisplayTimer() {
+    _displayTimer?.cancel();
+    _displayTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (mounted) {
+        setState(() {
+          _displaySecondsRemaining = _displaySecondsRemaining > 0 ? _displaySecondsRemaining - 1 : 30;
+          _displayProgress = _displaySecondsRemaining / 30.0;
+        });
+      }
+    });
+  }
 
   @override
   void dispose() {
     _copyResetTimer?.cancel();
+    _displayTimer?.cancel();
     super.dispose();
   }
 
@@ -40,27 +75,18 @@ class _OTPCardState extends State<OTPCard> {
     final colorScheme = theme.colorScheme;
     final serviceIcon = IconService.getIconForService(widget.account.account.issuer);
     final serviceColor = IconService.getColorForService(widget.account.account.issuer);
-    const cardPadding = EdgeInsets.all(16);
-    const headerSpacing = 16.0;
-    const labelGap = 6.0;
-    const otpFontSize = 24.0;
-    const issuerGap = 10.0;
-    const avatarSize = 36.0;
-    const avatarIconSize = 18.0;
-    const timerSize = 40.0;
-    const progressStroke = 3.5;
     
     return Card(
-      elevation: 2,
+      elevation: AppConstants.elevationMedium,
       color: theme.colorScheme.surface,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(AppConstants.otpCardRadius),
       ),
       child: InkWell(
         onTap: widget.onTap,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(AppConstants.otpCardRadius),
         child: Padding(
-          padding: cardPadding,
+          padding: EdgeInsets.all(AppConstants.otpCardPadding),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -68,19 +94,19 @@ class _OTPCardState extends State<OTPCard> {
               Row(
                 children: [
                   Container(
-                    width: avatarSize,
-                    height: avatarSize,
+                    width: AppConstants.otpAvatarSize,
+                    height: AppConstants.otpAvatarSize,
                     decoration: BoxDecoration(
                       color: serviceColor,
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(AppConstants.radiusMd),
                     ),
                     child: Icon(
                       serviceIcon,
                       color: Colors.white,
-                      size: avatarIconSize,
+                      size: AppConstants.iconSizeSm + 2,
                     ),
                   ),
-                  SizedBox(width: issuerGap),
+                  SizedBox(width: AppConstants.spaceSm + 2),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -93,7 +119,7 @@ class _OTPCardState extends State<OTPCard> {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
-                        const SizedBox(height: 2),
+                        SizedBox(height: AppConstants.spaceXs / 2),
                         Text(
                           widget.account.account.accountName,
                           style: AppTheme.caption(theme.colorScheme.onSurface),
@@ -132,7 +158,7 @@ class _OTPCardState extends State<OTPCard> {
                   ),
                 ],
               ),
-              SizedBox(height: headerSpacing),
+              SizedBox(height: AppConstants.spaceMd),
               // OTP Code
               Row(
                 children: [
@@ -148,26 +174,26 @@ class _OTPCardState extends State<OTPCard> {
                                 'Verification Code',
                                 style: AppTheme.caption(theme.colorScheme.onSurface),
                               ),
-                              SizedBox(width: labelGap),
+                              SizedBox(width: AppConstants.spaceXs + 2),
                               AnimatedSwitcher(
                                 duration: const Duration(milliseconds: 200),
                                 child: _copied
                                     ? Icon(Icons.check_circle,
                                       key: const ValueKey('copied_icon'),
-                                      size: 16,
+                                      size: AppConstants.iconSizeSm,
                                       color: colorScheme.tertiary)
                                     : Icon(Icons.copy,
                                         key: const ValueKey('copy_icon'),
-                                        size: 14,
-                                        color: theme.colorScheme.onSurface.withValues(alpha: 0.6)),
+                                        size: AppConstants.iconSizeSm - 2,
+                                        color: theme.colorScheme.onSurface.withValues(alpha: AppConstants.opacityMedium)),
                               ),
                             ],
                           ),
-                          const SizedBox(height: 4),
+                          SizedBox(height: AppConstants.spaceXs),
                           Text(
                             _formatOTP(widget.account.otp),
                             style: TextStyle(
-                              fontSize: otpFontSize,
+                              fontSize: AppConstants.otpFontSize,
                               fontWeight: FontWeight.w700,
                               fontFamily: 'Monospace',
                               letterSpacing: 4,
@@ -182,28 +208,28 @@ class _OTPCardState extends State<OTPCard> {
                   Column(
                     children: [
                       SizedBox(
-                        width: timerSize,
-                        height: timerSize,
+                        width: AppConstants.otpTimerSize,
+                        height: AppConstants.otpTimerSize,
                         child: Stack(
                           alignment: Alignment.center,
                           children: [
                             CircularProgressIndicator(
-                              value: widget.account.progress,
-                              strokeWidth: progressStroke,
+                              value: _displayProgress,
+                              strokeWidth: 3.5,
                               backgroundColor: theme.colorScheme.onSurface.withValues(alpha: 0.1),
                               valueColor: AlwaysStoppedAnimation<Color>(
-                                widget.account.secondsRemaining > 10 
+                                _displaySecondsRemaining > 10 
                                     ? colorScheme.primary 
                                     : colorScheme.error,
                               ),
                             ),
                             Center(
                               child: Text(
-                                '${widget.account.secondsRemaining}',
+                                '$_displaySecondsRemaining',
                                 textAlign: AppTheme.textAlignCenter,
                                 style: AppTheme.bodyMedium(theme.colorScheme.onSurface).copyWith(
                                   fontWeight: FontWeight.w600,
-                                  color: widget.account.secondsRemaining > 10 
+                                  color: _displaySecondsRemaining > 10 
                                       ? colorScheme.primary 
                                       : colorScheme.error,
                                 ),
@@ -212,7 +238,7 @@ class _OTPCardState extends State<OTPCard> {
                           ],
                         ),
                       ),
-                      const SizedBox(height: 2),
+                      SizedBox(height: AppConstants.spaceXs / 2),
                       Text(
                         'seconds',
                         style: AppTheme.caption(theme.colorScheme.onSurface),
@@ -221,17 +247,17 @@ class _OTPCardState extends State<OTPCard> {
                   ),
                 ],
               ),
-              const SizedBox(height: 6),
+              SizedBox(height: AppConstants.spaceXs + 2),
               // Progress bar
               LinearProgressIndicator(
-                value: widget.account.progress,
+                value: _displayProgress,
                 backgroundColor: theme.colorScheme.onSurface.withValues(alpha: 0.1),
                 valueColor: AlwaysStoppedAnimation<Color>(
-                    widget.account.secondsRemaining > 10 
+                    _displaySecondsRemaining > 10 
                       ? colorScheme.primary 
                       : colorScheme.error,
                 ),
-                borderRadius: BorderRadius.circular(3),
+                borderRadius: BorderRadius.circular(AppConstants.spaceXs - 1),
               ),
             ],
           ),
@@ -265,7 +291,7 @@ class _OTPCardState extends State<OTPCard> {
     });
 
     // Auto-clear clipboard after 30 seconds for security
-    Future.delayed(const Duration(seconds: 30), () {
+    Future.delayed(AppConstants.clipboardClearDuration, () {
       Clipboard.setData(const ClipboardData(text: ''));
     });
   }
@@ -277,15 +303,15 @@ class _OTPCardState extends State<OTPCard> {
       context: context,
       builder: (BuildContext context) {
         return Dialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppConstants.radiusLg)),
           child: Padding(
-            padding: const EdgeInsets.all(24),
+            padding: EdgeInsets.all(AppConstants.dialogPadding),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Container(
-                  width: 56,
-                  height: 56,
+                  width: AppConstants.fabSize,
+                  height: AppConstants.fabSize,
                   decoration: BoxDecoration(
                     color: colorScheme.error.withValues(alpha: 0.1),
                     shape: BoxShape.circle,
@@ -293,37 +319,37 @@ class _OTPCardState extends State<OTPCard> {
                   child: Icon(
                     Icons.delete_outline,
                     color: colorScheme.error,
-                    size: 28,
+                    size: AppConstants.iconSizeLg + 4,
                   ),
                 ),
-                const SizedBox(height: 16),
+                SizedBox(height: AppConstants.spaceMd),
                 Text(
                   'Delete ${widget.account.account.issuer}?',
                   style: AppTheme.headlineMedium(colorScheme.onSurface),
                   textAlign: TextAlign.center,
                 ),
-                const SizedBox(height: 8),
+                SizedBox(height: AppConstants.spaceSm),
                 Text(
                   'This will permanently remove this account and you won\'t be able to generate codes.',
                   style: AppTheme.bodyMedium(colorScheme.onSurface.withValues(alpha: 0.7)),
                   textAlign: TextAlign.center,
                 ),
-                const SizedBox(height: 24),
+                SizedBox(height: AppConstants.spaceLg),
                 Row(
                   children: [
                     Expanded(
                       child: OutlinedButton(
                         onPressed: () => Navigator.of(context).pop(),
                         style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          padding: EdgeInsets.symmetric(vertical: AppConstants.radiusMd),
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.circular(AppConstants.radiusMd),
                           ),
                         ),
                         child: Text('Cancel', style: AppTheme.bodyMedium(colorScheme.onSurface)),
                       ),
                     ),
-                    const SizedBox(width: 12),
+                    SizedBox(width: AppConstants.otpCardSpacing),
                     Expanded(
                       child: ElevatedButton(
                         onPressed: () {
@@ -332,9 +358,9 @@ class _OTPCardState extends State<OTPCard> {
                         },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: colorScheme.error,
-                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          padding: EdgeInsets.symmetric(vertical: AppConstants.radiusMd),
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.circular(AppConstants.radiusMd),
                           ),
                         ),
                         child: const Text('Delete', style: TextStyle(color: Colors.white)),

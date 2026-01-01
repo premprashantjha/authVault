@@ -454,6 +454,10 @@ class _BackupScreenState extends State<BackupScreen> {
     
     return Scaffold(
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
         title: const Text('Backup & Restore'),
         backgroundColor: colorScheme.surface,
       ),
@@ -462,31 +466,6 @@ class _BackupScreenState extends State<BackupScreen> {
           : ListView(
               padding: const EdgeInsets.all(16),
               children: [
-                // Info card
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: colorScheme.primaryContainer.withValues(alpha: 0.3),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: colorScheme.primary.withValues(alpha: 0.3),
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(Icons.security, color: colorScheme.primary, size: 24),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          'Backups are encrypted with your password using military-grade encryption (Argon2id + XChaCha20).',
-                          style: AppTheme.caption(colorScheme.onSurface.withValues(alpha: 0.8)),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 24),
-                
                 // Action buttons
                 Row(
                   children: [
@@ -703,7 +682,7 @@ class _BackupFileCard extends StatelessWidget {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        '${info.fileSizeFormatted} • ${info.cipher}',
+                        info.fileSizeFormatted,
                         style: AppTheme.caption(colorScheme.onSurface.withValues(alpha: 0.6)),
                       ),
                     ],

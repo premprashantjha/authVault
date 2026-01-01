@@ -12,16 +12,16 @@ class PrivacyPolicyScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
         title: Text(
           'Privacy Policy',
           style: AppTheme.headlineMedium(colorScheme.onSurface),
         ),
         backgroundColor: colorScheme.surface,
         elevation: 0,
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: colorScheme.onSurface),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
@@ -98,15 +98,15 @@ class PrivacyPolicyScreen extends StatelessWidget {
 
             _buildBulletPoint(
               context,
-              'Local Database: Your accounts are stored in an encrypted SQLite database on your device.',
+              'Local Database: Your accounts are stored in an encrypted database on your device.',
             ),
             _buildBulletPoint(
               context,
-              'Secure Storage: Sensitive data uses Flutter Secure Storage with hardware-backed encryption when available.',
+              'Secure Storage: Sensitive data uses secure storage with hardware-backed encryption when available.',
             ),
             _buildBulletPoint(
               context,
-              'Backup Encryption: Backups use military-grade encryption (Argon2id + XChaCha20-Poly1305) with your chosen password.',
+              'Backup Encryption: Backups are encrypted with your chosen password using strong encryption.',
             ),
 
             const SizedBox(height: 16),
@@ -127,8 +127,8 @@ class PrivacyPolicyScreen extends StatelessWidget {
             _buildPermissionItem(
               context,
               icon: Icons.fingerprint,
-              title: 'Biometric',
-              description: 'Optional. Used to unlock the app with fingerprint or face recognition for your convenience.',
+              title: 'Device Security',
+              description: 'Uses your device\'s built-in lock (PIN, pattern, or biometric) to protect app access.',
             ),
             _buildPermissionItem(
               context,
@@ -152,7 +152,7 @@ class PrivacyPolicyScreen extends StatelessWidget {
             ),
             _buildBulletPoint(
               context,
-              'Biometric Protection: Optional biometric authentication adds an extra layer of security.',
+              'Device Lock Protection: Uses your device security (PIN/pattern/biometric) to protect app access.',
             ),
             _buildBulletPoint(
               context,
@@ -160,7 +160,7 @@ class PrivacyPolicyScreen extends StatelessWidget {
             ),
             _buildBulletPoint(
               context,
-              'No Cloud Backup: Android system backup is disabled to prevent unencrypted data from being backed up to cloud services.',
+              'No Cloud Backup: System backups are disabled to prevent unencrypted data from being backed up to cloud services.',
             ),
 
             const SizedBox(height: 16),
@@ -226,9 +226,9 @@ class PrivacyPolicyScreen extends StatelessWidget {
             // Open Source
             _buildSection(
               context,
-              title: 'Open Source',
+              title: 'Transparency',
               content:
-                  'Authenticator is committed to transparency. Our code is open source, allowing anyone to verify our privacy and security claims.',
+                  'We are committed to transparency in how we handle your data. The app\'s security features can be verified through code review.',
             ),
 
             // Contact
@@ -309,8 +309,8 @@ class PrivacyPolicyScreen extends StatelessWidget {
                   _buildSummaryItem(context, '✓ No data collection'),
                   _buildSummaryItem(context, '✓ No internet required'),
                   _buildSummaryItem(context, '✓ No third-party services'),
-                  _buildSummaryItem(context, '✓ Military-grade encryption'),
-                  _buildSummaryItem(context, '✓ Open source & transparent'),
+                  _buildSummaryItem(context, '✓ Strong encryption'),
+                  _buildSummaryItem(context, '✓ Transparent & secure'),
                   _buildSummaryItem(context, '✓ Your data stays on your device'),
                 ],
               ),

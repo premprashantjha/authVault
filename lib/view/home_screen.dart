@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 // Models
 import '../models/account.dart';
@@ -10,7 +9,6 @@ import '../models/account.dart';
 import '../view_models/account_view_model.dart';
 
 // Services
-import '../services/auth_service.dart';
 import '../services/totp_service.dart';
 
 // Widgets
@@ -32,6 +30,7 @@ import 'settings_screen.dart';
 
 // Theme
 import '../app/theme.dart';
+import '../app/app_constants.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -49,7 +48,6 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
   @override
   void initState() {
     super.initState();
-    // Accounts are automatically loaded in the ViewModel constructor
   }
 
   @override
@@ -60,15 +58,9 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
   }
 
   void _navigateToSettings(BuildContext context) async {
-    // Capture navigator synchronously to avoid using BuildContext after awaits
-    final navigator = Navigator.of(context);
-
-    // Get auth service from context or create new instance
-    final prefs = await SharedPreferences.getInstance();
-    final authService = AuthService(prefs: prefs);
-    if (!mounted) return;
-
-    await navigator.push(MaterialPageRoute(builder: (context) => SettingsScreen(authService: authService)));
+    await Navigator.of(context).push(
+      MaterialPageRoute(builder: (context) => const SettingsScreen()),
+    );
   }
 
   Future<void> _openFilterModal() async {
@@ -105,9 +97,19 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
-        title: Text(
-          'Authenticator',
-          style: AppTheme.headlineMedium(theme.colorScheme.onSurface),
+        title: Row(
+          children: [
+            Image.asset(
+              'assets/images/Logo1.png',
+              height: AppConstants.iconSizeXl,
+              fit: BoxFit.contain,
+            ),
+            SizedBox(width: AppConstants.otpCardSpacing),
+            Text(
+              'Authenticator',
+              style: AppTheme.headlineMedium(theme.colorScheme.onSurface),
+            ),
+          ],
         ),
         backgroundColor: theme.colorScheme.surface,
         elevation: 0,
@@ -136,11 +138,11 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                   ),
                   if (hasFilters)
                     Positioned(
-                      right: 12,
-                      top: 12,
+                      right: AppConstants.otpCardSpacing,
+                      top: AppConstants.otpCardSpacing,
                       child: Container(
-                        width: 8,
-                        height: 8,
+                        width: AppConstants.spaceSm,
+                        height: AppConstants.spaceSm,
                         decoration: BoxDecoration(
                           color: theme.colorScheme.primary,
                           shape: BoxShape.circle,
@@ -162,30 +164,46 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
       ),
       body: Consumer<AccountViewModel>(
         builder: (context, viewModel, child) {
-          // Removed verbose debug logging that was triggered on every rebuild
-          if (viewModel.isLoading) {
-            // Show lightweight skeleton placeholders while accounts load
-            return Padding(
-              padding: const EdgeInsets.all(16),
+          try {
+            if (viewModel.isLoading) {
+              return Padding(
+                padding: EdgeInsets.all(AppConstants.spaceMd),
+                child: Column(
+                  children: [
+                    Skeleton(height: AppConstants.iconSizeXxl * 2 - 8),
+                    SizedBox(height: AppConstants.otpCardSpacing),
+                    Skeleton(height: AppConstants.iconSizeXxl * 2 - 8),
+                    SizedBox(height: AppConstants.otpCardSpacing),
+                    Skeleton(height: AppConstants.iconSizeXxl * 2 - 8),
+                  ],
+                ),
+              );
+            }
+
+            if (!viewModel.hasAccounts) {
+              return EmptyStateWidget(
+                onAddAccount: () => _showAddAccountOptions(context),
+              );
+            }
+
+            return _buildAccountsList(viewModel);
+          } catch (e, stackTrace) {
+            return Center(
               child: Column(
-                children: const [
-                  Skeleton(height: 88),
-                  SizedBox(height: 12),
-                  Skeleton(height: 88),
-                  SizedBox(height: 12),
-                  Skeleton(height: 88),
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.error_outline, size: AppConstants.iconSizeXxl * 2, color: Colors.red),
+                  SizedBox(height: AppConstants.spaceMd),
+                  Text('Error: $e'),
+                  SizedBox(height: AppConstants.spaceMd),
+                  ElevatedButton(
+                    onPressed: () => viewModel.reloadAfterUnlock(),
+                    child: const Text('Retry'),
+                  ),
                 ],
               ),
             );
           }
-
-          if (!viewModel.hasAccounts) {
-            return EmptyStateWidget(
-              onAddAccount: () => _showAddAccountOptions(context),
-            );
-          }
-
-          return _buildAccountsList(viewModel);
         },
       ),
       floatingActionButton: AnimatedFAB(
@@ -205,10 +223,8 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
   void _toggleSearchBar() {
     final viewModel = context.read<AccountViewModel>();
     if (viewModel.totalAccountCount == 0 && !_isSearchVisible) {
-      // Haptic feedback for better UX
       HapticFeedback.lightImpact();
       
-      // Show elegant message at top using MaterialBanner
       ScaffoldMessenger.of(context).showMaterialBanner(
         MaterialBanner(
           content: Row(
@@ -216,9 +232,9 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
               Icon(
                 Icons.info_outline,
                 color: Theme.of(context).colorScheme.onPrimaryContainer,
-                size: 22,
+                size: AppConstants.iconSizeMd + 2,
               ),
-              const SizedBox(width: 12),
+              SizedBox(width: AppConstants.otpCardSpacing),
               Expanded(
                 child: Text(
                   'Add accounts to start searching',
@@ -246,11 +262,10 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
               ),
             ),
           ],
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          padding: EdgeInsets.symmetric(horizontal: AppConstants.spaceMd, vertical: AppConstants.otpCardSpacing),
         ),
       );
       
-      // Auto-dismiss after 2.5 seconds
       Future.delayed(const Duration(milliseconds: 2500), () {
         if (mounted) {
           ScaffoldMessenger.of(context).hideCurrentMaterialBanner();
@@ -262,8 +277,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     
     setState(() => _isSearchVisible = !_isSearchVisible);
     if (_isSearchVisible) {
-      // Slight delay ensures the animation starts before requesting focus
-      Future.delayed(const Duration(milliseconds: 150), () {
+      Future.delayed(AppConstants.searchFocusDelay, () {
         if (mounted) _searchFocusNode.requestFocus();
       });
     } else {
@@ -330,12 +344,12 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                     await viewModel.reloadAfterUnlock();
                   },
                   child: Padding(
-                    padding: const EdgeInsets.all(16),
+                    padding: EdgeInsets.all(AppConstants.spaceMd),
                     child: AnimatedAccountList(
                       items: filteredAccounts,
                       itemBuilder: (context, item, animation) {
                         return Padding(
-                          padding: const EdgeInsets.only(bottom: 12),
+                          padding: EdgeInsets.only(bottom: AppConstants.otpCardSpacing),
                           child: _buildSwipeableCard(context, item, viewModel),
                         );
                       },
@@ -353,90 +367,12 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     
     return Dismissible(
       key: Key(item.account.id),
-      background: Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        decoration: BoxDecoration(
-          color: AppTheme.primaryColor,
-          borderRadius: BorderRadius.circular(20),
-        ),
-        alignment: Alignment.centerLeft,
-        padding: const EdgeInsets.only(left: 24),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              item.isFavorite ? Icons.star_border : Icons.star,
-              color: Colors.white,
-              size: 28,
-            ),
-            const SizedBox(height: 4),
-            Text(
-              item.isFavorite ? 'Unfavorite' : 'Favorite',
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
-        ),
-      ),
-      secondaryBackground: Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        decoration: BoxDecoration(
-          color: colorScheme.error,
-          borderRadius: BorderRadius.circular(20),
-        ),
-        alignment: Alignment.centerRight,
-        padding: const EdgeInsets.only(right: 24),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: const [
-            Icon(
-              Icons.delete_outline,
-              color: Colors.white,
-              size: 28,
-            ),
-            SizedBox(height: 4),
-            Text(
-              'Delete',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
-        ),
-      ),
-      confirmDismiss: (direction) async {
-        if (direction == DismissDirection.startToEnd) {
-          // Swipe right - Toggle favorite
-          HapticFeedback.mediumImpact();
-          await viewModel.toggleFavorite(item.account.id);
-          return false; // Don't dismiss
-        } else {
-          // Swipe left - Delete with confirmation
-          HapticFeedback.mediumImpact();
-          final confirmed = await _showQuickDeleteConfirmation(context, item);
-          return confirmed; // Return true to dismiss if confirmed
-        }
-      },
-      onDismissed: (direction) async {
-        // Only called when confirmDismiss returns true (delete confirmed)
-        if (direction == DismissDirection.endToStart) {
-          final success = await viewModel.deleteAccount(item.account.id);
-          if (mounted && success) {
-            CustomSnackbar.show(
-              context,
-              title: 'Account Deleted',
-              message: '${item.account.issuer} was removed from Authenticator.',
-              type: SnackbarType.error,
-            );
-          }
-        }
-      },
+      background: _buildSwipeBackground(item.isFavorite, AppTheme.primaryColor, Alignment.centerLeft),
+      secondaryBackground: _buildSwipeBackground(false, colorScheme.error, Alignment.centerRight, isDelete: true),
+      confirmDismiss: (direction) => _handleSwipeDismiss(direction, item, viewModel),
+      onDismissed: (direction) => _handleDismissed(direction, item, viewModel),
       child: OTPCard(
+        key: ValueKey('${item.account.id}_${item.isFavorite}'), // Force rebuild when favorite changes
         account: item,
         onDelete: () => _deleteAccountWithButton(context, item.account.id),
         onTap: () {},
@@ -445,82 +381,71 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     );
   }
 
-  Future<bool> _showQuickDeleteConfirmation(BuildContext context, AccountWithOTP item) async {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    
-    final result = await showDialog<bool>(
-      context: context,
-      builder: (context) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 56,
-                height: 56,
-                decoration: BoxDecoration(
-                  color: colorScheme.error.withValues(alpha: 0.1),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  Icons.delete_outline,
-                  color: colorScheme.error,
-                  size: 28,
-                ),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'Delete ${item.account.issuer}?',
-                style: AppTheme.headlineMedium(colorScheme.onSurface),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'This will permanently remove this account and you won\'t be able to generate codes.',
-                style: AppTheme.bodyMedium(colorScheme.onSurface.withValues(alpha: 0.7)),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 24),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () => Navigator.of(context).pop(false),
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      child: Text('Cancel', style: AppTheme.bodyMedium(colorScheme.onSurface)),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: () => Navigator.of(context).pop(true),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: colorScheme.error,
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      child: const Text('Delete', style: TextStyle(color: Colors.white)),
-                    ),
-                  ),
-                ],
-              ),
-            ],
+  Widget _buildSwipeBackground(bool isFavorite, Color color, Alignment alignment, {bool isDelete = false}) {
+    return Container(
+      margin: EdgeInsets.only(bottom: AppConstants.otpCardSpacing),
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(AppConstants.otpCardRadius),
+      ),
+      alignment: alignment,
+      padding: EdgeInsets.only(
+        left: alignment == Alignment.centerLeft ? AppConstants.spaceLg : 0,
+        right: alignment == Alignment.centerRight ? AppConstants.spaceLg : 0,
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            isDelete ? Icons.delete_outline : (isFavorite ? Icons.star_border : Icons.star),
+            color: Colors.white,
+            size: AppConstants.iconSizeLg + 4,
           ),
-        ),
+          SizedBox(height: AppConstants.spaceXs),
+          Text(
+            isDelete ? 'Delete' : (isFavorite ? 'Unfavorite' : 'Favorite'),
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: AppConstants.otpCardSpacing,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
       ),
     );
-    
-    return result ?? false;
+  }
+
+  Future<bool> _handleSwipeDismiss(DismissDirection direction, AccountWithOTP item, AccountViewModel viewModel) async {
+    if (direction == DismissDirection.startToEnd) {
+      HapticFeedback.mediumImpact();
+      await viewModel.toggleFavorite(item.account.id);
+      return false;
+    } else {
+      HapticFeedback.mediumImpact();
+      final confirmed = await _showQuickDeleteConfirmation(context, item);
+      return confirmed;
+    }
+  }
+
+  Future<void> _handleDismissed(DismissDirection direction, AccountWithOTP item, AccountViewModel viewModel) async {
+    if (direction == DismissDirection.endToStart) {
+      final success = await viewModel.deleteAccount(item.account.id);
+      if (mounted && success) {
+        CustomSnackbar.show(
+          context,
+          title: 'Account Deleted',
+          message: '${item.account.issuer} was removed from Authenticator.',
+          type: SnackbarType.error,
+        );
+      }
+    }
+  }
+
+  Future<bool> _showQuickDeleteConfirmation(BuildContext context, AccountWithOTP item) async {
+    return await showDialog<bool>(
+      context: context,
+      builder: (context) => _DeleteConfirmationDialog(item: item),
+    ) ?? false;
   }
 
   void _clearFilters(AccountViewModel viewModel) {
@@ -530,8 +455,9 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
   }
 
   void _navigateToQRScan(BuildContext context) async {
-    await Navigator.of(context).push(MaterialPageRoute(builder: (context) => const QRScanScreen()));
-    // No explicit refresh needed - addAccount() in QR scan already calls _loadAccounts() which notifies listeners
+    await Navigator.of(context).push(
+      MaterialPageRoute(builder: (context) => const QRScanScreen())
+    );
   }
 
   void _showManualEntryDialog(BuildContext context) {
@@ -540,7 +466,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
       context: context,
       builder: (dialogContext) => AlertDialog(
         backgroundColor: theme.colorScheme.surface,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppConstants.radiusLg)),
         title: Text('Add Account', style: AppTheme.headlineMedium(theme.colorScheme.onSurface)),
         content: ManualEntryForm(
           onAccountAdded: (account) {
@@ -556,7 +482,6 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
   void _addAccount(Account account) async {
     final viewModel = context.read<AccountViewModel>();
 
-    // Check duplicate early and provide a clear message
     final exists = await viewModel.accountExists(account);
     if (exists) {
       if (!mounted) return;
@@ -590,16 +515,13 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     }
   }
 
-  // Delete via button click (with dialog confirmation)
   Future<void> _deleteAccountWithButton(BuildContext context, String accountId) async {
     final viewModel = context.read<AccountViewModel>();
     final account = viewModel.filteredAccounts.firstWhere((a) => a.account.id == accountId);
     
-    // Show confirmation dialog
     final confirmed = await _showQuickDeleteConfirmation(context, account);
     if (!confirmed) return;
     
-    // Delete the account
     final success = await viewModel.deleteAccount(accountId);
     if (!mounted) return;
 
@@ -613,8 +535,6 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     }
   }
 }
-
-// Manual Entry Form as a separate widget
 class ManualEntryForm extends StatefulWidget {
   final Function(Account) onAccountAdded;
 
@@ -643,8 +563,8 @@ class _ManualEntryFormState extends State<ManualEntryForm> {
             style: AppTheme.bodyMedium(theme.colorScheme.onSurface),
             decoration: InputDecoration(
               labelText: 'Issuer (e.g., Google)',
-              labelStyle: AppTheme.bodyMedium(theme.colorScheme.onSurface).copyWith(color: theme.colorScheme.onSurface.withValues(alpha: 0.6)),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              labelStyle: AppTheme.bodyMedium(theme.colorScheme.onSurface).copyWith(color: theme.colorScheme.onSurface.withValues(alpha: AppConstants.opacityMedium)),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppConstants.radiusMd)),
             ),
             validator: (value) {
               if (value == null || value.isEmpty) {
@@ -653,14 +573,14 @@ class _ManualEntryFormState extends State<ManualEntryForm> {
               return null;
             },
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: AppConstants.spaceMd),
           TextFormField(
             controller: _accountNameController,
             style: AppTheme.bodyMedium(theme.colorScheme.onSurface),
             decoration: InputDecoration(
               labelText: 'Account Name (e.g., user@gmail.com)',
-              labelStyle: AppTheme.bodyMedium(theme.colorScheme.onSurface).copyWith(color: theme.colorScheme.onSurface.withValues(alpha: 0.6)),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              labelStyle: AppTheme.bodyMedium(theme.colorScheme.onSurface).copyWith(color: theme.colorScheme.onSurface.withValues(alpha: AppConstants.opacityMedium)),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppConstants.radiusMd)),
             ),
             validator: (value) {
               if (value == null || value.isEmpty) {
@@ -669,14 +589,14 @@ class _ManualEntryFormState extends State<ManualEntryForm> {
               return null;
             },
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: AppConstants.spaceMd),
           TextFormField(
             controller: _secretKeyController,
             style: AppTheme.bodyMedium(theme.colorScheme.onSurface),
             decoration: InputDecoration(
               labelText: 'Secret Key (Base32)',
-              labelStyle: AppTheme.bodyMedium(theme.colorScheme.onSurface).copyWith(color: theme.colorScheme.onSurface.withValues(alpha: 0.6)),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              labelStyle: AppTheme.bodyMedium(theme.colorScheme.onSurface).copyWith(color: theme.colorScheme.onSurface.withValues(alpha: AppConstants.opacityMedium)),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppConstants.radiusMd)),
               hintText: 'JBSWY3DPEHPK3PXP',
             ),
             validator: (value) {
@@ -690,16 +610,16 @@ class _ManualEntryFormState extends State<ManualEntryForm> {
               return null;
             },
           ),
-          const SizedBox(height: 24),
+          SizedBox(height: AppConstants.spaceLg),
           SizedBox(
             width: double.infinity,
             child: AnimatedButton(
               onTap: _addAccount,
               child: Container(
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.primary,
-                    borderRadius: BorderRadius.circular(12),
+                padding: EdgeInsets.symmetric(vertical: AppConstants.radiusMd + 2),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.primary,
+                  borderRadius: BorderRadius.circular(AppConstants.radiusMd),
                   ),
                   child: Center(
                     child: Text(
@@ -724,7 +644,7 @@ class _ManualEntryFormState extends State<ManualEntryForm> {
         accountName: _accountNameController.text.trim(),
         secretKey: _secretKeyController.text.trim().toUpperCase(),
       );
-      // Validate secret decodability before adding (give clearer feedback)
+      
       final totp = TOTPService();
       if (!totp.validateSecret(account.secretKey)) {
         CustomSnackbar.show(
@@ -746,5 +666,86 @@ class _ManualEntryFormState extends State<ManualEntryForm> {
     _accountNameController.dispose();
     _secretKeyController.dispose();
     super.dispose();
+  }
+}
+
+// Delete Confirmation Dialog Widget
+class _DeleteConfirmationDialog extends StatelessWidget {
+  final AccountWithOTP item;
+
+  const _DeleteConfirmationDialog({required this.item});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppConstants.radiusLg)),
+      child: Padding(
+        padding: EdgeInsets.all(AppConstants.dialogPadding),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: AppConstants.fabSize,
+              height: AppConstants.fabSize,
+              decoration: BoxDecoration(
+                color: colorScheme.error.withValues(alpha: 0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.delete_outline,
+                color: colorScheme.error,
+                size: AppConstants.iconSizeLg + 4,
+              ),
+            ),
+            SizedBox(height: AppConstants.spaceMd),
+            Text(
+              'Delete ${item.account.issuer}?',
+              style: AppTheme.headlineMedium(colorScheme.onSurface),
+              textAlign: TextAlign.center,
+            ),
+            SizedBox(height: AppConstants.spaceSm),
+            Text(
+              'This will permanently remove this account and you won\'t be able to generate codes.',
+              style: AppTheme.bodyMedium(colorScheme.onSurface.withValues(alpha: 0.7)),
+              textAlign: TextAlign.center,
+            ),
+            SizedBox(height: AppConstants.spaceLg),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.of(context).pop(false),
+                    style: OutlinedButton.styleFrom(
+                      padding: EdgeInsets.symmetric(vertical: AppConstants.radiusMd),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(AppConstants.radiusMd),
+                      ),
+                    ),
+                    child: Text('Cancel', style: AppTheme.bodyMedium(colorScheme.onSurface)),
+                  ),
+                ),
+                SizedBox(width: AppConstants.otpCardSpacing),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: () => Navigator.of(context).pop(true),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: colorScheme.error,
+                      padding: EdgeInsets.symmetric(vertical: AppConstants.radiusMd),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(AppConstants.radiusMd),
+                      ),
+                    ),
+                    child: const Text('Delete', style: TextStyle(color: Colors.white)),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

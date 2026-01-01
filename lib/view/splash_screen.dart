@@ -101,50 +101,53 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               // Lottie animation with error handling and optimization
-              SizedBox(
-                width: 250,
-                height: 250,
-                child: Lottie.asset(
-                  'assets/images/AuthenticatorLaunch.json',
-                  controller: _lottieController,
-                  fit: BoxFit.contain,
-                  repeat: false,
-                  animate: true,
-                  frameRate: FrameRate(60),
-                  onLoaded: (composition) {
-                    // Set the controller duration to match animation and start playing
-                    _lottieController.duration = composition.duration;
-                    
-                    if (mounted) {
-                      _lottieController.reset();
-                      _lottieController.forward().then((_) {
-                        // Animation completed, notify parent after a brief delay
-                        Future.delayed(const Duration(milliseconds: 300), () {
-                          if (mounted) {
-                            widget.onInitializationComplete();
-                          }
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 40),
+                child: SizedBox(
+                  width: 200,
+                  height: 200,
+                  child: Lottie.asset(
+                    'assets/images/AuthenticatorLaunch.json',
+                    controller: _lottieController,
+                    fit: BoxFit.contain,
+                    repeat: false,
+                    animate: true,
+                    frameRate: FrameRate(60),
+                    onLoaded: (composition) {
+                      // Set the controller duration to match animation and start playing
+                      _lottieController.duration = composition.duration;
+                      
+                      if (mounted) {
+                        _lottieController.reset();
+                        _lottieController.forward().then((_) {
+                          // Animation completed, notify parent after a brief delay
+                          Future.delayed(const Duration(milliseconds: 300), () {
+                            if (mounted) {
+                              widget.onInitializationComplete();
+                            }
+                          });
                         });
-                      });
-                    }
-                  },
-                  errorBuilder: (context, error, stackTrace) {
-                    // Fallback to logo image if Lottie fails
-                    return Image.asset(
-                      'assets/images/logo.png',
-                      width: 180,
-                      height: 180,
-                      fit: BoxFit.contain,
-                      cacheWidth: 360, // 2x for better quality
-                      errorBuilder: (context, error, stackTrace) {
-                        // Ultimate fallback
-                        return const Icon(
-                          Icons.lock_outline,
-                          size: 100,
-                          color: Colors.blue,
-                        );
-                      },
-                    );
-                  },
+                      }
+                    },
+                    errorBuilder: (context, error, stackTrace) {
+                      // Fallback to logo image if Lottie fails
+                      return Image.asset(
+                        'assets/images/logo.png',
+                        width: 150,
+                        height: 150,
+                        fit: BoxFit.contain,
+                        cacheWidth: 300, // 2x for better quality
+                        errorBuilder: (context, error, stackTrace) {
+                          // Ultimate fallback
+                          return const Icon(
+                            Icons.lock_outline,
+                            size: 100,
+                            color: Colors.blue,
+                          );
+                        },
+                      );
+                    },
+                  ),
                 ),
               ),
               const SizedBox(height: 16),

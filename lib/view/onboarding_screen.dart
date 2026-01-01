@@ -48,54 +48,55 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   static const List<OnboardingSlide> _slides = [
     OnboardingSlide(
-      title: 'Your Vault Stays Local',
-      description: 'All secrets are encrypted with XChaCha20-Poly1305 and never leave this device.',
+      title: 'Your Data Stays Local',
+      description: 'All your accounts are encrypted and stored securely on your device only.',
       icon: Icons.security,
       tips: [
-        'No cloud sync or telemetry',
-        'Hybrid key storage: secure-storage + keystore when available',
-        'Only you control your data',
+        'No cloud sync or data collection',
+        'Military-grade encryption protects your secrets',
+        'Only you have access to your data',
       ],
     ),
     OnboardingSlide(
-      title: 'Lock It Down',
-      description: 'Add a strong PIN and enable biometrics to protect the vault and app access.',
+      title: 'Device Security',
+      description: 'Your device lock (PIN/pattern/biometric) protects access to the app.',
       icon: Icons.lock_outline,
       tips: [
-        'Use 6 digit PIN that is unique',
-        'Biometric is optional but convenient',
-        'App relocks automatically after configurable timeout',
+        'Uses your existing device security',
+        'No separate app password needed',
+        'Automatically locks when you leave the app',
       ],
     ),
     OnboardingSlide(
-      title: 'Keep Devices Clean',
-      description: 'We block screenshots and warn if the device looks compromised.',
+      title: 'Keep Devices Secure',
+      description: 'We protect your data with built-in security features.',
       icon: Icons.phonelink_lock,
       tips: [
-        'Rooted devices reduce protection',
-        'FLAG_SECURE stops screen recording',
-        'We detect debugger/developer mode',
+        'Screenshots are blocked for privacy',
+        'Warns if device security is compromised',
+        'Screen content is hidden when app is in background',
       ],
     ),
     OnboardingSlide(
-      title: 'Manual Backup Checklist',
-      description: 'We never sync secrets to the cloud. Keep offline copies so a lost phone is not a disaster.',
-      icon: Icons.sd_card_outlined,
+      title: 'Backup Your Accounts',
+      description: 'Create encrypted backups to protect against device loss or damage.',
+      icon: Icons.backup,
       tips: [
-        'Capture the original QR secret or setup key when enrolling an account and store it offline',
-        'Save each provider\'s backup codes or recovery paths in the same protected location',
-        'Use an encrypted password manager, hardware key, or physical safe—never screenshots or email',
-        'Test recovery on a spare device before wiping or upgrading your primary phone',
+        'Backups are encrypted with your password',
+        'Store backups in a safe location',
+        'Test your backup by restoring on another device',
+        'Keep backup passwords secure and memorable',
       ],
     ),
     OnboardingSlide(
-      title: 'Optional Extra Protection',
-      description: 'Enable an optional passphrase or open diagnostics to verify keystore and storage mode.',
+      title: 'You\'re All Set!',
+      description: 'Your authenticator is ready to use. Add accounts and stay secure.',
       icon: Icons.verified_user,
       tips: [
-        'Add a passphrase to protect keys on compromised devices',
-        'Open diagnostics to see if the keystore is hardware-backed',
-        'Passphrase can be required to export or restore backups',
+        'Tap + to add your first account',
+        'Scan QR codes or enter keys manually',
+        'Create regular backups of your accounts',
+        'Review this guide anytime from Settings',
       ],
     ),
   ];
@@ -218,63 +219,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                           ),
                         ),
                         const SizedBox(height: 8),
-                        // Actions for specific slides
-                        if (slide.title == 'Lock It Down')
-                          Padding(
-                            padding: const EdgeInsets.only(top: 8.0),
-                            child: Row(
-                              children: [
-                                Expanded(
-                                  child: OutlinedButton.icon(
-                                    onPressed: widget.onSetupPin,
-                                    icon: const Icon(Icons.pin),
-                                    label: const Text('Set PIN'),
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: ElevatedButton.icon(
-                                    onPressed: widget.onEnableBiometrics,
-                                    icon: const Icon(Icons.fingerprint),
-                                    label: const Text('Enable Biometrics'),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-
-                        if (slide.title == 'Optional Extra Protection')
-                          Padding(
-                            padding: const EdgeInsets.only(top: 8.0),
-                            child: Column(
-                              children: [
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: OutlinedButton(
-                                        onPressed: widget.onEnablePassphrase,
-                                        child: const Text('Add Passphrase'),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: ElevatedButton(
-                                        onPressed: widget.onOpenDiagnostics,
-                                        child: const Text('Open Diagnostics'),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 8),
-                                Text(
-                                  'Passphrase is optional but provides protection on rooted devices and during backups.',
-                                  style: AppTheme.small(theme.colorScheme.onSurface).copyWith(
-                                    color: theme.colorScheme.onSurface.withValues(alpha: 0.75),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
                       ],
                     ),
                   );

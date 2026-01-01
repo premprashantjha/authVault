@@ -3,43 +3,42 @@
 ![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)
 ![Flutter](https://img.shields.io/badge/Flutter-3.8.1+-02569B?logo=flutter)
 ![Platform](https://img.shields.io/badge/platform-Android-green.svg)
-![License](https://img.shields.io/badge/license-MIT-green.svg)
 
-A secure, modern TOTP authenticator app with **military-grade encrypted backup** and intuitive swipe gestures. Built with Flutter for Android.
+A secure, privacy-first TOTP authenticator app with encrypted backups and modern UI. Built with Flutter for Android.
 
 ## ✨ Features
 
 ### 🔒 Security First
-- **Military-Grade Backup Encryption** - Argon2id + XChaCha20-Poly1305
-- **AES-256 Local Encryption** - All secrets encrypted at rest
-- **Biometric Authentication** - Fingerprint and face recognition
-- **Password Retry Protection** - 5 attempts with visual feedback
+- **Device Lock Protection** - Uses your device's built-in security (PIN/pattern/biometric)
+- **Encrypted Local Storage** - All secrets encrypted at rest with strong encryption
+- **Encrypted Backups** - Password-protected backups with industry-standard encryption
+- **Hardware-Backed Keys** - Leverages Android Keystore when available
 - **Clipboard Auto-Clear** - OTP codes cleared after 30 seconds
-- **No Cloud Backup** - Your data never leaves your device
+- **No Cloud Sync** - Your data never leaves your device
+- **Screenshot Prevention** - Blocks screenshots and screen recording
 
 ### 💾 Encrypted Backup & Restore
-- **Create Encrypted Backups** - Password-protected with OWASP-recommended algorithms
-- **Base64 Encoded** - Backup files appear as encrypted blobs, hiding JSON structure
+- **Create Encrypted Backups** - Password-protected with strong encryption
 - **Flexible Restore Options** - Skip duplicates, replace existing, or keep both
-- **Password Strength Indicator** - Real-time feedback on password security
-- **Retry System** - Up to 5 password attempts with clear visual feedback
+- **Password Strength Validation** - Ensures secure backup passwords
 - **Local Storage** - Backups saved on device, share manually if needed
+- **Retry Protection** - Up to 5 password attempts with clear feedback
 
 ### 🎨 Modern UX
 - **Swipe Gestures** - Right to favorite, left to delete
 - **Smooth Animations** - Professional, polished transitions
 - **Pull-to-Refresh** - Update accounts with a simple gesture
-- **Search & Filter** - Find accounts quickly by name or issuer
-- **Dark/Light Theme** - Automatic theme switching
-- **Haptic Feedback** - Tactile response for all interactions
+- **Search & Filter** - Find accounts quickly
+- **Auto Dark/Light Theme** - Follows system theme
+- **Brand Logos** - Real brand icons for popular services (Google, GitHub, etc.)
 
 ### 🚀 Core Features
 - **QR Code Scanning** - Quick account setup with camera
 - **Manual Entry** - Add accounts without QR codes
-- **TOTP Standard** - Compatible with all 2FA services
+- **TOTP Standard** - Compatible with all 2FA services (Google, GitHub, Microsoft, etc.)
 - **Favorites System** - Mark important accounts
 - **Offline First** - No internet required
-- **Privacy Focused** - No analytics, no tracking
+- **Privacy Focused** - No analytics, no tracking, no data collection
 
 ## 📱 Screenshots
 
@@ -50,7 +49,7 @@ A secure, modern TOTP authenticator app with **military-grade encrypted backup**
 ### Prerequisites
 - Flutter SDK 3.8.1+
 - Dart SDK 3.8.1+
-- Android Studio
+- Android Studio or VS Code
 
 ### Setup
 
@@ -85,34 +84,38 @@ lib/
 ├── main.dart                           # App entry point
 ├── app/                                # App configuration
 │   ├── app.dart                        # Main app widget
-│   ├── theme.dart                      # Theme definitions
-│   └── animations.dart                 # Animation constants
+│   └── theme.dart                      # Theme definitions
 ├── models/                             # Data models
-│   └── account.dart                    # Account entity with OTP
+│   └── account.dart                    # Account entity
 ├── view/                               # UI screens (View)
 │   ├── home_screen.dart                # Main accounts list
+│   ├── auth_wrapper.dart               # Device authentication
 │   ├── backup_screen.dart              # Backup management
 │   ├── settings_screen.dart            # App settings
 │   ├── privacy_policy_screen.dart      # Privacy policy
 │   ├── qr_scan_screen.dart             # QR code scanner
-│   └── onboarding_screen.dart          # First-time setup
+│   ├── onboarding_screen.dart          # Security guide
+│   └── splash_screen.dart              # App splash
 ├── view_models/                        # State management (ViewModel)
 │   └── account_view_model.dart         # Account state & logic
 ├── widgets/                            # Reusable components
 │   ├── otp_card.dart                   # OTP display card
-│   ├── animated_account_list.dart      # Animated list widget
-│   ├── backup_password_dialog.dart     # Password input dialog
-│   ├── animated_button.dart            # Animated button
-│   └── ... (15+ widgets)
+│   ├── animated_account_list.dart      # Animated list
+│   ├── backup_password_dialog.dart     # Password input
+│   ├── custom_snackbar.dart            # Notifications
+│   └── empty_state_widget.dart         # Empty state
 └── services/                           # Business logic
-    ├── account_service.dart            # Account CRUD operations
+    ├── account_service.dart            # Account CRUD
     ├── totp_service.dart               # TOTP generation
-    ├── encryption_service.dart         # AES-256 encryption
-    ├── backup_service.dart             # Backup/restore logic
+    ├── encryption_service.dart         # Data encryption
+    ├── backup_service.dart             # Backup/restore
     ├── backup_encryption_service.dart  # Backup encryption
     ├── database_service.dart           # SQLite operations
-    ├── auth_service.dart               # Biometric auth
-    └── ... (10+ services)
+    ├── secure_storage_service.dart     # Secure key storage
+    ├── keystore_service.dart           # Android Keystore
+    ├── integrity_service.dart          # Database integrity
+    ├── icon_service.dart               # Brand icons
+    └── qr_scanner_service.dart         # QR parsing
 ```
 
 ### Tech Stack
@@ -120,56 +123,74 @@ lib/
 - **State Management**: Provider (MVVM)
 - **Database**: SQLite with encryption
 - **Security**: 
+  - Encryption: XChaCha20-Poly1305 AEAD
+  - Key Storage: flutter_secure_storage + Android Keystore
   - Backup: Argon2id + XChaCha20-Poly1305
-  - Local: AES-256-GCM
-  - Storage: flutter_secure_storage
-- **Animations**: Custom AnimatedList (no external dependencies)
+- **UI**: Material Design 3
+- **Icons**: Font Awesome (brand logos)
 
 ## 🔐 Security
 
-### Encryption Algorithms
+### Encryption Architecture
+
+**Data Encryption Key (DEK):**
+- Generated once per app installation using CSPRNG
+- 256-bit random key
+- Stored in device secure storage (hardware-backed when available)
+- Never stored in plaintext
+
+**Secret Encryption:**
+- Algorithm: XChaCha20-Poly1305 (AEAD)
+- Random nonce per encryption
+- Authenticated encryption with associated data (AAD)
+- Secrets bound to account metadata
 
 **Backup Encryption:**
-- **Key Derivation**: Argon2id (OWASP recommended)
+- Key Derivation: Argon2id (OWASP recommended)
   - Memory: 64 MB
   - Iterations: 3
   - Parallelism: 4
-- **Cipher**: XChaCha20-Poly1305 (AEAD)
-- **Integrity**: HMAC-SHA256
-- **Salt**: 32 bytes random per backup
-- **Encoding**: Base64 (hides JSON structure from users)
+- Cipher: XChaCha20-Poly1305
+- Integrity: HMAC-SHA256
+- Salt: 32 bytes random per backup
 
-**Local Storage:**
-- **Cipher**: AES-256-GCM
-- **Key Storage**: Hardware-backed secure storage
-- **Secrets**: Never stored in plaintext
+**Storage Security:**
+- Android Keystore integration (hardware-backed)
+- Hybrid storage strategy (direct + wrapped)
+- Database integrity verification
+- No plaintext secrets on disk
 
 ### Security Features
-- ✅ Biometric authentication
+- ✅ Device lock authentication (PIN/pattern/biometric)
 - ✅ Encrypted database
 - ✅ Secure clipboard (auto-clear)
 - ✅ No cloud backup
 - ✅ No internet permissions
-- ✅ Screenshot prevention (Android: FLAG_SECURE, iOS: Blur overlay)
-- ✅ Root detection warnings
+- ✅ Screenshot prevention
+- ✅ Privacy overlay when app is in background
+- ✅ Automatic re-lock on app switch
 
-### Security Rating: **9.5/10**
+### Security Documentation
 
-Implements OWASP Mobile Security best practices.
+See [SECURITY_ARCHITECTURE.md](SECURITY_ARCHITECTURE.md) for complete technical details on:
+- DEK generation and storage
+- Encryption flow
+- Threat model
+- Security best practices
 
 ## 📖 Usage
 
 ### Adding Accounts
 
 **Via QR Code:**
-1. Tap the '+' FAB button
+1. Tap the '+' button
 2. Select "Scan QR Code"
 3. Grant camera permission
 4. Point camera at QR code
 5. Account added automatically
 
 **Manual Entry:**
-1. Tap the '+' FAB button
+1. Tap the '+' button
 2. Select "Enter Manually"
 3. Fill in:
    - Issuer (e.g., "Google")
@@ -193,9 +214,9 @@ Implements OWASP Mobile Security best practices.
 - Swipe left on account card
 - Confirm deletion
 
-**Search & Filter:**
-- Tap search icon to search by name
-- Tap filter icon to filter by issuer or favorites
+**Search:**
+- Tap search icon
+- Search by issuer or account name
 
 ### Backup & Restore
 
@@ -204,13 +225,13 @@ Implements OWASP Mobile Security best practices.
 2. Tap "Create Backup"
 3. Enter strong password (6+ characters)
 4. Confirm password
-5. Backup created and saved locally
+5. Backup saved as `.cdac` file
 6. Optional: Share backup file
 
 **Restore Backup:**
 1. Settings → Backup & Restore
 2. Tap "Import Backup"
-3. Select backup file
+3. Select `.cdac` backup file
 4. Choose merge strategy:
    - Skip Duplicates
    - Replace Existing
@@ -220,20 +241,20 @@ Implements OWASP Mobile Security best practices.
 
 **Password Retry:**
 - Up to 5 attempts allowed
-- Visual feedback on each attempt
 - Clear error messages
+- Backup remains secure
 
 ## 🎨 Customization
 
 ### Theme
 - Automatic light/dark mode
 - Follows system theme
-- Manual override in Settings
+- CDAC branding colors
 
-### Biometric Authentication
-- Enable/disable in Settings
-- Supports fingerprint and face recognition
-- Fallback to app unlock if biometric fails
+### Device Authentication
+- Uses device's built-in security
+- Supports PIN, pattern, fingerprint, face unlock
+- Automatic re-lock when app goes to background
 
 ## 🧪 Testing
 
@@ -248,43 +269,27 @@ flutter test --coverage
 flutter test test/services/totp_service_test.dart
 ```
 
-## 📦 Building for Production
+## 📦 Dependencies
 
-### First-Time Setup
+### Core
+- `provider: ^6.1.5` - State management
+- `sqflite: ^2.4.2` - Local database
+- `flutter_secure_storage: ^9.2.4` - Secure key storage
+- `cryptography: ^2.9.0` - Encryption
+- `local_auth: ^2.3.0` - Biometric authentication
 
-1. **Generate Keystore** (one-time):
-```bash
-cd android/app
-keytool -genkey -v -keystore release.keystore -keyalg RSA -keysize 2048 -validity 10000 -alias release
-```
+### Backup & Security
+- `bcrypt: ^1.1.3` - Password hashing
+- `crypto: ^3.0.6` - Hash functions
+- `encrypt: ^5.0.3` - Additional encryption utilities
 
-2. **Create `.env` file** in project root:
-```env
-AUTHENTICATOR_KEYSTORE_PATH=android/app/release.keystore
-AUTHENTICATOR_KEYSTORE_ALIAS=release
-```
-
-3. **Backup keystore securely** - You cannot update your app without it!
-
-### Build Release APK
-
-**Using PowerShell script** (recommended):
-```powershell
-.\build-release.ps1
-```
-
-**Manual build**:
-```bash
-flutter build apk --release
-```
-
-**Output**: `build/app/outputs/flutter-apk/app-release.apk`
-
-### Security Notes
-- ⚠️ Never commit keystore files
-- ⚠️ Never commit passwords
-- ⚠️ Backup keystore securely
-- ⚠️ Use strong keystore passwords
+### UI & Utilities
+- `mobile_scanner: ^7.1.3` - QR code scanning
+- `font_awesome_flutter: ^10.7.0` - Brand icons
+- `share_plus: ^10.1.2` - File sharing
+- `file_picker: ^8.1.4` - File selection
+- `path_provider: ^2.1.5` - File paths
+- `shared_preferences: ^2.2.2` - Settings storage
 
 ## 🤝 Contributing
 
@@ -297,10 +302,6 @@ Contributions welcome! Please:
 5. Run `flutter format` before committing
 6. Submit Pull Request
 
-## 📄 License
-
-MIT License - see [LICENSE](LICENSE) file for details.
-
 ## 🔒 Privacy
 
 This app is **privacy-first**:
@@ -308,8 +309,8 @@ This app is **privacy-first**:
 - ✅ No analytics or tracking
 - ✅ No third-party services
 - ✅ No internet required
-- ✅ All data stored locally
-- ✅ Open source and transparent
+- ✅ All data stored locally and encrypted
+- ✅ Transparent security architecture
 
 See [Privacy Policy](lib/view/privacy_policy_screen.dart) for full details.
 
@@ -333,14 +334,15 @@ Built with:
 - [SQLite](https://pub.dev/packages/sqflite) - Local database
 - [Cryptography](https://pub.dev/packages/cryptography) - Encryption
 - [Mobile Scanner](https://pub.dev/packages/mobile_scanner) - QR scanning
+- [Font Awesome](https://pub.dev/packages/font_awesome_flutter) - Brand icons
 
 ## 📊 Project Status
 
-**Version**: 1.0.0
-**Status**: ✅ Production Ready
-**Platform**: Android 8.0+
-**Last Updated**: December 2025
+**Version**: 1.0.0  
+**Status**: ✅ Production Ready  
+**Platform**: Android 8.0+  
+**Last Updated**: December 2024
 
 ---
 
-Made with ❤️ using Flutter
+Made with ❤️ by C-DAC using Flutter

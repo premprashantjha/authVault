@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:lottie/lottie.dart';
 import '../../app/theme.dart';
+import '../../app/app_constants.dart';
 import 'animated_button.dart';
 
-class EmptyStateWidget extends StatelessWidget {
+class EmptyStateWidget extends StatefulWidget {
   final VoidCallback onAddAccount;
 
   const EmptyStateWidget({
@@ -12,66 +12,103 @@ class EmptyStateWidget extends StatelessWidget {
   });
 
   @override
+  State<EmptyStateWidget> createState() => _EmptyStateWidgetState();
+}
+
+class _EmptyStateWidgetState extends State<EmptyStateWidget> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _scaleAnimation;
+  late Animation<double> _opacityAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: const Duration(milliseconds: 3500), 
+      vsync: this,
+    )..repeat(reverse: true);
+
+    _scaleAnimation = Tween<double>(begin: 0.97, end: 1.05).animate( 
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+    );
+
+    _opacityAnimation = Tween<double>(begin: 0.35, end: 0.55).animate( 
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     
     return LayoutBuilder(
       builder: (context, constraints) {
         return SingleChildScrollView(
-          padding: const EdgeInsets.all(32),
+          padding: EdgeInsets.all(AppConstants.spaceXl),
           child: ConstrainedBox(
-            constraints: BoxConstraints(minHeight: constraints.maxHeight - 64),
+            constraints: BoxConstraints(minHeight: constraints.maxHeight - AppConstants.iconSizeXxl * 2),
             child: Column(
               mainAxisAlignment: AppTheme.mainAxisCenter,
               children: [
-                // Lottie animation showing QR scan interaction
-                SizedBox(
-                  width: 280,
-                  height: 280,
-                  child: Lottie.asset(
-                    'assets/images/AuthenticatorWelcomeScreen.json',
-                    fit: BoxFit.contain,
-                    repeat: true,
-                    animate: true,
-                  ),
+                // Animated CDAC Logo watermark
+                AnimatedBuilder(
+                  animation: _controller,
+                  builder: (context, child) {
+                    return Transform.scale(
+                      scale: _scaleAnimation.value,
+                      child: Opacity(
+                        opacity: _opacityAnimation.value,
+                        child: Container(
+                          width: AppConstants.spaceXxl * 4,
+                          height: AppConstants.spaceXxl * 4,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+                          ),
+                          padding: EdgeInsets.all(AppConstants.spaceXl + AppConstants.spaceSm),
+                          child: Image.asset(
+                            'assets/images/CDAC_Logo.png',
+                            fit: BoxFit.contain,
+                          ),
+                        ),
+                      ),
+                    );
+                  },
                 ),
-                const SizedBox(height: 24),
-                Text(
-                  'No 2FA Accounts',
-                  style: AppTheme.headlineLarge(theme.colorScheme.onSurface).copyWith(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                  ),
-                  textAlign: AppTheme.textAlignCenter,
-                ),
-                const SizedBox(height: 12),
+                SizedBox(height: AppConstants.spaceXxl),
                 Text(
                   'Secure your accounts with two-factor authentication',
                   style: AppTheme.bodyMedium(theme.colorScheme.onSurface).copyWith(
-                    color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                    color: theme.colorScheme.onSurface.withValues(alpha: AppConstants.opacityMedium),
                     height: 1.5,
                     fontSize: 15,
                   ),
                   textAlign: AppTheme.textAlignCenter,
                 ),
-                const SizedBox(height: 32),
+                SizedBox(height: AppConstants.spaceXl),
                 AnimatedButton(
-                  onTap: onAddAccount,
+                  onTap: widget.onAddAccount,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                    padding: EdgeInsets.symmetric(horizontal: AppConstants.spaceXl, vertical: AppConstants.spaceMd),
                     decoration: BoxDecoration(
                       color: theme.colorScheme.primary,
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(AppConstants.radiusMd),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(
                           Icons.qr_code_scanner,
-                          size: 20,
+                          size: AppConstants.iconSizeMd,
                           color: theme.colorScheme.onPrimary,
                         ),
-                        const SizedBox(width: 12),
+                        SizedBox(width: AppConstants.otpCardSpacing),
                         Text(
                           'Add Your First Account',
                           style: AppTheme.bodyLarge(theme.colorScheme.onPrimary).copyWith(

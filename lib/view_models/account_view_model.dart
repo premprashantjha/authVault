@@ -31,11 +31,17 @@ class AccountViewModel with ChangeNotifier {
     required this.totpService,
     bool autoInit = true,
   }) {
+    // Don't auto-load accounts - wait for explicit reloadAfterUnlock() call
+    // This prevents showing data before authentication
     if (autoInit) {
-      _loadAccounts();
       _startOTPTimer();
     }
     _loadFavorites();
+  }
+  
+  /// Initialize and load accounts (called after authentication)
+  Future<void> initialize() async {
+    await reloadAfterUnlock();
   }
 
   List<Account> get accounts => _accounts;
@@ -75,8 +81,11 @@ class AccountViewModel with ChangeNotifier {
       _generateOTPs();
     } catch (e) {
       if (kDebugMode) {
-        debugPrint('Error loading accounts: $e');
+        debugPrint('❌ [ViewModel] Error loading accounts: $e');
       }
+      _accounts = [];
+      _accountsWithOTP = [];
+      _filteredAccounts = [];
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -86,7 +95,15 @@ class AccountViewModel with ChangeNotifier {
   Future<bool> addAccount(Account account) async {
     try {
       await accountService.addAccount(account);
-      await _loadAccounts(); // Reload to get updated list
+      
+      // Ensure timer is running before loading accounts
+      if (_timer == null) {
+        _startOTPTimer();
+      }
+      
+      // Reload accounts from database (this calls _generateOTPs and notifyListeners internally)
+      await _loadAccounts();
+      
       return true;
     } catch (e) {
       if (kDebugMode) {
@@ -117,20 +134,28 @@ class AccountViewModel with ChangeNotifier {
 
   void _startOTPTimer() {
     _timer?.cancel();
-    // Only update every second for UI, but regenerate OTPs only when time step changes
+    // Only regenerate OTPs when time step changes (every 30 seconds)
+    // Don't notify listeners for every second tick
     int lastTimeStep = -1;
     
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       final currentTimeStep = (DateTime.now().millisecondsSinceEpoch / 1000).floor() ~/ 30;
       final secondsRemaining = totpService.getRemainingSeconds();
       
-      // Only regenerate OTPs when time step changes (every 30 seconds)
+      // Only regenerate OTPs and notify when time step changes (every 30 seconds)
       if (currentTimeStep != lastTimeStep) {
         lastTimeStep = currentTimeStep;
         _generateOTPs();
       } else {
-        // Just update the seconds remaining for UI
-        _updateSecondsRemaining(secondsRemaining);
+        // Just update the seconds remaining WITHOUT notifying listeners
+        // The OTPCard widgets will update themselves via their own timers
+        _accountsWithOTP = _accountsWithOTP
+            .map((accountWithOTP) => accountWithOTP.copyWith(secondsRemaining: secondsRemaining))
+            .toList();
+        _filteredAccounts = _filteredAccounts
+            .map((accountWithOTP) => accountWithOTP.copyWith(secondsRemaining: secondsRemaining))
+            .toList();
+        // NO notifyListeners() here - this prevents the rebuild storm!
       }
     });
   }
@@ -185,18 +210,24 @@ class AccountViewModel with ChangeNotifier {
   }
 
   Future<void> reloadAfterUnlock() async {
+    // Start OTP timer if not running
     if (_timer == null) {
       _startOTPTimer();
     }
+    
+    // Load accounts from database
     await _loadAccounts();
   }
 
   void purgeSensitiveData() {
-    _timer?.cancel();
-    _timer = null;
-    _accounts = [];
-    _accountsWithOTP = [];
-    _filteredAccounts = [];
+    // Don't clear accounts list - just clear OTP codes
+    // This prevents the empty state flicker when unlocking
+    _accountsWithOTP = _accountsWithOTP.map((item) => 
+      item.copyWith(otp: '------', secondsRemaining: 0)
+    ).toList();
+    _filteredAccounts = _filteredAccounts.map((item) => 
+      item.copyWith(otp: '------', secondsRemaining: 0)
+    ).toList();
     notifyListeners();
   }
 
