@@ -12,6 +12,8 @@ import 'services/migration_service.dart';
 import 'services/encryption_service.dart';
 import 'services/security_service.dart';
 import 'services/integrity_service.dart';
+import 'services/auto_backup_service.dart';
+import 'services/cloud_sync_service.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -31,7 +33,10 @@ class _SplashAppState extends State<SplashApp> {
   String _securityMessage = '';
   AccountViewModel? _accountViewModel;
   bool _shouldShowOnboarding = false;
+  bool _hasBackupAvailable = false; // Track if backup is available
+  bool _hasCloudBackup = false; // Track if cloud backup exists
   late SecureStorageService _secureStorage;
+  CloudSyncService? _cloudSyncService;
   
   SecurityService? _securityService;
   MigrationService? _migrationService;
@@ -65,6 +70,17 @@ class _SplashAppState extends State<SplashApp> {
       totpService: totpService,
     );
     
+    // Initialize cloud sync service
+    _cloudSyncService = CloudSyncService(
+      accountService: accountService,
+    );
+    
+    // Check if backup is available (don't restore yet - ask user first)
+    _hasBackupAvailable = await _checkBackupAvailable(accountService);
+    
+    // Check if cloud backup exists
+    _hasCloudBackup = await _checkCloudBackup();
+    
     if (mounted) {
       setState(() {
         _isInitialized = true;
@@ -72,6 +88,49 @@ class _SplashAppState extends State<SplashApp> {
     }
     
     _performBackgroundTasks(databaseService);
+  }
+  
+  /// Check if backup is available for restore
+  Future<bool> _checkBackupAvailable(AccountService accountService) async {
+    try {
+      final autoBackupService = AutoBackupService(
+        accountService: accountService,
+      );
+      
+      // Check if backup file exists (restored by Android from cloud)
+      final hasBackup = await autoBackupService.hasBackup();
+      
+      if (hasBackup && kDebugMode) {
+        debugPrint('✓ Backup file detected - will prompt user to restore');
+      }
+      
+      return hasBackup;
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('Error checking backup: $e');
+      }
+      return false;
+    }
+  }
+  
+  /// Check if cloud backup exists
+  Future<bool> _checkCloudBackup() async {
+    try {
+      if (_cloudSyncService == null) return false;
+      
+      final isEnabled = await _cloudSyncService!.isCloudSyncEnabled();
+      
+      if (isEnabled && kDebugMode) {
+        debugPrint('✓ Cloud backup detected - will offer restore');
+      }
+      
+      return isEnabled;
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('Error checking cloud backup: $e');
+      }
+      return false;
+    }
   }
   
   void _performBackgroundTasks(DatabaseService databaseService) async {
@@ -131,6 +190,7 @@ class _SplashAppState extends State<SplashApp> {
       key: const ValueKey('main'),
       providers: [
         ChangeNotifierProvider<AccountViewModel>.value(value: _accountViewModel!),
+        Provider<CloudSyncService>.value(value: _cloudSyncService!),
       ],
       child: AuthenticatorAppWithDialog(
         showOnboarding: _shouldShowOnboarding,
@@ -140,6 +200,8 @@ class _SplashAppState extends State<SplashApp> {
         onSecurityWarningDismissed: () {
           setState(() => _hasSecurityWarning = false);
         },
+        hasBackupAvailable: _hasBackupAvailable,
+        hasCloudBackup: _hasCloudBackup,
       ),
     );
   }

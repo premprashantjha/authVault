@@ -230,6 +230,7 @@ class _BackupPasswordDialogState extends State<BackupPasswordDialog> {
                       color: colorScheme.onSurface.withValues(alpha: 0.7),
                     ),
                     onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                    tooltip: _obscurePassword ? 'Show password' : 'Hide password',
                   ),
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                   enabledBorder: OutlineInputBorder(
@@ -270,6 +271,7 @@ class _BackupPasswordDialogState extends State<BackupPasswordDialog> {
                         color: colorScheme.onSurface.withValues(alpha: 0.7),
                       ),
                       onPressed: () => setState(() => _obscureConfirm = !_obscureConfirm),
+                      tooltip: _obscureConfirm ? 'Show password' : 'Hide password',
                     ),
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                     enabledBorder: OutlineInputBorder(

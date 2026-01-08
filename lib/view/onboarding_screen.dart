@@ -1,5 +1,12 @@
 import 'package:flutter/material.dart';
-import '../../app/theme.dart';
+import 'package:provider/provider.dart';
+import '../app/theme.dart';
+import '../services/auto_backup_service.dart';
+import '../services/cloud_sync_service.dart';
+import '../view_models/account_view_model.dart';
+import '../widgets/restore_prompt_dialog.dart';
+import '../widgets/custom_snackbar.dart';
+import 'cloud_restore_screen.dart';
 
 class OnboardingSlide {
   final String title;
@@ -24,6 +31,8 @@ class OnboardingScreen extends StatefulWidget {
   final VoidCallback? onEnableBiometrics;
   final VoidCallback? onOpenDiagnostics;
   final VoidCallback? onEnablePassphrase;
+  final bool hasBackupAvailable;
+  final bool hasCloudBackup;
 
   const OnboardingScreen({
     super.key,
@@ -35,6 +44,8 @@ class OnboardingScreen extends StatefulWidget {
     this.onEnableBiometrics,
     this.onOpenDiagnostics,
     this.onEnablePassphrase,
+    this.hasBackupAvailable = false,
+    this.hasCloudBackup = false,
   });
 
   @override
@@ -115,9 +126,14 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     super.dispose();
   }
 
-  void _goNext() {
+  void _goNext() async {
     if (_currentIndex == _slides.length - 1) {
-      widget.onFinished();
+      // On last page, check if backup is available
+      if ((widget.hasBackupAvailable || widget.hasCloudBackup) && !widget.isReviewMode) {
+        await _handleRestorePrompt();
+      } else {
+        widget.onFinished();
+      }
       return;
     }
     _controller.nextPage(
@@ -132,6 +148,200 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       duration: const Duration(milliseconds: 350),
       curve: Curves.easeInOut,
     );
+  }
+
+  /// Handle restore prompt on last onboarding page
+  Future<void> _handleRestorePrompt() async {
+    if (!mounted) return;
+    
+    try {
+      // Check which type of backup is available
+      if (widget.hasCloudBackup) {
+        // Cloud backup available - show cloud restore option
+        await _handleCloudRestore();
+      } else if (widget.hasBackupAvailable) {
+        // Local backup available - show local restore option
+        await _handleLocalRestore();
+      }
+      
+      // Continue to app (whether restored or not)
+      widget.onFinished();
+    } catch (e) {
+      // If anything fails, just continue to app
+      widget.onFinished();
+    }
+  }
+  
+  /// Handle cloud backup restore
+  Future<void> _handleCloudRestore() async {
+    if (!mounted) return;
+    
+    final cloudSyncService = context.read<CloudSyncService>();
+    
+    // Show dialog asking if user wants to restore
+    final shouldRestore = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(
+                Icons.cloud_download_rounded,
+                color: AppTheme.primaryColor,
+                size: 24,
+              ),
+            ),
+            const SizedBox(width: 12),
+            const Expanded(
+              child: Text('Cloud Backup Found'),
+            ),
+          ],
+        ),
+        content: const Text(
+          'We found your cloud backup. Would you like to restore your accounts now?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Skip'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Restore'),
+          ),
+        ],
+      ),
+    );
+    
+    if (shouldRestore != true) return;
+    
+    // Navigate to cloud restore screen
+    if (!mounted) return;
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => CloudRestoreScreen(
+          cloudSyncService: cloudSyncService,
+        ),
+      ),
+    );
+  }
+  
+  /// Handle local backup restore
+  Future<void> _handleLocalRestore() async {
+    if (!mounted) return;
+    
+    try {
+      // Get backup info to show in dialog
+      final accountViewModel = context.read<AccountViewModel>();
+      final autoBackupService = AutoBackupService(
+        accountService: accountViewModel.accountService,
+      );
+      
+      // Get account count from backup (if possible)
+      final accountCount = await _getBackupAccountCount(autoBackupService);
+      
+      // Show restore prompt dialog
+      final shouldRestore = await showRestorePromptDialog(
+        context,
+        accountCount: accountCount,
+      );
+      
+      if (shouldRestore == true) {
+        // User wants to restore
+        await _performRestore(autoBackupService);
+      }
+    } catch (e) {
+      // Silently fail
+    }
+  }
+
+  /// Get account count from backup
+  Future<int> _getBackupAccountCount(AutoBackupService backupService) async {
+    try {
+      final metadata = await backupService.getBackupMetadata();
+      return metadata?['account_count'] ?? 0;
+    } catch (e) {
+      return 0;
+    }
+  }
+
+  /// Perform backup restore
+  Future<void> _performRestore(AutoBackupService backupService) async {
+    if (!mounted) return;
+    
+    // Show loading dialog
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => PopScope(
+        canPop: false,
+        child: Center(
+          child: Card(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const CircularProgressIndicator(),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Restoring your accounts...',
+                    style: Theme.of(context).textTheme.bodyLarge,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    
+    try {
+      // Restore backup
+      final restored = await backupService.restoreAutoBackup();
+      
+      // Close loading dialog
+      if (mounted) {
+        Navigator.pop(context);
+      }
+      
+      // Show result
+      if (mounted) {
+        if (restored) {
+          CustomSnackbar.show(
+            context,
+            message: 'Accounts restored successfully!',
+            type: SnackbarType.success,
+          );
+        } else {
+          CustomSnackbar.show(
+            context,
+            message: 'Restore failed. You can try again from Settings.',
+            type: SnackbarType.error,
+          );
+        }
+      }
+    } catch (e) {
+      // Close loading dialog
+      if (mounted) {
+        Navigator.pop(context);
+      }
+      
+      // Show error
+      if (mounted) {
+        CustomSnackbar.show(
+          context,
+          message: 'Restore failed: ${e.toString()}',
+          type: SnackbarType.error,
+        );
+      }
+    }
   }
 
   @override

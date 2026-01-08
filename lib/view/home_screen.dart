@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
 
 // Models
@@ -10,6 +11,12 @@ import '../view_models/account_view_model.dart';
 
 // Services
 import '../services/totp_service.dart';
+import '../services/auto_backup_service.dart';
+import '../services/account_service.dart';
+import '../services/database_service.dart';
+import '../services/encryption_service.dart';
+import '../services/integrity_service.dart';
+import '../services/cloud_sync_service.dart';
 
 // Widgets
 import '../widgets/animated_button.dart';
@@ -24,9 +31,13 @@ import '../widgets/add_account_modal.dart';
 import '../widgets/otp_card.dart';
 import '../widgets/animated_account_list.dart';
 
+// Utils
+import '../utils/backup_prompt_helper.dart';
+
 // Screens
 import 'qr_scan_screen.dart';
 import 'settings_screen.dart';
+import 'cloud_restore_screen.dart';
 
 // Theme
 import '../app/theme.dart';
@@ -44,10 +55,48 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
   bool _isSearchVisible = false;
+  bool _isBackupEnabled = false;
+  DateTime? _lastBackupTime;
   
   @override
   void initState() {
     super.initState();
+    _loadBackupStatus();
+    
+    // Connect CloudSyncService to AccountViewModel
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final viewModel = context.read<AccountViewModel>();
+      final cloudSyncService = context.read<CloudSyncService>();
+      viewModel.cloudSyncService = cloudSyncService;
+      
+      // Check if we should show backup reminder on startup
+      BackupPromptHelper.checkStartupReminder(context, cloudSyncService);
+    });
+  }
+
+  Future<void> _loadBackupStatus() async {
+    try {
+      final encryptionService = EncryptionService();
+      final integrityService = IntegrityService();
+      final databaseService = DatabaseService(
+        encryptionService: encryptionService,
+        integrityService: integrityService,
+      );
+      final accountService = AccountService(databaseService: databaseService);
+      final backupService = AutoBackupService(accountService: accountService);
+      
+      final isEnabled = await backupService.isBackupEnabled();
+      final lastBackup = await backupService.getLastBackupTime();
+      
+      if (mounted) {
+        setState(() {
+          _isBackupEnabled = isEnabled;
+          _lastBackupTime = lastBackup;
+        });
+      }
+    } catch (e) {
+      // Silently fail - backup status is optional
+    }
   }
 
   @override
@@ -61,6 +110,25 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     await Navigator.of(context).push(
       MaterialPageRoute(builder: (context) => const SettingsScreen()),
     );
+    // Reload backup status when returning from settings
+    _loadBackupStatus();
+  }
+
+  String _formatBackupTime(DateTime time) {
+    final now = DateTime.now();
+    final difference = now.difference(time);
+
+    if (difference.inMinutes < 1) {
+      return 'Just now';
+    } else if (difference.inMinutes < 60) {
+      return '${difference.inMinutes}m ago';
+    } else if (difference.inHours < 24) {
+      return '${difference.inHours}h ago';
+    } else if (difference.inDays == 1) {
+      return 'Yesterday';
+    } else {
+      return '${difference.inDays}d ago';
+    }
   }
 
   Future<void> _openFilterModal() async {
@@ -505,6 +573,10 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
         message: 'Your account has been securely added to the vault',
         type: SnackbarType.success,
       );
+      
+      // Show backup setup prompt at strategic moments
+      final cloudSyncService = context.read<CloudSyncService>();
+      await BackupPromptHelper.onAccountAdded(context, cloudSyncService);
     } else {
       CustomSnackbar.show(
         context,

@@ -31,8 +31,8 @@ class EncryptionService {
   final SecureStorageService _secureStorage;
   final KeystoreService _keystoreService;
   
-  // Key identifiers
-  static const String _keystoreAlias = 'authenticator_master_kek';
+  // Key identifiers with version
+  static const String _keystoreAlias = 'authenticator_master_kek_v1';
   static const String _wrappedDekKey = 'authenticator_wrapped_dek';
   static const String _directDekKey = 'authenticator_direct_dek';
   static const String _keystoreModeKey = 'authenticator_keystore_mode';

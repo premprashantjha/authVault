@@ -5,17 +5,21 @@ import 'package:share_plus/share_plus.dart';
 import 'package:provider/provider.dart';
 import '../app/theme.dart';
 import '../services/backup_service.dart';
+import '../services/cloud_sync_service.dart';
 import '../view_models/account_view_model.dart';
 import '../widgets/backup_password_dialog.dart';
+import '../widgets/backup_status_card.dart';
 import '../widgets/custom_snackbar.dart';
 import '../widgets/animated_button.dart';
 
 class BackupScreen extends StatefulWidget {
   final BackupService backupService;
+  final CloudSyncService cloudSyncService;
 
   const BackupScreen({
     super.key,
     required this.backupService,
+    required this.cloudSyncService,
   });
 
   @override
@@ -278,7 +282,13 @@ class _BackupScreenState extends State<BackupScreen> {
         Navigator.of(context).pop(); // Close progress dialog
         
         // Reload accounts in view model
-        await context.read<AccountViewModel>().reloadAfterUnlock();
+        final viewModel = context.read<AccountViewModel>();
+        await viewModel.reloadAfterUnlock();
+        
+        // Force a rebuild to ensure UI updates
+        if (mounted) {
+          setState(() {});
+        }
         
         // Show success
         CustomSnackbar.show(
@@ -453,119 +463,464 @@ class _BackupScreenState extends State<BackupScreen> {
     final colorScheme = theme.colorScheme;
     
     return Scaffold(
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios),
           onPressed: () => Navigator.of(context).pop(),
         ),
-        title: const Text('Backup & Restore'),
+        title: Text(
+          'Backup & Restore',
+          style: AppTheme.headlineMedium(colorScheme.onSurface),
+        ),
         backgroundColor: colorScheme.surface,
+        elevation: 0,
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : ListView(
-              padding: const EdgeInsets.all(16),
-              children: [
-                // Action buttons
-                Row(
-                  children: [
-                    Expanded(
-                      child: AnimatedButton(
-                        onTap: _createBackup,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          decoration: BoxDecoration(
-                            color: colorScheme.primary,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              const Icon(Icons.backup, color: Colors.white, size: 20),
-                              const SizedBox(width: 8),
-                              Text(
-                                'Create Backup',
-                                style: AppTheme.bodyMedium(Colors.white).copyWith(
-                                  fontWeight: AppTheme.weightSemiBold,
-                                ),
+          ? Center(
+              child: CircularProgressIndicator(
+                strokeWidth: 3,
+                valueColor: AlwaysStoppedAnimation<Color>(colorScheme.primary),
+              ),
+            )
+          : RefreshIndicator(
+              onRefresh: _loadBackupFiles,
+              child: ListView(
+                padding: const EdgeInsets.all(16),
+                children: [
+                  // Backup status card
+                  BackupStatusCard(
+                    cloudSyncService: widget.cloudSyncService,
+                    onStatusChanged: () {
+                      // Reload backup list when status changes
+                      _loadBackupFiles();
+                    },
+                  ),
+                  const SizedBox(height: 32),
+                  
+                  // Cloud Sync Options Section
+                  FutureBuilder<bool>(
+                    future: widget.cloudSyncService.hasCloudBackup(),
+                    builder: (context, snapshot) {
+                      final hasBackup = snapshot.data == true;
+                      
+                      // Only show restore option if backup exists
+                      if (!hasBackup) {
+                        return const SizedBox.shrink();
+                      }
+                      
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Restore existing backup
+                          Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: Colors.green.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: Colors.green.withOpacity(0.3),
                               ),
-                            ],
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.cloud_download_rounded,
+                                  color: Colors.green,
+                                  size: 32,
+                                ),
+                                const SizedBox(width: 16),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Cloud Backup Found',
+                                        style: AppTheme.bodyLarge(colorScheme.onSurface).copyWith(
+                                          fontWeight: AppTheme.weightBold,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        'Restore your previous accounts',
+                                        style: AppTheme.caption(colorScheme.onSurface.withValues(alpha: 0.7)),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
-                      ),
+                          const SizedBox(height: 12),
+                          ElevatedButton.icon(
+                            onPressed: _restoreFromCloud,
+                            icon: const Icon(Icons.restore, size: 20),
+                            label: const Text('Restore from Cloud'),
+                            style: ElevatedButton.styleFrom(
+                              minimumSize: const Size(double.infinity, 52),
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              backgroundColor: Colors.green,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 32),
+                        ],
+                      );
+                    },
+                  ),
+                  
+                  // Backup Files Section
+                  Text(
+                    'BACKUP FILES',
+                    style: AppTheme.caption(colorScheme.onSurface).copyWith(
+                      fontWeight: AppTheme.weightSemiBold,
+                      letterSpacing: 1.2,
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: AnimatedButton(
-                        onTap: _importBackup,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          decoration: BoxDecoration(
-                            color: colorScheme.secondaryContainer,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(Icons.file_upload, color: colorScheme.onSecondaryContainer, size: 20),
-                              const SizedBox(width: 8),
-                              Text(
-                                'Import Backup',
-                                style: AppTheme.bodyMedium(colorScheme.onSecondaryContainer).copyWith(
-                                  fontWeight: AppTheme.weightSemiBold,
-                                ),
-                              ),
-                            ],
+                  ),
+                  const SizedBox(height: 12),
+                  
+                  Text(
+                    'Create encrypted backup files that you can save anywhere. Import backups from other devices.',
+                    style: AppTheme.caption(colorScheme.onSurface.withValues(alpha: 0.7)),
+                  ),
+                  const SizedBox(height: 16),
+                  
+                  // Action buttons in a single row
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: _createBackup,
+                          icon: Icon(Icons.add_circle_outline, size: 20),
+                          label: const Text('Create'),
+                          style: ElevatedButton.styleFrom(
+                            minimumSize: const Size(double.infinity, 52),
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
                           ),
                         ),
                       ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: _importBackup,
+                          icon: Icon(Icons.file_upload_outlined, size: 20),
+                          label: const Text('Import'),
+                          style: OutlinedButton.styleFrom(
+                            minimumSize: const Size(double.infinity, 52),
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: _exportLatestBackup,
+                          icon: Icon(Icons.share_outlined, size: 20),
+                          label: const Text('Share'),
+                          style: OutlinedButton.styleFrom(
+                            minimumSize: const Size(double.infinity, 52),
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+                  
+                  // Local backups list
+                  if (_backupFiles.isNotEmpty) ...[
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'SAVED BACKUPS',
+                          style: AppTheme.caption(colorScheme.onSurface).copyWith(
+                            fontWeight: AppTheme.weightSemiBold,
+                            letterSpacing: 1.2,
+                          ),
+                        ),
+                        Text(
+                          '${_backupFiles.length} file${_backupFiles.length == 1 ? '' : 's'}',
+                          style: AppTheme.caption(colorScheme.onSurface.withValues(alpha: 0.6)),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    ..._backupFiles.map((info) => _buildBackupCard(info, colorScheme)),
+                  ],
+                ],
+              ),
+            ),
+    );
+  }
+  
+  /// Build backup card widget
+  Widget _buildBackupCard(BackupInfo info, ColorScheme colorScheme) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(
+          color: colorScheme.outlineVariant,
+          width: 1,
+        ),
+      ),
+      child: InkWell(
+        onTap: () => _restoreBackup(info),
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: colorScheme.primaryContainer,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  Icons.folder_zip_outlined,
+                  color: colorScheme.primary,
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      info.fileName,
+                      style: AppTheme.bodyMedium(colorScheme.onSurface).copyWith(
+                        fontWeight: AppTheme.weightSemiBold,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '${info.fileSizeFormatted} • ${_formatDate(info.createdAt)}',
+                      style: AppTheme.caption(colorScheme.onSurface.withValues(alpha: 0.7)),
                     ),
                   ],
                 ),
-                const SizedBox(height: 32),
-                
-                // Backup files list
-                Text(
-                  'Local Backups',
-                  style: AppTheme.headlineMedium(colorScheme.onSurface),
+              ),
+              PopupMenuButton<String>(
+                icon: Icon(
+                  Icons.more_vert,
+                  color: colorScheme.onSurface.withValues(alpha: 0.6),
                 ),
-                const SizedBox(height: 12),
-                
-                if (_backupFiles.isEmpty)
-                  Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(32),
-                      child: Column(
-                        children: [
-                          Icon(
-                            Icons.folder_open,
-                            size: 64,
-                            color: colorScheme.onSurface.withValues(alpha: 0.3),
-                          ),
-                          const SizedBox(height: 16),
-                          Text(
-                            'No backups found',
-                            style: AppTheme.bodyMedium(colorScheme.onSurface.withValues(alpha: 0.6)),
-                          ),
-                        ],
-                      ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                itemBuilder: (context) => [
+                  PopupMenuItem(
+                    value: 'restore',
+                    child: Row(
+                      children: [
+                        Icon(Icons.restore, size: 20, color: colorScheme.primary),
+                        const SizedBox(width: 12),
+                        const Text('Restore'),
+                      ],
                     ),
-                  )
-                else
-                  ...List.generate(_backupFiles.length, (index) {
-                    final info = _backupFiles[index];
-                    return _BackupFileCard(
-                      info: info,
-                      onRestore: () => _restoreBackup(info),
-                      onDelete: () => _deleteBackup(info),
-                      onShare: () async {
-                        await Share.shareXFiles([XFile(info.filePath)]);
-                      },
-                    );
-                  }),
+                  ),
+                  PopupMenuItem(
+                    value: 'share',
+                    child: Row(
+                      children: [
+                        Icon(Icons.share, size: 20, color: colorScheme.onSurface),
+                        const SizedBox(width: 12),
+                        const Text('Share'),
+                      ],
+                    ),
+                  ),
+                  PopupMenuItem(
+                    value: 'delete',
+                    child: Row(
+                      children: [
+                        Icon(Icons.delete_outline, size: 20, color: colorScheme.error),
+                        const SizedBox(width: 12),
+                        Text('Delete', style: TextStyle(color: colorScheme.error)),
+                      ],
+                    ),
+                  ),
+                ],
+                onSelected: (value) async {
+                  switch (value) {
+                    case 'restore':
+                      await _restoreBackup(info);
+                      break;
+                    case 'share':
+                      await Share.shareXFiles([XFile(info.filePath)]);
+                      break;
+                    case 'delete':
+                      await _deleteBackup(info);
+                      break;
+                  }
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+  
+  /// Format date for display
+  String _formatDate(DateTime date) {
+    final now = DateTime.now();
+    final diff = now.difference(date);
+    
+    if (diff.inDays == 0) {
+      return 'Today at ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
+    } else if (diff.inDays == 1) {
+      return 'Yesterday';
+    } else if (diff.inDays < 7) {
+      return '${diff.inDays} days ago';
+    } else {
+      return '${date.day}/${date.month}/${date.year}';
+    }
+  }
+  
+  /// Restore from cloud backup
+  Future<void> _restoreFromCloud() async {
+    // Show password dialog
+    final password = await showDialog<String>(
+      context: context,
+      builder: (context) => const BackupPasswordDialog(
+        title: 'Restore from Cloud',
+        description: 'Enter your backup password',
+        isCreating: false,
+      ),
+    );
+    
+    if (password == null) return;
+    
+    // Show progress
+    if (!mounted) return;
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) {
+        final theme = Theme.of(context);
+        final colorScheme = theme.colorScheme;
+        return Dialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          child: Padding(
+            padding: const EdgeInsets.all(32),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SizedBox(
+                  width: 60,
+                  height: 60,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 4,
+                    valueColor: AlwaysStoppedAnimation<Color>(colorScheme.primary),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Text(
+                  'Restoring from Cloud',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                    color: colorScheme.onSurface,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Decrypting your accounts...',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: colorScheme.onSurface.withValues(alpha: 0.7),
+                  ),
+                  textAlign: TextAlign.center,
+                ),
               ],
             ),
+          ),
+        );
+      },
     );
+    
+    try {
+      // Restore from cloud
+      final accountsRestored = await widget.cloudSyncService.restoreFromCloud(password);
+      
+      if (!mounted) return;
+      Navigator.of(context).pop(); // Close progress dialog
+      
+      // Reload account list in parent
+      final accountViewModel = Provider.of<AccountViewModel>(context, listen: false);
+      await accountViewModel.reloadAfterUnlock();
+      
+      // Show success
+      CustomSnackbar.show(
+        context,
+        title: 'Restore Complete',
+        message: 'Successfully restored $accountsRestored accounts from cloud',
+        type: SnackbarType.success,
+      );
+      
+      // Reload backup list
+      await _loadBackupFiles();
+    } catch (e) {
+      if (!mounted) return;
+      Navigator.of(context).pop(); // Close progress dialog
+      
+      CustomSnackbar.show(
+        context,
+        title: 'Restore Failed',
+        message: e.toString().replaceFirst('CloudSyncException: ', ''),
+        type: SnackbarType.error,
+      );
+    }
+  }
+  
+  /// Export latest backup file
+  Future<void> _exportLatestBackup() async {
+    if (_backupFiles.isEmpty) {
+      CustomSnackbar.show(
+        context,
+        title: 'No Backups',
+        message: 'Create a backup first before sharing',
+        type: SnackbarType.info,
+      );
+      return;
+    }
+    
+    // Get latest backup
+    final latest = _backupFiles.first;
+    
+    // Share the backup file
+    try {
+      await Share.shareXFiles(
+        [XFile(latest.filePath)],
+        text: 'Authenticator Backup - ${latest.createdAt.toString().split('.')[0]}',
+      );
+    } catch (e) {
+      if (!mounted) return;
+      CustomSnackbar.show(
+        context,
+        title: 'Share Failed',
+        message: 'Could not share backup file',
+        type: SnackbarType.error,
+      );
+    }
   }
 }
 
@@ -589,42 +944,65 @@ class _MergeStrategyOption extends StatelessWidget {
     
     return InkWell(
       onTap: () => Navigator.of(context).pop(strategy),
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(16),
       child: Container(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          border: Border.all(color: colorScheme.outline.withValues(alpha: 0.3)),
-          borderRadius: BorderRadius.circular(12),
+          color: colorScheme.surface,
+          border: Border.all(
+            color: colorScheme.primary.withValues(alpha: 0.3),
+            width: 1.5,
+          ),
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: colorScheme.primary.withValues(alpha: 0.05),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
         ),
         child: Row(
           children: [
             Container(
-              width: 40,
-              height: 40,
+              width: 48,
+              height: 48,
               decoration: BoxDecoration(
-                color: colorScheme.primaryContainer,
-                borderRadius: BorderRadius.circular(10),
+                gradient: LinearGradient(
+                  colors: [
+                    colorScheme.primaryContainer,
+                    colorScheme.primaryContainer.withValues(alpha: 0.7),
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(14),
               ),
-              child: Icon(icon, color: colorScheme.primary, size: 20),
+              child: Icon(icon, color: colorScheme.primary, size: 24),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 16),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     title,
-                    style: AppTheme.bodyMedium(colorScheme.onSurface).copyWith(
+                    style: AppTheme.title(colorScheme.onSurface).copyWith(
                       fontWeight: AppTheme.weightSemiBold,
                     ),
                   ),
-                  const SizedBox(height: 2),
+                  const SizedBox(height: 4),
                   Text(
                     description,
                     style: AppTheme.caption(colorScheme.onSurface.withValues(alpha: 0.7)),
                   ),
                 ],
               ),
+            ),
+            Icon(
+              Icons.arrow_forward_ios_rounded,
+              size: 16,
+              color: colorScheme.primary.withValues(alpha: 0.5),
             ),
           ],
         ),
@@ -651,68 +1029,151 @@ class _BackupFileCard extends StatelessWidget {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
+    return Container(
+      decoration: BoxDecoration(
+        color: colorScheme.surface,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: colorScheme.outlineVariant.withValues(alpha: 0.5),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
                 Container(
-                  width: 40,
-                  height: 40,
+                  width: 48,
+                  height: 48,
                   decoration: BoxDecoration(
-                    color: colorScheme.primaryContainer,
-                    borderRadius: BorderRadius.circular(10),
+                    gradient: LinearGradient(
+                      colors: [
+                        colorScheme.primaryContainer,
+                        colorScheme.primaryContainer.withValues(alpha: 0.7),
+                      ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(14),
                   ),
-                  child: Icon(Icons.folder_zip, color: colorScheme.primary, size: 20),
+                  child: Icon(
+                    Icons.folder_zip_rounded,
+                    color: colorScheme.primary,
+                    size: 24,
+                  ),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 16),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
                         _formatDate(info.createdAt),
-                        style: AppTheme.bodyMedium(colorScheme.onSurface).copyWith(
+                        style: AppTheme.title(colorScheme.onSurface).copyWith(
                           fontWeight: AppTheme.weightSemiBold,
                         ),
                       ),
-                      const SizedBox(height: 2),
-                      Text(
-                        info.fileSizeFormatted,
-                        style: AppTheme.caption(colorScheme.onSurface.withValues(alpha: 0.6)),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.storage_rounded,
+                            size: 14,
+                            color: colorScheme.onSurface.withValues(alpha: 0.5),
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            info.fileSizeFormatted,
+                            style: AppTheme.caption(colorScheme.onSurface.withValues(alpha: 0.6)),
+                          ),
+                        ],
                       ),
                     ],
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: colorScheme.surfaceVariant.withValues(alpha: 0.4),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.info_outline_rounded,
+                    size: 16,
+                    color: colorScheme.primary,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Encrypted backup file',
+                      style: AppTheme.caption(colorScheme.onSurface.withValues(alpha: 0.7)),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
             Row(
               children: [
                 Expanded(
-                  child: OutlinedButton.icon(
+                  flex: 2,
+                  child: ElevatedButton.icon(
                     onPressed: onRestore,
-                    icon: const Icon(Icons.restore, size: 18),
+                    icon: const Icon(Icons.restore_rounded, size: 20),
                     label: const Text('Restore'),
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 8),
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                     ),
                   ),
                 ),
                 const SizedBox(width: 8),
-                IconButton(
-                  onPressed: onShare,
-                  icon: const Icon(Icons.share, size: 20),
-                  tooltip: 'Share',
+                Container(
+                  decoration: BoxDecoration(
+                    color: colorScheme.surfaceVariant.withValues(alpha: 0.5),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: IconButton(
+                    onPressed: onShare,
+                    icon: Icon(
+                      Icons.share_rounded,
+                      size: 20,
+                      color: colorScheme.primary,
+                    ),
+                    tooltip: 'Share',
+                  ),
                 ),
-                IconButton(
-                  onPressed: onDelete,
-                  icon: Icon(Icons.delete_outline, size: 20, color: colorScheme.error),
-                  tooltip: 'Delete',
+                const SizedBox(width: 4),
+                Container(
+                  decoration: BoxDecoration(
+                    color: colorScheme.errorContainer.withValues(alpha: 0.3),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: IconButton(
+                    onPressed: onDelete,
+                    icon: Icon(
+                      Icons.delete_outline_rounded,
+                      size: 20,
+                      color: colorScheme.error,
+                    ),
+                    tooltip: 'Delete',
+                  ),
                 ),
               ],
             ),
@@ -727,13 +1188,16 @@ class _BackupFileCard extends StatelessWidget {
     final diff = now.difference(date);
     
     if (diff.inDays == 0) {
-      return 'Today at ${date.hour}:${date.minute.toString().padLeft(2, '0')}';
+      final hour = date.hour > 12 ? date.hour - 12 : (date.hour == 0 ? 12 : date.hour);
+      final period = date.hour >= 12 ? 'PM' : 'AM';
+      return 'Today at $hour:${date.minute.toString().padLeft(2, '0')} $period';
     } else if (diff.inDays == 1) {
       return 'Yesterday';
     } else if (diff.inDays < 7) {
       return '${diff.inDays} days ago';
     } else {
-      return '${date.day}/${date.month}/${date.year}';
+      final months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      return '${months[date.month - 1]} ${date.day}, ${date.year}';
     }
   }
 }

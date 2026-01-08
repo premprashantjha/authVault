@@ -7,11 +7,13 @@ import 'app_constants.dart';
 class AuthenticatorApp extends StatelessWidget {
   final bool showOnboarding;
   final VoidCallback onOnboardingFinished;
+  final bool hasBackupAvailable;
 
   const AuthenticatorApp({
     super.key,
     required this.showOnboarding,
     required this.onOnboardingFinished,
+    this.hasBackupAvailable = false,
   });
 
   @override
@@ -26,6 +28,7 @@ class AuthenticatorApp extends StatelessWidget {
           ? OnboardingScreen(
               onFinished: onOnboardingFinished,
               allowSkip: true,
+              hasBackupAvailable: hasBackupAvailable,
             )
           : const AuthWrapper(),
       debugShowCheckedModeBanner: false,
@@ -39,6 +42,8 @@ class AuthenticatorAppWithDialog extends StatefulWidget {
   final bool hasSecurityWarning;
   final String securityMessage;
   final VoidCallback onSecurityWarningDismissed;
+  final bool hasBackupAvailable;
+  final bool hasCloudBackup;
 
   const AuthenticatorAppWithDialog({
     super.key,
@@ -47,6 +52,8 @@ class AuthenticatorAppWithDialog extends StatefulWidget {
     required this.hasSecurityWarning,
     required this.securityMessage,
     required this.onSecurityWarningDismissed,
+    this.hasBackupAvailable = false,
+    this.hasCloudBackup = false,
   });
 
   @override
@@ -80,6 +87,8 @@ class _AuthenticatorAppWithDialogState extends State<AuthenticatorAppWithDialog>
               ? OnboardingScreen(
                   onFinished: widget.onOnboardingFinished,
                   allowSkip: true,
+                  hasBackupAvailable: widget.hasBackupAvailable,
+                  hasCloudBackup: widget.hasCloudBackup,
                 )
               : const AuthWrapper();
         },

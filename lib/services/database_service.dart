@@ -61,12 +61,20 @@ class DatabaseService {
 
   /// Get all accounts
   Future<List<Account>> getAllAccounts() async {
+    print('=== DatabaseService.getAllAccounts() ===');
+    print('DB QUERY → DatabaseService: $hashCode');
+    
     try {
       final db = await database;
+      
+      print('DB PATH → ${db.path}');
+      
       final List<Map<String, dynamic>> maps = await db.query(
         _tableName,
         orderBy: 'createdAt DESC',
       );
+
+      print('Query returned ${maps.length} rows');
 
       final List<Account> accounts = [];
       
@@ -93,10 +101,13 @@ class DatabaseService {
         }
       }
 
+      print('Successfully decrypted ${accounts.length} accounts');
+
       return accounts;
     } catch (e) {
       if (kDebugMode) {
         debugPrint('❌ [DatabaseService] Error loading accounts: $e');
+        debugPrint('Stack trace: ${StackTrace.current}');
       }
       return [];
     }

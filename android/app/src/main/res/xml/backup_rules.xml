@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<full-backup-content>
+    <!-- Include SharedPreferences (contains wrapped DEKs for key recovery) -->
+    <include domain="sharedpref" path="."/>
+    
+    <!-- Include app files (backup .cdac files) -->
+    <include domain="file" path="."/>
+    
+    <!-- Include database (encrypted accounts) -->
+    <include domain="database" path="."/>
+</full-backup-content>

@@ -51,5 +51,10 @@
 		<true/>
 		<key>UIViewControllerBasedStatusBarAppearance</key>
 		<false/>
+		<!-- iCloud Backup Configuration -->
+		<key>UIFileSharingEnabled</key>
+		<false/>
+		<key>LSSupportsOpeningDocumentsInPlace</key>
+		<false/>
 	</dict>
 </plist>

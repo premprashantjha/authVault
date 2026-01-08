@@ -5,12 +5,15 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/account.dart';
 import '../services/account_service.dart';
 import '../services/totp_service.dart';
+import '../services/auto_backup_service.dart';
+import '../services/cloud_sync_service.dart';
 
 class AccountViewModel with ChangeNotifier {
   static const _favoriteAccountsKey = 'favorite_account_ids';
 
   final AccountService accountService;
   final TOTPService totpService;
+  CloudSyncService? cloudSyncService;
   SharedPreferences? _prefs;
   
   List<Account> _accounts = [];
@@ -29,6 +32,7 @@ class AccountViewModel with ChangeNotifier {
   AccountViewModel({
     required this.accountService,
     required this.totpService,
+    this.cloudSyncService,
     bool autoInit = true,
   }) {
     // Don't auto-load accounts - wait for explicit reloadAfterUnlock() call
@@ -94,6 +98,10 @@ class AccountViewModel with ChangeNotifier {
 
   Future<bool> addAccount(Account account) async {
     try {
+      print('=== ADD ACCOUNT ===');
+      print('ADD ACCOUNT → AccountService: ${accountService.hashCode}');
+      print('ADD ACCOUNT → DatabaseService: ${accountService.databaseService.hashCode}');
+      
       await accountService.addAccount(account);
       
       // Ensure timer is running before loading accounts
@@ -103,6 +111,12 @@ class AccountViewModel with ChangeNotifier {
       
       // Reload accounts from database (this calls _generateOTPs and notifyListeners internally)
       await _loadAccounts();
+      
+      // Trigger automatic backup
+      _triggerAutoBackup();
+      
+      // Trigger cloud sync
+      await _triggerCloudSync();
       
       return true;
     } catch (e) {
@@ -123,6 +137,13 @@ class AccountViewModel with ChangeNotifier {
       _favoriteAccountIds.remove(accountId);
       
       _applyFilters();
+      
+      // Trigger automatic backup
+      _triggerAutoBackup();
+      
+      // Trigger cloud sync
+      await _triggerCloudSync();
+      
       return true;
     } catch (e) {
       if (kDebugMode) {
@@ -200,6 +221,10 @@ class AccountViewModel with ChangeNotifier {
     try {
       await accountService.updateAccount(account);
       await _loadAccounts();
+      
+      // Trigger cloud sync
+      await _triggerCloudSync();
+      
       return true;
     } catch (e) {
       if (kDebugMode) {
@@ -337,8 +362,63 @@ class AccountViewModel with ChangeNotifier {
     notifyListeners();
   }
 
+  /// Trigger automatic backup (debounced)
+  Timer? _backupDebounceTimer;
+  
+  void _triggerAutoBackup() {
+    if (kDebugMode) {
+      debugPrint('=== Triggering Auto Backup (5 second delay) ===');
+    }
+    
+    // Debounce: wait 5 seconds after last change before backing up
+    _backupDebounceTimer?.cancel();
+    _backupDebounceTimer = Timer(const Duration(seconds: 5), () async {
+      try {
+        if (kDebugMode) {
+          debugPrint('=== Auto Backup Timer Fired ===');
+        }
+        
+        final autoBackupService = AutoBackupService(
+          accountService: accountService,
+        );
+        
+        // Only backup if enabled
+        final isEnabled = await autoBackupService.isBackupEnabled();
+        if (!isEnabled) {
+          if (kDebugMode) {
+            debugPrint('Auto backup skipped: not enabled');
+          }
+          return;
+        }
+
+        await autoBackupService.createAutoBackup();
+        if (kDebugMode) {
+          debugPrint('Auto backup created successfully');
+        }
+      } catch (e) {
+        if (kDebugMode) {
+          debugPrint('Auto backup failed: $e');
+        }
+      }
+    });
+  }
+  
+  /// Trigger cloud sync on account change
+  Future<void> _triggerCloudSync() async {
+    if (cloudSyncService == null) return;
+    
+    try {
+      await cloudSyncService!.onAccountChanged();
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('Cloud sync trigger failed: $e');
+      }
+    }
+  }
+
   @override
   void dispose() {
+    _backupDebounceTimer?.cancel();
     _timer?.cancel();
     super.dispose();
   }

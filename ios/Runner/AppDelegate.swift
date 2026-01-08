@@ -13,6 +13,10 @@ import Security
     // Optimize startup: register plugins first (required)
     GeneratedPluginRegistrant.register(with: self)
     
+    // Register AccountPlugin for automatic backup
+    let controller = window?.rootViewController as! FlutterViewController
+    AccountPlugin.register(with: registrar(forPlugin: "AccountPlugin")!)
+    
     // Prevent screenshots and screen recording for security
     NotificationCenter.default.addObserver(
       self,
@@ -59,7 +63,7 @@ import Security
       binaryMessenger: controller.binaryMessenger
     )
     
-    keystoreChannel?.setMethodCallHandler { [weak self] (call: FlutterMethodCall, result: @escaping FlutterResult) ining FlutterResult) in
+    keystoreChannel?.setMethodCallHandler { [weak self] (call: FlutterMethodCall, result: @escaping FlutterResult) in
       guard let self = self else {
         result(FlutterError(code: "internal_error", message: "AppDelegate deallocated", details: nil))
         return
@@ -104,7 +108,6 @@ import Security
         result(FlutterMethodNotImplemented)
       }
     }
-    return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
 
   // Check whether a key with the given alias is stored in Secure Enclave
@@ -142,11 +145,19 @@ import Security
       return true
     }
 
-    // Create new RSA key pair
-    let attributes: [String: Any] = [kSecAttrKeyType as String: kSecAttrKeyTypeRSA,
-                                     kSecAttrKeySizeInBits as String: 2048,
-                                     kSecAttrIsPermanent as String: true,
-                                     kSecAttrApplicationTag as String: tag]
+    // Create new RSA key pair with backup enabled
+    // CRITICAL: Do NOT use kSecAttrTokenID (Secure Enclave) for backup keys
+    // Secure Enclave keys cannot be backed up or migrated
+    // Instead, use regular keychain with kSecAttrAccessibleAfterFirstUnlock
+    let attributes: [String: Any] = [
+      kSecAttrKeyType as String: kSecAttrKeyTypeRSA,
+      kSecAttrKeySizeInBits as String: 2048,
+      kSecAttrIsPermanent as String: true,
+      kSecAttrApplicationTag as String: tag,
+      // CRITICAL: Use kSecAttrAccessibleAfterFirstUnlock (NOT ThisDeviceOnly)
+      // This allows iCloud Keychain to back up and restore the key
+      kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlock
+    ]
 
     var error: Unmanaged<CFError>?
     guard let privateKey = SecKeyCreateRandomKey(attributes as CFDictionary, &error) else {

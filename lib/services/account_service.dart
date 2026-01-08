@@ -10,11 +10,25 @@ class AccountService {
 
   Future<List<Account>> getAllAccounts() async {
     try {
+      if (kDebugMode) {
+        debugPrint('=== AccountService.getAllAccounts() ===');
+        debugPrint('DatabaseService instance: ${databaseService.hashCode}');
+      }
+      
       final accounts = await databaseService.getAllAccounts();
+      
+      if (kDebugMode) {
+        debugPrint('Retrieved ${accounts.length} accounts from database');
+        for (var account in accounts) {
+          debugPrint('  - ${account.issuer}: ${account.accountName}');
+        }
+      }
+      
       return accounts;
     } catch (e) {
       if (kDebugMode) {
         debugPrint('Error loading accounts: $e');
+        debugPrint('Stack trace: ${StackTrace.current}');
       }
       return [];
     }

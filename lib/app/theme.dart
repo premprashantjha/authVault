@@ -275,6 +275,12 @@ class AppTheme {
           color: colorScheme.onSurface.withValues(alpha: 0.7),
           fontFamily: fontFamily,
         ),
+        floatingLabelStyle: TextStyle(
+          fontSize: fontSizeBody,
+          fontWeight: weightMedium,
+          color: colorScheme.primary,
+          fontFamily: fontFamily,
+        ),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
