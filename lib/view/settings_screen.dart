@@ -669,8 +669,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
           : ListView(
               padding: const EdgeInsets.all(16),
               children: [
-                // Backup & Recovery Section
-                _buildSectionHeader('Backup & Recovery', theme),
+                // Backup Section
+                _buildSectionHeader('Backup', theme),
                 const SizedBox(height: 8),
                 // Cloud Backup Status Indicator
                 Consumer<CloudSyncService>(
@@ -735,8 +735,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
                 const SizedBox(height: 24),
 
-                // Guides & Reference Section
-                _buildSectionHeader('Guides & Reference', theme),
+                // About Section
+                _buildSectionHeader('About', theme),
                 const SizedBox(height: 8),
                 _buildSettingCard(
                   context,
@@ -750,11 +750,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                   onTap: () => _openSecurityGuide(),
                 ),
-                const SizedBox(height: 24),
-
-                // Legal Section
-                _buildSectionHeader('Legal', theme),
-                const SizedBox(height: 8),
+                const SizedBox(height: 12),
                 _buildSettingCard(
                   context,
                   icon: Icons.privacy_tip_outlined,
@@ -767,11 +763,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                   onTap: () => _navigateToPrivacyPolicy(context),
                 ),
-                const SizedBox(height: 24),
-
-                // About Section
-                _buildSectionHeader('About', theme),
-                const SizedBox(height: 8),
+                const SizedBox(height: 12),
                 _buildSettingCard(
                   context,
                   icon: Icons.info_outline,
