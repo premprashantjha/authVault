@@ -7,7 +7,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/account.dart';
 import 'account_service.dart';
-import 'backup_encryption_service.dart';
+import 'encryption_service.dart';
 
 /// Cloud sync service for automatic cross-device backup
 /// 
@@ -18,7 +18,7 @@ import 'backup_encryption_service.dart';
 /// - Network error handling with retry
 /// - Sync status tracking
 class CloudSyncService {
-  final BackupEncryptionService _encryptionService;
+  final EncryptionService _encryptionService;
   final AccountService _accountService;
   
   static const String _cloudSyncEnabledKey = 'cloud_sync_enabled';
@@ -35,9 +35,9 @@ class CloudSyncService {
   
   CloudSyncService({
     required AccountService accountService,
-    BackupEncryptionService? encryptionService,
+    EncryptionService? encryptionService,
   })  : _accountService = accountService,
-        _encryptionService = encryptionService ?? BackupEncryptionService() {
+        _encryptionService = encryptionService ?? EncryptionService() {
     _initAutoSync();
   }
 
@@ -51,14 +51,9 @@ class CloudSyncService {
   /// Enable cloud sync with password
   /// 
   /// This will:
-  /// 1. Generate a random Backup DEK (256-bit)
-  /// 2. Wrap Backup DEK with password-derived key (NO Hardware KEK!)
-  /// 3. Store wrapped DEK in SharedPreferences (Android Auto Backup syncs this)
-  /// 4. Cache unwrapped DEK for automatic syncs
-  /// 5. Perform initial sync
-  /// 
-  /// CRITICAL: This does NOT use Hardware KEK!
-  /// The backup is recoverable after reinstall using ONLY the password.
+  /// 1. Store password hash for verification
+  /// 2. Perform initial sync using EncryptionService
+  /// 3. Enable automatic syncing
   Future<void> enableCloudSync(String password) async {
     print('🔐 [CloudSync] Enable cloud sync started');
     print('🔐 [CloudSync] Password length: ${password.length}');
@@ -71,35 +66,12 @@ class CloudSyncService {
       _notifyStatus(CloudSyncStatus.enabling);
       
       // Validate password strength
-      final passwordError = _encryptionService.validatePassword(password);
-      if (passwordError != null) {
-        print('❌ [CloudSync] Password validation failed: $passwordError');
-        throw CloudSyncException(passwordError);
+      if (password.length < 8) {
+        throw CloudSyncException('Password must be at least 8 characters');
       }
       print('✓ [CloudSync] Password validated');
       
-      // Generate random Backup DEK (256-bit)
-      // CRITICAL: This is a NEW random key, NOT derived from Hardware KEK!
-      print('🔐 [CloudSync] Generating random Backup DEK...');
-      final backupDEK = _encryptionService.generateRandomBytes(32);
-      print('✓ [CloudSync] Backup DEK generated (${backupDEK.length} bytes)');
-      
-      // Wrap Backup DEK with password-derived key
-      // CRITICAL: NO Hardware KEK involved - only password!
-      print('🔐 [CloudSync] Wrapping Backup DEK with password...');
-      final envelope = await _encryptionService.wrapDEKWithPassword(backupDEK, password);
-      print('✓ [CloudSync] Backup DEK wrapped successfully');
-      
-      // Store wrapped DEK in SharedPreferences
-      // Android Auto Backup will sync this to Google Drive
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(_wrappedDekKey, envelope.toJsonString());
-      print('✓ [CloudSync] Wrapped DEK saved to SharedPreferences');
-      
-      // Store unwrapped DEK for automatic syncs
-      // This allows automatic syncing without asking for password each time
-      await prefs.setString('${_wrappedDekKey}_unwrapped', base64.encode(backupDEK));
-      print('✓ [CloudSync] Unwrapped DEK cached for automatic syncs');
       
       // Store password hash for verification (NOT the password itself)
       final passwordHash = _hashPassword(password);
@@ -121,9 +93,6 @@ class CloudSyncService {
     } catch (e) {
       print('❌ [CloudSync] Enable failed: $e');
       _notifyStatus(CloudSyncStatus.error);
-      if (e is BackupException) {
-        throw CloudSyncException(e.message);
-      }
       throw CloudSyncException('Failed to enable cloud sync: $e');
     }
   }
@@ -185,57 +154,9 @@ class CloudSyncService {
       final jsonData = json.encode(backupData);
       print('📦 [CloudSync] Backup data size: ${jsonData.length} bytes');
       
-      // Get password hash to retrieve password (we need it for encryption)
-      // NOTE: In production, you'd want to cache the password securely or use a different approach
-      // For now, we'll use the wrapped DEK approach but with password-based encryption
-      
-      // Get wrapped DEK from SharedPreferences
-      final prefs = await SharedPreferences.getInstance();
-      final wrappedDekJson = prefs.getString(_wrappedDekKey);
-      
-      if (wrappedDekJson == null) {
-        print('❌ [CloudSync] No wrapped DEK found - cloud sync not enabled');
-        throw CloudSyncException('Cloud sync not enabled. Please enable cloud sync first.');
-      }
-      
-      // Parse wrapped DEK envelope
-      final envelope = CloudSyncEnvelope.fromJsonString(wrappedDekJson);
-      
-      // We need the password to encrypt the backup
-      // Since we don't store the password, we need to get the DEK directly
-      // The DEK is already unwrapped and stored in memory during enable
-      
-      // For now, let's use a different approach:
-      // Store the unwrapped DEK in memory during enable, and use it for encryption
-      // This is a temporary solution - in production, you'd want to handle this differently
-      
-      // Actually, let's use the password-based encryption directly
-      // We'll need to modify the approach to store the password temporarily
-      // OR use the unwrapped DEK that's already in the keystore
-      
-      // BETTER APPROACH: Use password-based encryption for cloud backups
-      // This requires storing the password temporarily or asking user each time
-      // For automatic sync, we'll use the unwrapped DEK approach
-      
-      // Get the unwrapped DEK from the envelope
-      // Wait, we can't unwrap without the password...
-      
-      // CORRECT APPROACH: Store the unwrapped Backup DEK in SharedPreferences
-      // after enabling cloud sync, so we can use it for automatic syncs
-      
-      final backupDekBase64 = prefs.getString('${_wrappedDekKey}_unwrapped');
-      if (backupDekBase64 == null) {
-        print('❌ [CloudSync] No unwrapped Backup DEK found');
-        throw CloudSyncException('Backup encryption key not available. Please re-enable cloud sync.');
-      }
-      
-      final backupDEK = base64.decode(backupDekBase64);
-      print('✓ [CloudSync] Using Backup DEK for encryption (${backupDEK.length} bytes)');
-      
-      // Encrypt backup with Backup DEK
-      // CRITICAL: NO Hardware KEK involved!
-      print('🔐 [CloudSync] Encrypting backup with Backup DEK...');
-      final encryptedBackup = await _encryptionService.encryptWithDEK(jsonData, backupDEK);
+      // Encrypt backup using EncryptionService
+      print('🔐 [CloudSync] Encrypting backup...');
+      final encryptedBackup = await _encryptionService.encrypt(jsonData);
       print('✓ [CloudSync] Backup encrypted successfully');
       
       // Save to app's files directory (Android Auto Backup will sync this)
@@ -243,6 +164,7 @@ class CloudSyncService {
       await _saveToCloudStorage(encryptedBackup);
       
       // Update last sync time
+      final prefs = await SharedPreferences.getInstance();
       await prefs.setInt(_lastSyncTimestampKey, DateTime.now().millisecondsSinceEpoch);
       print('✓ [CloudSync] Last sync time updated');
       
@@ -309,8 +231,7 @@ class CloudSyncService {
 
   /// Restore from cloud sync
   /// 
-  /// CRITICAL: This uses password-only decryption, NOT Hardware KEK!
-  /// This is why restore works after reinstall.
+  /// Uses EncryptionService for simplified decryption
   Future<int> restoreFromCloud(String password) async {
     print('🔄 [CloudSync] Restore from cloud started');
     print('🔐 [CloudSync] Password length: ${password.length}');
@@ -320,38 +241,15 @@ class CloudSyncService {
       
       final prefs = await SharedPreferences.getInstance();
       
-      // Get wrapped DEK from SharedPreferences
-      print('📂 [CloudSync] Loading wrapped DEK...');
-      final wrappedDekJson = prefs.getString(_wrappedDekKey);
-      if (wrappedDekJson == null) {
-        print('❌ [CloudSync] No wrapped DEK found');
-        throw CloudSyncException('No cloud backup found. Please enable cloud sync first.');
-      }
-      print('✓ [CloudSync] Wrapped DEK loaded');
-      
       // Verify password
       print('🔐 [CloudSync] Verifying password...');
       final storedHash = prefs.getString(_syncPasswordHashKey);
       final providedHash = _hashPassword(password);
       if (storedHash != providedHash) {
         print('❌ [CloudSync] Password verification failed');
-        print('   Stored hash: $storedHash');
-        print('   Provided hash: $providedHash');
         throw CloudSyncException('Incorrect password');
       }
       print('✓ [CloudSync] Password verified');
-      
-      // Unwrap Backup DEK with password
-      // CRITICAL: NO Hardware KEK involved - only password!
-      print('🔓 [CloudSync] Unwrapping Backup DEK with password...');
-      final envelope = CloudSyncEnvelope.fromJsonString(wrappedDekJson);
-      final backupDEK = await _encryptionService.unwrapDEKWithPassword(envelope, password);
-      print('✓ [CloudSync] Backup DEK unwrapped successfully (${backupDEK.length} bytes)');
-      
-      // Store unwrapped DEK for future automatic syncs
-      print('💾 [CloudSync] Caching unwrapped DEK for automatic syncs...');
-      await prefs.setString('${_wrappedDekKey}_unwrapped', base64.encode(backupDEK));
-      print('✓ [CloudSync] DEK cached');
       
       // Load encrypted backup from cloud storage
       print('📥 [CloudSync] Loading backup from cloud storage...');
@@ -362,10 +260,9 @@ class CloudSyncService {
       }
       print('✓ [CloudSync] Backup loaded');
       
-      // Decrypt backup with Backup DEK
-      // CRITICAL: NO Hardware KEK involved!
-      print('🔓 [CloudSync] Decrypting backup with Backup DEK...');
-      final jsonData = await _encryptionService.decryptWithDEK(encryptedBackup, backupDEK);
+      // Decrypt backup using EncryptionService
+      print('🔓 [CloudSync] Decrypting backup...');
+      final jsonData = await _encryptionService.decrypt(encryptedBackup);
       final backupData = json.decode(jsonData) as Map<String, dynamic>;
       print('✓ [CloudSync] Backup decrypted');
       
@@ -400,9 +297,6 @@ class CloudSyncService {
       print('❌ [CloudSync] Restore failed: $e');
       _notifyStatus(CloudSyncStatus.error);
       if (e is CloudSyncException) rethrow;
-      if (e is BackupException) {
-        throw CloudSyncException(e.message);
-      }
       throw CloudSyncException('Failed to restore from cloud: $e');
     }
   }
@@ -418,14 +312,14 @@ class CloudSyncService {
     try {
       print('🔍 [CloudSync] Checking if cloud backup exists...');
       
-      // Check if wrapped DEK exists
+      // Check if password hash exists (indicates cloud sync was enabled)
       final prefs = await SharedPreferences.getInstance();
-      final wrappedDekJson = prefs.getString(_wrappedDekKey);
-      if (wrappedDekJson == null) {
-        print('⚠️ [CloudSync] No wrapped DEK found');
+      final passwordHash = prefs.getString(_syncPasswordHashKey);
+      if (passwordHash == null) {
+        print('⚠️ [CloudSync] No password hash found');
         return false;
       }
-      print('✓ [CloudSync] Wrapped DEK exists');
+      print('✓ [CloudSync] Password hash exists');
       
       // Check if backup file exists
       final backupData = await _loadFromCloudStorage();

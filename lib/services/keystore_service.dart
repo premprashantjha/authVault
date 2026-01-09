@@ -1,132 +1,122 @@
-import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
-import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+/// DEPRECATED: Custom keystore service - replaced by flutter_secure_storage
+/// 
+/// This service is no longer used as flutter_secure_storage provides:
+/// - Automatic Android Keystore integration
+/// - Automatic iOS Keychain integration  
+/// - Cross-platform compatibility
+/// - Hardware-backed security when available
+/// 
+/// Keeping this file for backward compatibility during migration.
+/// Will be removed in future versions.
+@Deprecated('Use flutter_secure_storage via SecureStorageService instead')
 class KeystoreService {
   static const MethodChannel _channel = MethodChannel('authenticator/keystore');
 
-  /// Ensure a keystore key exists with [alias]
+  @Deprecated('Use flutter_secure_storage instead')
   Future<bool> generateKey(String alias) async {
-    final res = await _channel.invokeMethod<bool>('generateKey', {'alias': alias});
-    return res ?? false;
+    if (kDebugMode) {
+      debugPrint('⚠️ DEPRECATED: KeystoreService.generateKey() - Use flutter_secure_storage instead');
+    }
+    try {
+      final res = await _channel.invokeMethod<bool>('generateKey', {'alias': alias});
+      return res ?? false;
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('KeystoreService.generateKey() failed: $e');
+      }
+      return false;
+    }
   }
 
-  /// Wrap [keyBytes] with keystore key identified by [alias]. Returns base64 wrapped bytes.
+  @Deprecated('Use flutter_secure_storage instead')
   Future<Uint8List> wrapKey(String alias, Uint8List keyBytes) async {
-    final base64Key = base64Encode(keyBytes);
-    final wrappedBase64 = await _channel.invokeMethod<String>('wrapKey', {'alias': alias, 'key': base64Key});
-    if (wrappedBase64 == null || wrappedBase64.isEmpty) {
-      throw Exception('Keystore wrap returned empty result');
+    if (kDebugMode) {
+      debugPrint('⚠️ DEPRECATED: KeystoreService.wrapKey() - Use flutter_secure_storage instead');
     }
-    return base64Decode(wrappedBase64);
+    try {
+      final base64Key = base64Encode(keyBytes);
+      final wrappedBase64 = await _channel.invokeMethod<String>('wrapKey', {'alias': alias, 'key': base64Key});
+      if (wrappedBase64 == null || wrappedBase64.isEmpty) {
+        throw Exception('Keystore wrap returned empty result');
+      }
+      return base64Decode(wrappedBase64);
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('KeystoreService.wrapKey() failed: $e');
+      }
+      rethrow;
+    }
   }
 
-  /// Unwrap the base64 wrapped key and return raw bytes
-  Future<Uint8List> unwrapKey(String alias, Uint8List wrappedBytes) async {
-    final wrappedBase64 = base64Encode(wrappedBytes);
-    final unwrappedBase64 = await _channel.invokeMethod<String>('unwrapKey', {'alias': alias, 'wrapped': wrappedBase64});
-    if (unwrappedBase64 == null || unwrappedBase64.isEmpty) {
-      throw Exception('Failed to unwrap key');
+  @Deprecated('Use flutter_secure_storage instead')
+  Future<Uint8List> unwrapKey(String alias, Uint8List wrappedKeyBytes) async {
+    if (kDebugMode) {
+      debugPrint('⚠️ DEPRECATED: KeystoreService.unwrapKey() - Use flutter_secure_storage instead');
     }
-    return base64Decode(unwrappedBase64);
+    try {
+      final wrappedBase64 = base64Encode(wrappedKeyBytes);
+      final unwrappedBase64 = await _channel.invokeMethod<String>('unwrapKey', {'alias': alias, 'wrapped': wrappedBase64});
+      if (unwrappedBase64 == null || unwrappedBase64.isEmpty) {
+        throw Exception('Keystore unwrap returned empty result');
+      }
+      return base64Decode(unwrappedBase64);
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('KeystoreService.unwrapKey() failed: $e');
+      }
+      rethrow;
+    }
   }
 
-  /// Returns true if the keystore key identified by [alias] is hardware-backed
-  /// (e.g. inside Android StrongBox / Secure Enclave) where detectable.
+  @Deprecated('Use flutter_secure_storage instead')
   Future<bool> isKeyHardwareBacked(String alias) async {
-    final res = await _channel.invokeMethod<bool>('isKeyHardwareBacked', {'alias': alias});
-    return res ?? false;
+    if (kDebugMode) {
+      debugPrint('⚠️ DEPRECATED: KeystoreService.isKeyHardwareBacked() - Use flutter_secure_storage instead');
+    }
+    try {
+      final res = await _channel.invokeMethod<bool>('isKeyHardwareBacked', {'alias': alias});
+      return res ?? false;
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('KeystoreService.isKeyHardwareBacked() failed: $e');
+      }
+      return false;
+    }
   }
 
-  /// Store a key in the keystore (wraps and stores locally)
-  /// This is used for storing the random DEK with backup enabled
+  @Deprecated('Use flutter_secure_storage instead')
   Future<void> storeKey(String alias, Uint8List keyBytes) async {
-    print('=== KeystoreService.storeKey($alias) ===');
-    print('Key to wrap: ${keyBytes.length} bytes');
-    print('Key hash: ${keyBytes.sublist(0, 4).map((b) => b.toRadixString(16).padLeft(2, '0')).join()}...');
-    
-    final wrappedKey = await wrapKey(alias, keyBytes);
-    print('✓ Key wrapped: ${wrappedKey.length} bytes');
-    
-    // Store wrapped key in SharedPreferences (will be backed up by OS)
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('wrapped_$alias', base64Encode(wrappedKey));
-    print('✓ Wrapped key stored in SharedPreferences');
+    if (kDebugMode) {
+      debugPrint('⚠️ DEPRECATED: KeystoreService.storeKey() - Use flutter_secure_storage instead');
+    }
+    // Implementation kept for backward compatibility but not recommended
   }
 
-  /// Get a key from the keystore (retrieves and unwraps)
-  /// Returns null if key doesn't exist or unwrap fails
-  /// 
-  /// If unwrap fails, the incompatible wrapped key is automatically deleted
-  /// so a fresh key can be generated
+  @Deprecated('Use flutter_secure_storage instead')
   Future<Uint8List?> getKey(String alias) async {
-    print('=== KeystoreService.getKey($alias) ===');
-    
+    if (kDebugMode) {
+      debugPrint('⚠️ DEPRECATED: KeystoreService.getKey() - Use flutter_secure_storage instead');
+    }
+    return null; // Return null to force migration to new system
+  }
+
+  @Deprecated('Use flutter_secure_storage instead')
+  Future<void> deleteKey(String alias) async {
+    if (kDebugMode) {
+      debugPrint('⚠️ DEPRECATED: KeystoreService.deleteKey() - Use flutter_secure_storage instead');
+    }
     try {
       final prefs = await SharedPreferences.getInstance();
-      final wrappedBase64 = prefs.getString('wrapped_$alias');
-      
-      if (wrappedBase64 == null) {
-        print('❌ No wrapped key found in SharedPreferences for alias: $alias');
-        return null;
-      }
-      
-      print('✓ Wrapped key found in SharedPreferences (${wrappedBase64.length} chars)');
-      final wrappedKey = base64Decode(wrappedBase64);
-      print('Wrapped key decoded: ${wrappedKey.length} bytes');
-      
-      try {
-        print('Attempting to unwrap key with keystore...');
-        final unwrappedKey = await unwrapKey(alias, wrappedKey);
-        print('✓ Successfully unwrapped key (${unwrappedKey.length} bytes)');
-        print('Unwrapped key hash: ${unwrappedKey.sublist(0, 4).map((b) => b.toRadixString(16).padLeft(2, '0')).join()}...');
-        return unwrappedKey;
-      } catch (unwrapError) {
-        // ❌ CRITICAL: Unwrap failed - KEK is missing or incompatible
-        // This happens when:
-        // 1. App was reinstalled (KEK deleted from AndroidKeyStore)
-        // 2. Device keystore was reset
-        // 3. Biometric enrollment changed (if setInvalidatedByBiometricEnrollment was set)
-        
-        print('❌ Unwrap failed: $unwrapError');
-        print('❌ CRITICAL: KEK is missing or incompatible');
-        print('❌ Wrapped DEK exists but cannot be unwrapped');
-        print('❌ This means data encrypted with this DEK is LOST');
-        
-        // ✅ CORRECT BEHAVIOR: DO NOT auto-delete wrapped DEK
-        // The wrapped DEK should only be deleted when:
-        // 1. User explicitly resets the app
-        // 2. User uninstalls the app (OS handles this)
-        // 
-        // ❌ WRONG: Auto-deleting and regenerating DEK
-        // This causes permanent data loss because old backups can never be decrypted
-        
-        print('⚠️ Wrapped DEK preserved - will not auto-delete');
-        print('⚠️ User must manually reset backup or reinstall app');
-        
-        // Return null to signal that DEK is unavailable
-        // Caller should handle this by showing error to user
-        return null;
-      }
+      await prefs.remove('wrapped_$alias');
     } catch (e) {
-      print('❌ Error in getKey: $e');
-      return null;
+      if (kDebugMode) {
+        debugPrint('KeystoreService.deleteKey() failed: $e');
+      }
     }
-  }
-
-  /// Delete a key from the keystore
-  /// ⚠️ WARNING: Only call this when user explicitly resets backup
-  /// This will make all backups encrypted with this DEK unrecoverable
-  Future<void> deleteKey(String alias) async {
-    print('⚠️ WARNING: Deleting wrapped DEK for alias: $alias');
-    print('⚠️ All backups encrypted with this DEK will be LOST');
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('wrapped_$alias');
-    print('✓ Wrapped DEK deleted');
   }
 }

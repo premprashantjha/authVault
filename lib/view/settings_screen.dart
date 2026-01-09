@@ -4,6 +4,7 @@ import '../app/theme.dart';
 import '../app/app_constants.dart';
 import '../services/backup_service.dart';
 import '../services/cloud_sync_service.dart';
+import '../services/platform_backup_service.dart';
 import '../services/encryption_service.dart';
 import '../services/integrity_service.dart';
 import '../services/database_service.dart';
@@ -125,7 +126,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         if (mounted) {
           CustomSnackbar.show(
             context,
-            message: 'Please select a Google account to check for backup',
+            message: PlatformBackupService.accountSelectionMessage,
             type: SnackbarType.info,
           );
         }
@@ -136,7 +137,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         if (mounted) {
           CustomSnackbar.show(
             context,
-            message: 'No Google account selected',
+            message: PlatformBackupService.noAccountMessage,
             type: SnackbarType.error,
           );
         }
@@ -374,7 +375,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'We couldn\'t find a backup for the account:',
+                PlatformBackupService.noBackupMessage,
                 style: const TextStyle(fontSize: 15),
               ),
               const SizedBox(height: 8),
@@ -387,7 +388,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 child: Row(
                   children: [
                     Icon(
-                      Icons.account_circle,
+                      PlatformBackupService.accountIcon,
                       size: 20,
                       color: AppTheme.primaryColor,
                     ),

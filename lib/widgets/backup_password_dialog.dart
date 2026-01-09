@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../app/theme.dart';
 import '../app/app_constants.dart';
-import '../services/backup_encryption_service.dart';
 
 /// Dialog for entering backup password with strength indicator
 class BackupPasswordDialog extends StatefulWidget {
@@ -24,7 +23,6 @@ class BackupPasswordDialog extends StatefulWidget {
 class _BackupPasswordDialogState extends State<BackupPasswordDialog> {
   final _passwordController = TextEditingController();
   final _confirmController = TextEditingController();
-  final _encryptionService = BackupEncryptionService();
   
   bool _obscurePassword = true;
   bool _obscureConfirm = true;
@@ -40,16 +38,39 @@ class _BackupPasswordDialogState extends State<BackupPasswordDialog> {
 
   void _onPasswordChanged(String value) {
     setState(() {
-      _passwordStrength = _encryptionService.estimatePasswordStrength(value);
+      _passwordStrength = _estimatePasswordStrength(value);
       _passwordError = null;
     });
+  }
+
+  /// Simple password strength estimation
+  int _estimatePasswordStrength(String password) {
+    if (password.length < 8) return 0;
+    if (password.length < 12) return 1;
+    if (password.length >= 16) return 3;
+    return 2;
+  }
+
+  /// Validate password meets requirements
+  String? _validatePassword(String password) {
+    if (password.isEmpty) return 'Password is required';
+    if (password.length < 8) return 'Password must be at least 8 characters';
+    return null;
+  }
+
+  /// Get password warning message
+  String? _getPasswordWarning(String password) {
+    if (password.isEmpty) return null;
+    if (password.length < 8) return 'Too short';
+    if (password.length < 12) return 'Could be stronger';
+    return null;
   }
 
   void _onConfirm() {
     final password = _passwordController.text;
     
     // Basic validation (just minimum requirements)
-    final error = _encryptionService.validatePassword(password);
+    final error = _validatePassword(password);
     if (error != null) {
       setState(() => _passwordError = error);
       HapticFeedback.heavyImpact();
@@ -64,7 +85,7 @@ class _BackupPasswordDialogState extends State<BackupPasswordDialog> {
     }
     
     // Check for warnings (non-blocking)
-    final warning = _encryptionService.getPasswordWarning(password);
+    final warning = _getPasswordWarning(password);
     if (warning != null && widget.isCreating) {
       // Show warning dialog but let user proceed
       _showPasswordWarningDialog(password, warning);

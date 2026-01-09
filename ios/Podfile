@@ -44,17 +44,15 @@ post_install do |installer|
     target.build_configurations.each do |config|
       config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '13.0'
       
-      # Enable bitcode for better compatibility
-      config.build_settings['ENABLE_BITCODE'] = 'YES'
+      # Disable bitcode (deprecated in Xcode 14+)
+      config.build_settings['ENABLE_BITCODE'] = 'NO'
       
-      # Ensure proper architecture support for all iPhone models
-      config.build_settings['ARCHS'] = 'arm64'
-      config.build_settings['VALID_ARCHS'] = 'arm64'
+      # Support both Intel and Apple Silicon simulators
+      config.build_settings['ARCHS'] = '$(ARCHS_STANDARD)'
+      config.build_settings['VALID_ARCHS'] = '$(ARCHS_STANDARD)'
       
-      # Disable simulator architectures in release builds
-      if config.name == 'Release'
-        config.build_settings['EXCLUDED_ARCHS[sdk=iphonesimulator*]'] = 'arm64'
-      end
+      # Remove architecture exclusions for better compatibility
+      config.build_settings.delete('EXCLUDED_ARCHS[sdk=iphonesimulator*]')
     end
   end
 end
