@@ -143,7 +143,7 @@ class _BackupScreenState extends State<BackupScreen> {
       CustomSnackbar.show(
         context,
         title: 'Backup Failed',
-        message: e.toString().replaceFirst('BackupException: ', ''),
+        message: e.toString().replaceFirst('EncryptionException: ', ''),
         type: SnackbarType.error,
       );
     }
@@ -306,7 +306,7 @@ class _BackupScreenState extends State<BackupScreen> {
         if (!mounted) return;
         Navigator.of(context).pop(); // Close progress dialog
         
-        final errorMessage = e.toString().replaceFirst('BackupException: ', '');
+        final errorMessage = e.toString().replaceFirst('EncryptionException: ', '');
         
         // Check if it's a password error
         if (errorMessage.contains('Incorrect password') || 
@@ -500,7 +500,10 @@ class _BackupScreenState extends State<BackupScreen> {
                   
                   // Cloud Sync Options Section
                   FutureBuilder<bool>(
-                    future: widget.cloudSyncService.hasCloudBackup(),
+                    future: widget.cloudSyncService.hasCloudBackup().timeout(
+                      const Duration(seconds: 5),
+                      onTimeout: () => false,
+                    ),
                     builder: (context, snapshot) {
                       final hasBackup = snapshot.data == true;
                       

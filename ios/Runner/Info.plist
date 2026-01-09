@@ -5,7 +5,7 @@
 		<key>CFBundleDevelopmentRegion</key>
 		<string>$(DEVELOPMENT_LANGUAGE)</string>
 		<key>CFBundleDisplayName</key>
-		<string>Authenticator Poc</string>
+		<string>Authenticator</string>
 		<key>CFBundleExecutable</key>
 		<string>$(EXECUTABLE_NAME)</string>
 		<key>CFBundleIdentifier</key>
@@ -41,6 +41,8 @@
 		</array>
 		<key>NSFaceIDUsageDescription</key>
 		<string>Use Face ID to authenticate to Authenticator</string>
+		<key>NSCameraUsageDescription</key>
+		<string>Camera access is required to scan QR codes for adding new authenticator accounts</string>
 		<key>CADisableMinimumFrameDurationOnPhone</key>
 		<true/>
 		<key>UIApplicationSupportsIndirectInputEvents</key>

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../app/theme.dart';
-import '../services/backup_encryption_service.dart';
-import '../services/google_account_service.dart';
+import '../services/platform_backup_service.dart';
 
 /// Simplified password setup dialog
 /// 
@@ -27,7 +26,6 @@ class BackupPasswordSetupDialog extends StatefulWidget {
 class _BackupPasswordSetupDialogState extends State<BackupPasswordSetupDialog> {
   final _passwordController = TextEditingController();
   final _confirmController = TextEditingController();
-  final _encryptionService = BackupEncryptionService();
   
   bool _obscurePassword = true;
   bool _obscureConfirm = true;
@@ -35,8 +33,8 @@ class _BackupPasswordSetupDialogState extends State<BackupPasswordSetupDialog> {
   String? _passwordWarning;
   bool _passwordsMatch = true;
   
-  // Cache Google account - fetch once
-  String? _googleAccount;
+  // Cache platform account - fetch once
+  String? _platformAccount;
   bool _isLoadingAccount = true;
 
   @override
@@ -44,22 +42,22 @@ class _BackupPasswordSetupDialogState extends State<BackupPasswordSetupDialog> {
     super.initState();
     _passwordController.addListener(_updatePasswordStrength);
     _confirmController.addListener(_checkPasswordsMatch);
-    _loadGoogleAccount(); // Fetch once on init
+    _loadPlatformAccount(); // Fetch once on init
   }
   
-  Future<void> _loadGoogleAccount() async {
+  Future<void> _loadPlatformAccount() async {
     try {
-      final account = await GoogleAccountService.getPrimaryGoogleAccount();
+      final account = await PlatformBackupService.getPrimaryAccount();
       if (mounted) {
         setState(() {
-          _googleAccount = account;
+          _platformAccount = account;
           _isLoadingAccount = false;
         });
       }
     } catch (e) {
       if (mounted) {
         setState(() {
-          _googleAccount = null;
+          _platformAccount = null;
           _isLoadingAccount = false;
         });
       }
@@ -76,9 +74,25 @@ class _BackupPasswordSetupDialogState extends State<BackupPasswordSetupDialog> {
   void _updatePasswordStrength() {
     setState(() {
       final password = _passwordController.text;
-      _passwordStrength = _encryptionService.estimatePasswordStrength(password);
-      _passwordWarning = _encryptionService.getPasswordWarning(password);
+      _passwordStrength = _estimatePasswordStrength(password);
+      _passwordWarning = _getPasswordWarning(password);
     });
+  }
+
+  /// Simple password strength estimation
+  int _estimatePasswordStrength(String password) {
+    if (password.length < 8) return 0;
+    if (password.length < 12) return 1;
+    if (password.length >= 16) return 3;
+    return 2;
+  }
+
+  /// Get password warning message
+  String? _getPasswordWarning(String password) {
+    if (password.isEmpty) return null;
+    if (password.length < 8) return 'Too short';
+    if (password.length < 12) return 'Could be stronger';
+    return null;
   }
 
   void _checkPasswordsMatch() {
@@ -92,7 +106,7 @@ class _BackupPasswordSetupDialogState extends State<BackupPasswordSetupDialog> {
     final confirm = _confirmController.text;
     
     // Validate
-    final error = _encryptionService.validatePassword(password);
+    final error = _validatePassword(password);
     if (error != null) {
       _showError(error);
       return;
@@ -110,6 +124,13 @@ class _BackupPasswordSetupDialogState extends State<BackupPasswordSetupDialog> {
     }
     
     Navigator.of(context).pop(password);
+  }
+
+  /// Validate password meets requirements
+  String? _validatePassword(String password) {
+    if (password.isEmpty) return 'Password is required';
+    if (password.length < 8) return 'Password must be at least 8 characters';
+    return null;
   }
 
   void _showError(String message) {
@@ -209,7 +230,7 @@ class _BackupPasswordSetupDialogState extends State<BackupPasswordSetupDialog> {
                       ),
                     ),
                   )
-                else if (_googleAccount != null)
+                else if (_platformAccount != null)
                   Padding(
                     padding: const EdgeInsets.only(bottom: 16),
                     child: Container(
@@ -224,7 +245,7 @@ class _BackupPasswordSetupDialogState extends State<BackupPasswordSetupDialog> {
                       child: Row(
                         children: [
                           Icon(
-                            Icons.account_circle_rounded,
+                            PlatformBackupService.accountIcon,
                             color: colorScheme.primary,
                             size: 20,
                           ),
@@ -234,14 +255,14 @@ class _BackupPasswordSetupDialogState extends State<BackupPasswordSetupDialog> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  'Backup Account',
+                                  '${PlatformBackupService.backupProviderName} Account',
                                   style: AppTheme.caption(colorScheme.primary).copyWith(
                                     fontWeight: AppTheme.weightSemiBold,
                                   ),
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
-                                  _googleAccount!,
+                                  _platformAccount!,
                                   style: AppTheme.caption(colorScheme.onSurface.withValues(alpha: 0.8)),
                                   overflow: TextOverflow.ellipsis,
                                 ),

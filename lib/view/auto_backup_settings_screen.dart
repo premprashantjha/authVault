@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import '../app/theme.dart';
 import '../services/auto_backup_service.dart';
 import '../services/platform_account_service.dart';
+import '../widgets/backup_password_setup_dialog.dart';
 import '../widgets/custom_snackbar.dart';
 
 class AutoBackupSettingsScreen extends StatefulWidget {
@@ -64,9 +65,20 @@ class _AutoBackupSettingsScreenState extends State<AutoBackupSettingsScreen> {
       final platformService = PlatformAccountService();
       final accountId = await platformService.getAccountId();
 
+      // Show password setup dialog
+      if (!mounted) return;
+      final password = await showDialog<String>(
+        context: context,
+        builder: (context) => const BackupPasswordSetupDialog(
+          title: 'Enable Auto Backup',
+          description: 'Set a password to protect your automatic backups',
+        ),
+      );
+
+      if (password == null) return; // User cancelled
+
       // Show confirmation dialog
       if (!mounted) return;
-
       final confirmed = await showDialog<bool>(
         context: context,
         builder: (context) => _buildEnableBackupDialog(accountId),
@@ -83,8 +95,8 @@ class _AutoBackupSettingsScreenState extends State<AutoBackupSettingsScreen> {
           ),
         );
 
-        // Enable backup with the account ID we already have (don't call getAccountId again!)
-        await widget.backupService.enableBackupWithAccount(accountId);
+        // Enable backup with the account ID and password
+        await widget.backupService.enableBackupWithAccount(accountId, password);
         
         // Close loading
         if (!mounted) return;

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../app/theme.dart';
 import '../services/cloud_sync_service.dart';
-import '../services/google_account_service.dart';
+import '../services/platform_backup_service.dart';
 import 'backup_password_setup_dialog.dart';
 import 'backup_password_dialog.dart';
 import 'custom_snackbar.dart';
@@ -30,14 +30,14 @@ class BackupStatusCard extends StatefulWidget {
 class _BackupStatusCardState extends State<BackupStatusCard> {
   CloudSyncStatusInfo? _status;
   bool _isLoading = true;
-  String? _googleAccount; // Cache Google account
+  String? _platformAccount; // Cache platform account
   bool _isLoadingAccount = false;
 
   @override
   void initState() {
     super.initState();
     _loadStatus();
-    _loadGoogleAccount(); // Load once on init
+    _loadPlatformAccount(); // Load once on init
     
     // Listen to sync status changes
     widget.cloudSyncService.syncStatusStream.listen((status) {
@@ -48,29 +48,52 @@ class _BackupStatusCardState extends State<BackupStatusCard> {
   }
 
   Future<void> _loadStatus() async {
-    final status = await widget.cloudSyncService.getSyncStatus();
-    if (mounted) {
-      setState(() {
-        _status = status;
-        _isLoading = false;
-      });
+    try {
+      final status = await widget.cloudSyncService.getSyncStatus().timeout(
+        const Duration(seconds: 5),
+        onTimeout: () => CloudSyncStatusInfo(
+          enabled: false,
+          lastSync: null,
+          isSyncing: false,
+        ),
+      );
+      if (mounted) {
+        setState(() {
+          _status = status;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _status = CloudSyncStatusInfo(
+            enabled: false,
+            lastSync: null,
+            isSyncing: false,
+          );
+          _isLoading = false;
+        });
+      }
     }
   }
   
-  Future<void> _loadGoogleAccount() async {
+  Future<void> _loadPlatformAccount() async {
     setState(() => _isLoadingAccount = true);
     try {
-      final account = await GoogleAccountService.getPrimaryGoogleAccount();
+      final account = await PlatformBackupService.getPrimaryAccount().timeout(
+        const Duration(seconds: 3),
+        onTimeout: () => null,
+      );
       if (mounted) {
         setState(() {
-          _googleAccount = account;
+          _platformAccount = account;
           _isLoadingAccount = false;
         });
       }
     } catch (e) {
       if (mounted) {
         setState(() {
-          _googleAccount = null;
+          _platformAccount = null;
           _isLoadingAccount = false;
         });
       }
@@ -145,20 +168,24 @@ class _BackupStatusCardState extends State<BackupStatusCard> {
 
   /// Show account picker dialog
   Future<String?> _showAccountPicker() async {
-    // Get all available Google accounts
-    final accounts = await GoogleAccountService.getAllGoogleAccounts();
-    
-    if (!mounted) return null;
-    
-    if (accounts.isEmpty) {
+    // Get all available platform accounts
+    try {
+      final accounts = await PlatformBackupService.getAllAccounts().timeout(
+        const Duration(seconds: 5),
+        onTimeout: () => <String>[],
+      );
+      
+      if (!mounted) return null;
+      
+      if (accounts.isEmpty) {
       // No accounts found
       showDialog(
         context: context,
         builder: (context) => AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: const Text('No Google Accounts'),
-          content: const Text(
-            'Please sign in with a Google account on your device to enable cloud sync.',
+          title: Text('No ${PlatformBackupService.accountTypeName.split(' ').map((word) => word[0].toUpperCase() + word.substring(1)).join(' ')}s'),
+          content: Text(
+            PlatformBackupService.getBackupSetupInstructions(),
           ),
           actions: [
             TextButton(
@@ -181,20 +208,20 @@ class _BackupStatusCardState extends State<BackupStatusCard> {
       context: context,
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('Select Google Account'),
+        title: Text('Select ${PlatformBackupService.accountTypeName.split(' ').map((word) => word[0].toUpperCase() + word.substring(1)).join(' ')}'),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Padding(
-                padding: EdgeInsets.only(bottom: 16),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 16),
                 child: Text(
-                  'Choose which Google account to use for cloud backup:',
-                  style: TextStyle(fontSize: 14),
+                  'Choose which ${PlatformBackupService.accountTypeName} to use for cloud backup:',
+                  style: const TextStyle(fontSize: 14),
                 ),
               ),
               ...accounts.map((account) => ListTile(
-                leading: const Icon(Icons.account_circle),
+                leading: Icon(PlatformBackupService.accountIcon),
                 title: Text(account),
                 onTap: () => Navigator.pop(context, account),
               )),
@@ -203,6 +230,13 @@ class _BackupStatusCardState extends State<BackupStatusCard> {
         ),
       ),
     );
+    } catch (e) {
+      if (mounted) {
+        // Return empty list on error to prevent hanging
+        return null;
+      }
+      return null;
+    }
   }
 
   Future<void> _handleSyncNow() async {
@@ -471,7 +505,7 @@ class _BackupStatusCardState extends State<BackupStatusCard> {
                     ],
                   ),
                 )
-              else if (_googleAccount != null)
+              else if (_platformAccount != null)
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
@@ -492,12 +526,12 @@ class _BackupStatusCardState extends State<BackupStatusCard> {
                           mainAxisSize: MainAxisSize.min, // CRITICAL: Size to content
                           children: [
                             Text(
-                              'Backup Account',
+                              '${PlatformBackupService.backupProviderName} Account',
                               style: AppTheme.caption(colorScheme.onSurface.withValues(alpha: 0.7)),
                             ),
                             const SizedBox(height: 2),
                             Text(
-                              _googleAccount!,
+                              _platformAccount!,
                               style: AppTheme.bodyMedium(colorScheme.onSurface).copyWith(
                                 fontWeight: AppTheme.weightMedium,
                               ),
