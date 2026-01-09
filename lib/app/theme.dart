@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'app_constants.dart';
 
 class AppTheme {
   // CDAC Brand Colors - Professional Navy Blue Palette
@@ -383,7 +384,79 @@ class AppTheme {
     );
   }
 
-  // Text Style Helpers - Centralized & Consistent
+  // Responsive font sizes based on screen size
+  static double getResponsiveFontSize(BuildContext context, {
+    double small = 14.0,
+    double medium = 16.0,
+    double large = 18.0,
+    double tablet = 20.0,
+  }) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    if (screenWidth < AppConstants.smallScreenWidth) return small;
+    if (screenWidth < AppConstants.largeScreenWidth) return medium;
+    if (screenWidth < AppConstants.tabletWidth) return large;
+    return tablet;
+  }
+
+  // Text Style Helpers - Now Responsive
+  static TextStyle responsiveHeadlineLarge(BuildContext context, Color color) => TextStyle(
+        fontSize: getResponsiveFontSize(context, small: 22.0, medium: 24.0, large: 26.0, tablet: 28.0),
+        fontWeight: weightBold,
+        color: color,
+        fontFamily: fontFamily,
+        letterSpacing: -0.5,
+        height: 1.2,
+      );
+
+  static TextStyle responsiveHeadlineMedium(BuildContext context, Color color) => TextStyle(
+        fontSize: getResponsiveFontSize(context, small: 16.0, medium: 18.0, large: 20.0, tablet: 22.0),
+        fontWeight: weightSemiBold,
+        color: color,
+        fontFamily: fontFamily,
+        height: 1.3,
+      );
+
+  static TextStyle responsiveTitle(BuildContext context, Color color) => TextStyle(
+        fontSize: getResponsiveFontSize(context, small: 14.0, medium: 16.0, large: 18.0, tablet: 20.0),
+        fontWeight: weightSemiBold,
+        color: color,
+        fontFamily: fontFamily,
+        height: 1.3,
+      );
+
+  static TextStyle responsiveBodyLarge(BuildContext context, Color color) => TextStyle(
+        fontSize: getResponsiveFontSize(context, small: 14.0, medium: 15.0, large: 16.0, tablet: 17.0),
+        fontWeight: weightRegular,
+        color: color,
+        fontFamily: fontFamily,
+        height: 1.5,
+      );
+
+  static TextStyle responsiveBodyMedium(BuildContext context, Color color) => TextStyle(
+        fontSize: getResponsiveFontSize(context, small: 13.0, medium: 14.0, large: 15.0, tablet: 16.0),
+        fontWeight: weightRegular,
+        color: color,
+        fontFamily: fontFamily,
+        height: 1.5,
+      );
+
+  static TextStyle responsiveCaption(BuildContext context, Color color) => TextStyle(
+        fontSize: getResponsiveFontSize(context, small: 11.0, medium: 12.0, large: 13.0, tablet: 14.0),
+        fontWeight: weightRegular,
+        color: color,
+        fontFamily: fontFamily,
+        height: 1.4,
+      );
+
+  static TextStyle responsiveSmall(BuildContext context, Color color) => TextStyle(
+        fontSize: getResponsiveFontSize(context, small: 10.0, medium: 11.0, large: 12.0, tablet: 13.0),
+        fontWeight: weightRegular,
+        color: color,
+        fontFamily: fontFamily,
+        height: 1.3,
+      );
+
+  // Static Text Style Helpers - For fixed layouts
   static TextStyle headlineLarge(Color color) => TextStyle(
         fontSize: fontSizeHeadlineLarge,
         fontWeight: weightBold,

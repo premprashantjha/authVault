@@ -18,12 +18,11 @@ class AuthenticatorApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Always use system theme for seamless native/Flutter splash transition
     return MaterialApp(
       title: 'Authenticator',
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
-      themeMode: ThemeMode.system, // Always follow system theme
+      themeMode: ThemeMode.system,
       home: showOnboarding
           ? OnboardingScreen(
               onFinished: onOnboardingFinished,
@@ -32,6 +31,17 @@ class AuthenticatorApp extends StatelessWidget {
             )
           : const AuthWrapper(),
       debugShowCheckedModeBanner: false,
+      builder: (context, child) {
+        // Apply responsive scaling
+        return MediaQuery(
+          data: MediaQuery.of(context).copyWith(
+            textScaler: TextScaler.linear(
+              AppConstants.isSmallScreen(context) ? 0.9 : 1.0,
+            ),
+          ),
+          child: child!,
+        );
+      },
     );
   }
 }
@@ -71,6 +81,17 @@ class _AuthenticatorAppWithDialogState extends State<AuthenticatorAppWithDialog>
       darkTheme: AppTheme.darkTheme,
       themeMode: ThemeMode.system,
       debugShowCheckedModeBanner: false,
+      builder: (context, child) {
+        // Apply responsive scaling
+        return MediaQuery(
+          data: MediaQuery.of(context).copyWith(
+            textScaler: TextScaler.linear(
+              AppConstants.isSmallScreen(context) ? 0.9 : 1.0,
+            ),
+          ),
+          child: child!,
+        );
+      },
       home: Builder(
         builder: (context) {
           // Show security warning dialog after first frame

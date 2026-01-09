@@ -381,6 +381,7 @@ class _BackupStatusCardState extends State<BackupStatusCard> {
         padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min, // CRITICAL: Size to content
           children: [
             // Header
             Row(
@@ -404,6 +405,7 @@ class _BackupStatusCardState extends State<BackupStatusCard> {
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min, // CRITICAL: Size to content
                     children: [
                       Row(
                         children: [
@@ -487,6 +489,7 @@ class _BackupStatusCardState extends State<BackupStatusCard> {
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min, // CRITICAL: Size to content
                           children: [
                             Text(
                               'Backup Account',
@@ -581,6 +584,7 @@ class _BackupStatusCardState extends State<BackupStatusCard> {
                   if (hasBackup) {
                     // Show restore option
                     return Column(
+                      mainAxisSize: MainAxisSize.min, // CRITICAL: Size to content
                       children: [
                         Container(
                           padding: const EdgeInsets.all(12),
@@ -743,6 +747,7 @@ class _BackupStatusCardState extends State<BackupStatusCard> {
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min, // CRITICAL: Size to content
                           children: [
                             Text(
                               'Important',
@@ -855,6 +860,7 @@ class _InfoSection extends StatelessWidget {
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min, // CRITICAL: Size to content
             children: [
               Text(
                 title,

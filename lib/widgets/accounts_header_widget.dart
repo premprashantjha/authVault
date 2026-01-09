@@ -46,6 +46,7 @@ class AccountsHeaderWidget extends StatelessWidget {
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min, // CRITICAL: Size to content
         children: [
           Row(
             children: [

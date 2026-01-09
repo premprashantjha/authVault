@@ -6,6 +6,7 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 import '../services/qr_scanner_service.dart';
 import 'package:provider/provider.dart';
 import '../app/theme.dart';
+import '../app/app_constants.dart';
 import '../models/account.dart';
 import '../view_models/account_view_model.dart';
 import '../widgets/animated_button.dart';
@@ -126,15 +127,28 @@ class _QRScanScreenState extends State<QRScanScreen> with WidgetsBindingObserver
       barrierDismissible: false,
       builder: (dialogContext) => AlertDialog(
         backgroundColor: theme.colorScheme.surface,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text('Account Already Exists', style: AppTheme.headlineMedium(theme.colorScheme.onSurface)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppConstants.getResponsiveRadius(context, large: 20.0))
+        ),
+        title: Text(
+          'Account Already Exists', 
+          style: AppTheme.responsiveHeadlineMedium(context, theme.colorScheme.onSurface)
+        ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('${account.issuer} - ${account.accountName}', style: AppTheme.bodyLarge(theme.colorScheme.onSurface).copyWith(fontWeight: FontWeight.w600)),
-            const SizedBox(height: 8),
-            Text('This account is already added to your authenticator.', style: AppTheme.bodyMedium(theme.colorScheme.onSurface)),
+            Text(
+              '${account.issuer} - ${account.accountName}', 
+              style: AppTheme.responsiveBodyLarge(context, theme.colorScheme.onSurface).copyWith(
+                fontWeight: FontWeight.w600
+              )
+            ),
+            SizedBox(height: AppConstants.getResponsiveSpacing(context)),
+            Text(
+              'This account is already added to your authenticator.', 
+              style: AppTheme.responsiveBodyMedium(context, theme.colorScheme.onSurface)
+            ),
           ],
         ),
         actions: [
@@ -145,7 +159,10 @@ class _QRScanScreenState extends State<QRScanScreen> with WidgetsBindingObserver
               _isProcessing = false;
               _cameraController.start();
             },
-            child: Text('Cancel', style: AppTheme.bodyMedium(theme.colorScheme.onSurface)),
+            child: Text(
+              'Cancel', 
+              style: AppTheme.responsiveBodyMedium(context, theme.colorScheme.onSurface)
+            ),
           ),
           TextButton(
             onPressed: () async {

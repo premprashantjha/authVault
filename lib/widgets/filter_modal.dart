@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../app/theme.dart';
+import '../app/app_constants.dart';
 
 class FilterSelectionResult {
   final Set<String> selectedIssuers;
@@ -47,11 +48,13 @@ class _FilterModalState extends State<FilterModal> {
 
     return Container(
       constraints: BoxConstraints(
-        maxHeight: screenSize.height * 0.85,
+        maxHeight: AppConstants.getResponsiveModalHeight(context),
       ),
       decoration: BoxDecoration(
         color: theme.colorScheme.surface,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(AppConstants.getResponsiveRadius(context, large: 28.0, tablet: 32.0))
+        ),
       ),
       child: SafeArea(
         child: Column(
@@ -59,14 +62,19 @@ class _FilterModalState extends State<FilterModal> {
           children: [
           // Header
           Padding(
-            padding: const EdgeInsets.fromLTRB(24, 20, 16, 16),
+            padding: EdgeInsets.fromLTRB(
+              AppConstants.getResponsivePadding(context).left,
+              AppConstants.getResponsiveSpacing(context, sm: 16.0, md: 20.0, lg: 24.0),
+              AppConstants.getResponsivePadding(context).right * 0.7,
+              AppConstants.getResponsiveSpacing(context),
+            ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Text(
                   'Filter Accounts',
-                  style: AppTheme.headlineMedium(theme.colorScheme.onSurface),
+                  style: AppTheme.responsiveHeadlineMedium(context, theme.colorScheme.onSurface),
                 ),
                 Row(
                   mainAxisSize: MainAxisSize.min,
@@ -76,12 +84,17 @@ class _FilterModalState extends State<FilterModal> {
                       icon: Icon(
                         _favoritesOnly ? Icons.star : Icons.star_border,
                         color: _favoritesOnly ? theme.colorScheme.primary : theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                        size: AppConstants.getResponsiveIconSize(context),
                       ),
                       onPressed: () => setState(() => _favoritesOnly = !_favoritesOnly),
                     ),
                     IconButton(
                       tooltip: 'Close',
-                      icon: Icon(Icons.close, color: theme.colorScheme.onSurface),
+                      icon: Icon(
+                        Icons.close, 
+                        color: theme.colorScheme.onSurface,
+                        size: AppConstants.getResponsiveIconSize(context),
+                      ),
                       onPressed: () => Navigator.pop(context),
                     ),
                   ],
@@ -93,7 +106,12 @@ class _FilterModalState extends State<FilterModal> {
           // Scrollable content
           Flexible(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
+              padding: EdgeInsets.fromLTRB(
+                AppConstants.getResponsivePadding(context).left,
+                0,
+                AppConstants.getResponsivePadding(context).right,
+                AppConstants.getResponsiveSpacing(context),
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,

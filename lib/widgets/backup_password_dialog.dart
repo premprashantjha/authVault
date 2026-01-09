@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../app/theme.dart';
+import '../app/app_constants.dart';
 import '../services/backup_encryption_service.dart';
 
 /// Dialog for entering backup password with strength indicator
@@ -135,42 +136,49 @@ class _BackupPasswordDialogState extends State<BackupPasswordDialog> {
     final isRetry = widget.description.contains('Incorrect') || widget.description.contains('Try again');
     
     return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-      child: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Retry warning banner
-              if (isRetry) ...[
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.orange.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: Colors.orange.withValues(alpha: 0.3),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppConstants.getResponsiveRadius(context, large: 24.0))
+      ),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: AppConstants.getResponsiveDialogMaxWidth(context),
+          maxHeight: MediaQuery.of(context).size.height * 0.9, // Max 90% of screen height
+        ),
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: EdgeInsets.all(AppConstants.getResponsiveDialogPadding(context)),
+            child: Column(
+              mainAxisSize: MainAxisSize.min, // CRITICAL: Let content determine size
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Retry warning banner
+                if (isRetry) ...[
+                  Container(
+                    padding: EdgeInsets.all(AppConstants.getResponsiveSpacing(context)),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: Colors.orange.withValues(alpha: 0.3),
+                      ),
                     ),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 24),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          'Previous password was incorrect. Please try a different password.',
-                          style: AppTheme.caption(colorScheme.onSurface).copyWith(
-                            fontWeight: AppTheme.weightMedium,
+                    child: Row(
+                      children: [
+                        Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 24),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            'Previous password was incorrect. Please try a different password.',
+                            style: AppTheme.responsiveCaption(context, colorScheme.onSurface).copyWith(
+                              fontWeight: AppTheme.weightMedium,
+                            ),
                           ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
-                const SizedBox(height: 16),
-              ],
+                  const SizedBox(height: 16),
+                ],
               
               // Header
               Row(
@@ -192,6 +200,7 @@ class _BackupPasswordDialogState extends State<BackupPasswordDialog> {
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min, // CRITICAL: Size to content
                       children: [
                         Text(
                           widget.title,
@@ -380,6 +389,7 @@ class _BackupPasswordDialogState extends State<BackupPasswordDialog> {
           ),
         ),
       ),
+    )
     );
   }
 }
@@ -413,6 +423,7 @@ class _PasswordStrengthIndicator extends StatelessWidget {
     
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min, // CRITICAL: Size to content
       children: [
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,

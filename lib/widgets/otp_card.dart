@@ -80,22 +80,27 @@ class _OTPCardState extends State<OTPCard> {
       elevation: AppConstants.elevationMedium,
       color: theme.colorScheme.surface,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(AppConstants.otpCardRadius),
+        borderRadius: BorderRadius.circular(AppConstants.getResponsiveRadius(context)),
       ),
       child: InkWell(
         onTap: widget.onTap,
-        borderRadius: BorderRadius.circular(AppConstants.otpCardRadius),
-        child: Padding(
-          padding: EdgeInsets.all(AppConstants.otpCardPadding),
+        borderRadius: BorderRadius.circular(AppConstants.getResponsiveRadius(context)),
+        child: Container(
+          // REMOVED FIXED HEIGHT - Let content determine height naturally
+          constraints: BoxConstraints(
+            minHeight: AppConstants.getResponsiveOTPCardMinHeight(context), // Minimum height only
+          ),
+          padding: EdgeInsets.all(AppConstants.getResponsiveOTPCardPadding(context)),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min, // CRITICAL: Let column size itself to content
             children: [
               // Header with issuer and menu
               Row(
                 children: [
                   Container(
-                    width: AppConstants.otpAvatarSize,
-                    height: AppConstants.otpAvatarSize,
+                    width: AppConstants.getResponsiveIconSize(context, small: 32.0, medium: 36.0, large: 40.0),
+                    height: AppConstants.getResponsiveIconSize(context, small: 32.0, medium: 36.0, large: 40.0),
                     decoration: BoxDecoration(
                       color: serviceColor,
                       borderRadius: BorderRadius.circular(AppConstants.radiusMd),
@@ -103,26 +108,27 @@ class _OTPCardState extends State<OTPCard> {
                     child: Icon(
                       serviceIcon,
                       color: Colors.white,
-                      size: AppConstants.iconSizeSm + 2,
+                      size: AppConstants.getResponsiveIconSize(context, small: 16.0, medium: 18.0, large: 20.0),
                     ),
                   ),
-                  SizedBox(width: AppConstants.spaceSm + 2),
+                  SizedBox(width: AppConstants.getResponsiveSpacing(context, xs: 8.0, sm: 10.0, md: 12.0)),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min, // CRITICAL: Let column size itself
                       children: [
                         Text(
                           widget.account.account.issuer,
-                          style: AppTheme.bodyLarge(theme.colorScheme.onSurface).copyWith(
+                          style: AppTheme.responsiveBodyLarge(context, theme.colorScheme.onSurface).copyWith(
                             fontWeight: FontWeight.w600,
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
-                        SizedBox(height: AppConstants.spaceXs / 2),
+                        SizedBox(height: AppConstants.getResponsiveSpacing(context, xs: 2.0, sm: 3.0, md: 4.0)),
                         Text(
                           widget.account.account.accountName,
-                          style: AppTheme.caption(theme.colorScheme.onSurface),
+                          style: AppTheme.responsiveCaption(context, theme.colorScheme.onSurface),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -144,6 +150,7 @@ class _OTPCardState extends State<OTPCard> {
                         color: widget.account.isFavorite
                             ? AppTheme.primaryColor
                             : theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                        size: AppConstants.getResponsiveIconSize(context, small: 20.0, medium: 22.0, large: 24.0),
                       ),
                     ),
                     tooltip: widget.account.isFavorite ? 'Remove from favorites' : 'Mark as favorite',
@@ -167,6 +174,7 @@ class _OTPCardState extends State<OTPCard> {
                       onTap: () => _copyToClipboard(context, widget.account.otp),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min, // CRITICAL: Size to content
                         children: [
                           Row(
                             children: [
@@ -206,6 +214,7 @@ class _OTPCardState extends State<OTPCard> {
                   ),
                   // Timer
                   Column(
+                    mainAxisSize: MainAxisSize.min, // CRITICAL: Size to content
                     children: [
                       SizedBox(
                         width: AppConstants.otpTimerSize,

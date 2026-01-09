@@ -169,13 +169,13 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
           children: [
             Image.asset(
               'assets/images/Logo1.png',
-              height: AppConstants.iconSizeXl,
+              height: AppConstants.getResponsiveIconSize(context, small: 28.0, medium: 32.0, large: 36.0),
               fit: BoxFit.contain,
             ),
-            SizedBox(width: AppConstants.otpCardSpacing),
+            SizedBox(width: AppConstants.getResponsiveSpacing(context)),
             Text(
               'Authenticator',
-              style: AppTheme.headlineMedium(theme.colorScheme.onSurface),
+              style: AppTheme.responsiveHeadlineMedium(context, theme.colorScheme.onSurface),
             ),
           ],
         ),
@@ -187,6 +187,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
             icon: Icon(
               _isSearchVisible ? Icons.close : Icons.search,
               color: theme.colorScheme.onSurface,
+              size: AppConstants.getResponsiveIconSize(context),
             ),
             onPressed: _toggleSearchBar,
           ),
@@ -201,16 +202,17 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                     icon: Icon(
                       Icons.filter_alt,
                       color: hasFilters ? theme.colorScheme.primary : theme.colorScheme.onSurface,
+                      size: AppConstants.getResponsiveIconSize(context),
                     ),
                     onPressed: _openFilterModal,
                   ),
                   if (hasFilters)
                     Positioned(
-                      right: AppConstants.otpCardSpacing,
-                      top: AppConstants.otpCardSpacing,
+                      right: AppConstants.getResponsiveSpacing(context, xs: 8.0, sm: 10.0, md: 12.0),
+                      top: AppConstants.getResponsiveSpacing(context, xs: 8.0, sm: 10.0, md: 12.0),
                       child: Container(
-                        width: AppConstants.spaceSm,
-                        height: AppConstants.spaceSm,
+                        width: AppConstants.getResponsiveSpacing(context, xs: 6.0, sm: 8.0, md: 10.0),
+                        height: AppConstants.getResponsiveSpacing(context, xs: 6.0, sm: 8.0, md: 10.0),
                         decoration: BoxDecoration(
                           color: theme.colorScheme.primary,
                           shape: BoxShape.circle,
@@ -225,6 +227,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
             icon: Icon(
               Icons.settings,
               color: theme.colorScheme.onSurface,
+              size: AppConstants.getResponsiveIconSize(context),
             ),
             onPressed: () => _navigateToSettings(context),
           ),
@@ -235,14 +238,14 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
           try {
             if (viewModel.isLoading) {
               return Padding(
-                padding: EdgeInsets.all(AppConstants.spaceMd),
+                padding: AppConstants.getResponsivePadding(context),
                 child: Column(
                   children: [
-                    Skeleton(height: AppConstants.iconSizeXxl * 2 - 8),
-                    SizedBox(height: AppConstants.otpCardSpacing),
-                    Skeleton(height: AppConstants.iconSizeXxl * 2 - 8),
-                    SizedBox(height: AppConstants.otpCardSpacing),
-                    Skeleton(height: AppConstants.iconSizeXxl * 2 - 8),
+                    Skeleton(height: AppConstants.getResponsiveOTPCardMinHeight(context)),
+                    SizedBox(height: AppConstants.getResponsiveSpacing(context)),
+                    Skeleton(height: AppConstants.getResponsiveOTPCardMinHeight(context)),
+                    SizedBox(height: AppConstants.getResponsiveSpacing(context)),
+                    Skeleton(height: AppConstants.getResponsiveOTPCardMinHeight(context)),
                   ],
                 ),
               );
@@ -260,13 +263,20 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.error_outline, size: AppConstants.iconSizeXxl * 2, color: Colors.red),
-                  SizedBox(height: AppConstants.spaceMd),
+                  Icon(
+                    Icons.error_outline, 
+                    size: AppConstants.getResponsiveIconSize(context, small: 48.0, medium: 64.0, large: 72.0), 
+                    color: Colors.red
+                  ),
+                  SizedBox(height: AppConstants.getResponsiveSpacing(context)),
                   Text('Error: $e'),
-                  SizedBox(height: AppConstants.spaceMd),
-                  ElevatedButton(
-                    onPressed: () => viewModel.reloadAfterUnlock(),
-                    child: const Text('Retry'),
+                  SizedBox(height: AppConstants.getResponsiveSpacing(context)),
+                  SizedBox(
+                    height: AppConstants.getResponsiveButtonHeight(context),
+                    child: ElevatedButton(
+                      onPressed: () => viewModel.reloadAfterUnlock(),
+                      child: const Text('Retry'),
+                    ),
                   ),
                 ],
               ),
@@ -282,8 +292,14 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
             if (mounted) setState(() => _fabOpen = false);
           });
         },
-        openIcon: const Icon(Icons.add, size: 28),
-        closeIcon: const Icon(Icons.close, size: 28),
+        openIcon: Icon(
+          Icons.add, 
+          size: AppConstants.getResponsiveIconSize(context, small: 24.0, medium: 28.0, large: 32.0)
+        ),
+        closeIcon: Icon(
+          Icons.close, 
+          size: AppConstants.getResponsiveIconSize(context, small: 24.0, medium: 28.0, large: 32.0)
+        ),
       ),
     );
   }

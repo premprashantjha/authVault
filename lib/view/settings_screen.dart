@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../app/theme.dart';
+import '../app/app_constants.dart';
 import '../services/backup_service.dart';
 import '../services/cloud_sync_service.dart';
 import '../services/encryption_service.dart';
@@ -55,14 +56,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
   // Lightweight skeletons for settings loading state
   Widget _buildLoadingSkeletons() {
     return ListView(
-      padding: const EdgeInsets.all(16),
-      children: const [
-        SizedBox(height: 4),
-        Skeleton(height: 64),
-        SizedBox(height: 12),
-        Skeleton(height: 64),
-        SizedBox(height: 24),
-        Skeleton(height: 64),
+      padding: AppConstants.getResponsivePadding(context),
+      children: [
+        SizedBox(height: AppConstants.getResponsiveSpacing(context, xs: 2.0, sm: 4.0)),
+        Skeleton(height: AppConstants.getResponsiveButtonHeight(context) + 16),
+        SizedBox(height: AppConstants.getResponsiveSpacing(context)),
+        Skeleton(height: AppConstants.getResponsiveButtonHeight(context) + 16),
+        SizedBox(height: AppConstants.getResponsiveSpacing(context, lg: 24.0)),
+        Skeleton(height: AppConstants.getResponsiveButtonHeight(context) + 16),
       ],
     );
   }
