@@ -27,10 +27,11 @@ class AccountService {
       return accounts;
     } catch (e) {
       if (kDebugMode) {
-        debugPrint('Error loading accounts: $e');
+        debugPrint('❌ [AccountService] Error loading accounts: $e');
         debugPrint('Stack trace: ${StackTrace.current}');
       }
-      return [];
+      // Rethrow to let ViewModel handle the error appropriately
+      rethrow;
     }
   }
 

@@ -81,15 +81,39 @@ class AccountViewModel with ChangeNotifier {
     notifyListeners();
 
     try {
-      _accounts = await accountService.getAllAccounts();
-      _generateOTPs();
+      final loadedAccounts = await accountService.getAllAccounts();
+      
+      // Only update accounts if we successfully loaded data
+      // This prevents clearing accounts on temporary errors
+      if (loadedAccounts.isNotEmpty || _accounts.isEmpty) {
+        _accounts = loadedAccounts;
+        _generateOTPs();
+      } else {
+        // If load returned empty but we had accounts before, keep existing accounts
+        // and just regenerate OTPs (this handles temporary database issues)
+        if (kDebugMode) {
+          debugPrint('⚠️ [ViewModel] Loaded 0 accounts but had ${_accounts.length} before - keeping existing accounts');
+        }
+        _generateOTPs();
+      }
     } catch (e) {
       if (kDebugMode) {
         debugPrint('❌ [ViewModel] Error loading accounts: $e');
+        debugPrint('Stack trace: ${StackTrace.current}');
       }
-      _accounts = [];
-      _accountsWithOTP = [];
-      _filteredAccounts = [];
+      // Don't clear accounts on error - keep existing data
+      // This prevents the "0 accounts" bug when database has temporary issues
+      if (_accounts.isNotEmpty) {
+        if (kDebugMode) {
+          debugPrint('⚠️ [ViewModel] Keeping ${_accounts.length} existing accounts due to load error');
+        }
+        _generateOTPs();
+      } else {
+        // Only clear if we truly have no accounts
+        _accounts = [];
+        _accountsWithOTP = [];
+        _filteredAccounts = [];
+      }
     } finally {
       _isLoading = false;
       notifyListeners();

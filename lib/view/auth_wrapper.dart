@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
 import 'package:local_auth/local_auth.dart';
 import '../app/theme.dart';
@@ -42,6 +43,7 @@ class _AuthWrapperState extends State<AuthWrapper> with WidgetsBindingObserver {
       _wasInBackground = false;
       _dismissPrivacyShield();
       
+      // Purge sensitive data (OTP codes) but keep account list
       context.read<AccountViewModel>().purgeSensitiveData();
       
       setState(() {
@@ -89,11 +91,34 @@ class _AuthWrapperState extends State<AuthWrapper> with WidgetsBindingObserver {
       );
 
       if (mounted && authenticated) {
-        try {
-          await context.read<AccountViewModel>().initialize();
-        } catch (e) {
-          // Initialization error handled silently
+        // Retry logic for database initialization with exponential backoff
+        int retryCount = 0;
+        const maxRetries = 3;
+        bool initSuccess = false;
+        
+        while (retryCount < maxRetries && !initSuccess) {
+          try {
+            await context.read<AccountViewModel>().initialize();
+            initSuccess = true;
+          } catch (e) {
+            retryCount++;
+            if (kDebugMode) {
+              debugPrint('⚠️ [AuthWrapper] Initialization attempt $retryCount failed: $e');
+            }
+            
+            if (retryCount < maxRetries) {
+              // Exponential backoff: 100ms, 200ms, 400ms
+              final delayMs = 100 * (1 << (retryCount - 1));
+              await Future.delayed(Duration(milliseconds: delayMs));
+            } else {
+              if (kDebugMode) {
+                debugPrint('❌ [AuthWrapper] All initialization attempts failed');
+              }
+              // Continue anyway - ViewModel will keep existing accounts
+            }
+          }
         }
+        
         setState(() {
           _isAuthenticated = true;
           _showPrivacyOverlay = false;
