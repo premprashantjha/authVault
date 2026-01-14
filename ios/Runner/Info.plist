@@ -5,7 +5,7 @@
 		<key>CFBundleDevelopmentRegion</key>
 		<string>$(DEVELOPMENT_LANGUAGE)</string>
 		<key>CFBundleDisplayName</key>
-		<string>Authenticator Poc</string>
+		<string>Authenticator</string>
 		<key>CFBundleExecutable</key>
 		<string>$(EXECUTABLE_NAME)</string>
 		<key>CFBundleIdentifier</key>
@@ -31,8 +31,6 @@
 		<key>UISupportedInterfaceOrientations</key>
 		<array>
 			<string>UIInterfaceOrientationPortrait</string>
-			<string>UIInterfaceOrientationLandscapeLeft</string>
-			<string>UIInterfaceOrientationLandscapeRight</string>
 		</array>
 		<key>UISupportedInterfaceOrientations~ipad</key>
 		<array>
@@ -43,14 +41,32 @@
 		</array>
 		<key>NSFaceIDUsageDescription</key>
 		<string>Use Face ID to authenticate to Authenticator</string>
+		<key>NSCameraUsageDescription</key>
+		<string>Camera access is required to scan QR codes for adding new authenticator accounts</string>
 		<key>CADisableMinimumFrameDurationOnPhone</key>
 		<true/>
 		<key>UIApplicationSupportsIndirectInputEvents</key>
 		<true/>
 		<key>UIStatusBarHidden</key>
-		<true/>
-		<key>UIViewControllerBasedStatusBarAppearance</key>
 		<false/>
+		<key>UIViewControllerBasedStatusBarAppearance</key>
+		<true/>
+		<key>UIStatusBarStyle</key>
+		<string>UIStatusBarStyleDefault</string>
+		
+		<!-- Device Compatibility -->
+		<key>UIRequiredDeviceCapabilities</key>
+		<array>
+			<string>arm64</string>
+		</array>
+		
+		<!-- iPhone Compatibility -->
+		<key>UIDeviceFamily</key>
+		<array>
+			<integer>1</integer>
+			<integer>2</integer>
+		</array>
+		
 		<!-- iCloud Backup Configuration -->
 		<key>UIFileSharingEnabled</key>
 		<false/>

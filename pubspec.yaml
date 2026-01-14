@@ -1,5 +1,5 @@
 name: authenticator
-description: "A TOTP Authenticator App POC."
+description: "A secure TOTP Authenticator App for two-factor authentication."
 
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 

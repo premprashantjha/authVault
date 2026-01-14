@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../app/theme.dart';
+import '../app/app_constants.dart';
 import '../services/auto_backup_service.dart';
 import '../services/cloud_sync_service.dart';
 import '../view_models/account_view_model.dart';
 import '../widgets/restore_prompt_dialog.dart';
 import '../widgets/custom_snackbar.dart';
+import '../widgets/backup_password_dialog.dart';
 import 'cloud_restore_screen.dart';
 
 class OnboardingSlide {
@@ -181,22 +183,24 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     // Show dialog asking if user wants to restore
     final shouldRestore = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: AppTheme.primaryColor.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(12),
+      builder: (dialogContext) {
+        final theme = Theme.of(dialogContext);
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.primary.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  Icons.cloud_download_rounded,
+                  color: theme.colorScheme.primary,
+                  size: 24,
+                ),
               ),
-              child: Icon(
-                Icons.cloud_download_rounded,
-                color: AppTheme.primaryColor,
-                size: 24,
-              ),
-            ),
             const SizedBox(width: 12),
             const Expanded(
               child: Text('Cloud Backup Found'),
@@ -208,15 +212,16 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
+            onPressed: () => Navigator.of(dialogContext).pop(false),
             child: const Text('Skip'),
           ),
           ElevatedButton(
-            onPressed: () => Navigator.of(context).pop(true),
+            onPressed: () => Navigator.of(dialogContext).pop(true),
             child: const Text('Restore'),
           ),
         ],
-      ),
+      );
+      },
     );
     
     if (shouldRestore != true) return;
@@ -275,6 +280,18 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   Future<void> _performRestore(AutoBackupService backupService) async {
     if (!mounted) return;
     
+    // Prompt for password
+    final password = await showDialog<String>(
+      context: context,
+      builder: (context) => const BackupPasswordDialog(
+        title: 'Restore Backup',
+        description: 'Enter your backup password',
+        isCreating: false,
+      ),
+    );
+    
+    if (password == null || !mounted) return;
+    
     // Show loading dialog
     showDialog(
       context: context,
@@ -303,8 +320,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     );
     
     try {
-      // Restore backup
-      final restored = await backupService.restoreAutoBackup();
+      // Restore backup with password
+      final restored = await backupService.restoreAutoBackup(password);
       
       // Close loading dialog
       if (mounted) {
@@ -357,14 +374,20 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         child: Column(
           children: [
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              padding: EdgeInsets.symmetric(
+                horizontal: AppConstants.getResponsivePadding(context).left,
+                vertical: AppConstants.getResponsiveSpacing(context),
+              ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   if (widget.allowSkip || widget.isReviewMode)
                     TextButton(
                       onPressed: widget.onFinished,
-                      child: Text(skipLabel),
+                      child: Text(
+                        skipLabel,
+                        style: AppTheme.responsiveBodyMedium(context, theme.colorScheme.primary),
+                      ),
                     ),
                 ],
               ),
@@ -377,24 +400,31 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 itemBuilder: (context, index) {
                   final slide = _slides[index];
                   return Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                    padding: EdgeInsets.symmetric(
+                      horizontal: AppConstants.getResponsivePadding(context).left,
+                      vertical: AppConstants.getResponsiveSpacing(context),
+                    ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const SizedBox(height: 12),
+                        SizedBox(height: AppConstants.getResponsiveSpacing(context)),
                         Container(
-                          height: 72,
-                          width: 72,
+                          height: AppConstants.getResponsiveIconSize(context, small: 64.0, medium: 72.0, large: 80.0),
+                          width: AppConstants.getResponsiveIconSize(context, small: 64.0, medium: 72.0, large: 80.0),
                           decoration: BoxDecoration(
-                            color: AppTheme.primaryColor.withValues(alpha: 0.12),
-                            borderRadius: BorderRadius.circular(24),
+                            color: theme.colorScheme.primary.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(AppConstants.getResponsiveRadius(context, large: 24.0)),
                           ),
-                          child: Icon(slide.icon, size: 40, color: AppTheme.primaryColor),
+                          child: Icon(
+                            slide.icon, 
+                            size: AppConstants.getResponsiveIconSize(context, small: 32.0, medium: 40.0, large: 48.0), 
+                            color: theme.colorScheme.primary
+                          ),
                         ),
-                        const SizedBox(height: 32),
+                        SizedBox(height: AppConstants.getResponsiveSpacing(context, lg: 32.0, xl: 40.0)),
                         Text(
                           slide.title,
-                          style: AppTheme.headlineMedium(theme.colorScheme.onSurface).copyWith(
+                          style: AppTheme.responsiveHeadlineMedium(context, theme.colorScheme.onSurface).copyWith(
                             fontWeight: AppTheme.weightBold,
                           ),
                         ),
@@ -415,7 +445,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                                 Container(
                                   width: 24,
                                   alignment: Alignment.topLeft,
-                                  child: Icon(Icons.check_circle, size: 18, color: AppTheme.primaryColor),
+                                  child: Icon(Icons.check_circle, size: 18, color: theme.colorScheme.primary),
                                 ),
                                 const SizedBox(width: 8),
                                 Expanded(
@@ -450,7 +480,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                         width: _currentIndex == index ? 32 : 10,
                         decoration: BoxDecoration(
                           color: _currentIndex == index
-                              ? AppTheme.primaryColor
+                              ? theme.colorScheme.primary
                               : theme.colorScheme.onSurface.withValues(alpha: 0.2),
                           borderRadius: BorderRadius.circular(24),
                         ),

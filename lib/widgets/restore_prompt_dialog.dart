@@ -26,12 +26,12 @@ class RestorePromptDialog extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: AppTheme.primaryColor.withValues(alpha: 0.1),
+              color: theme.colorScheme.primary.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(
               Icons.backup,
-              color: AppTheme.primaryColor,
+              color: theme.colorScheme.primary,
               size: 24,
             ),
           ),
@@ -56,10 +56,10 @@ class RestorePromptDialog extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: AppTheme.primaryColor.withValues(alpha: 0.08),
+              color: theme.colorScheme.primary.withValues(alpha: 0.08),
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color: AppTheme.primaryColor.withValues(alpha: 0.2),
+                color: theme.colorScheme.primary.withValues(alpha: 0.2),
               ),
             ),
             child: Column(
@@ -99,7 +99,7 @@ class RestorePromptDialog extends StatelessWidget {
         ElevatedButton(
           onPressed: () => Navigator.pop(context, true),
           style: ElevatedButton.styleFrom(
-            backgroundColor: AppTheme.primaryColor,
+            backgroundColor: theme.colorScheme.primary,
             foregroundColor: Colors.white,
           ),
           child: const Text('Restore'),
@@ -109,6 +109,7 @@ class RestorePromptDialog extends StatelessWidget {
   }
 
   Widget _buildRestoreItem(BuildContext context, String text) {
+    final theme = Theme.of(context);
     return Padding(
       padding: const EdgeInsets.only(bottom: 4),
       child: Row(
@@ -116,7 +117,7 @@ class RestorePromptDialog extends StatelessWidget {
           Icon(
             Icons.check_circle,
             size: 16,
-            color: AppTheme.primaryColor,
+            color: theme.colorScheme.primary,
           ),
           const SizedBox(width: 8),
           Text(

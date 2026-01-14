@@ -174,7 +174,7 @@ class _RecoveryCodesScreenState extends State<RecoveryCodesScreen> {
         ElevatedButton(
           onPressed: () => Navigator.pop(context, true),
           style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.orange,
+            backgroundColor: AppTheme.warningColor,
           ),
           child: const Text('Regenerate'),
         ),
@@ -236,7 +236,7 @@ class _RecoveryCodesScreenState extends State<RecoveryCodesScreen> {
               children: [
                 // Info Card
                 Card(
-                  color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                  color: theme.colorScheme.primary.withValues(alpha: 0.1),
                   elevation: 0,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(16),
@@ -248,7 +248,7 @@ class _RecoveryCodesScreenState extends State<RecoveryCodesScreen> {
                       children: [
                         Icon(
                           Icons.info_outline,
-                          color: AppTheme.primaryColor,
+                          color: theme.colorScheme.primary,
                           size: 24,
                         ),
                         const SizedBox(width: 12),
@@ -302,7 +302,7 @@ class _RecoveryCodesScreenState extends State<RecoveryCodesScreen> {
                         children: [
                           Icon(
                             Icons.check_circle,
-                            color: Colors.green,
+                            color: AppTheme.successColor,
                             size: 24,
                           ),
                           const SizedBox(width: 12),
@@ -347,7 +347,7 @@ class _RecoveryCodesScreenState extends State<RecoveryCodesScreen> {
                     icon: Icons.add_circle_outline,
                     title: 'Generate Recovery Codes',
                     subtitle: 'Create 10 one-time use recovery codes',
-                    color: AppTheme.primaryColor,
+                    color: theme.colorScheme.primary,
                     onTap: _generateCodes,
                   )
                 else ...[
@@ -356,7 +356,7 @@ class _RecoveryCodesScreenState extends State<RecoveryCodesScreen> {
                     icon: Icons.refresh,
                     title: 'Regenerate Codes',
                     subtitle: 'Create new codes and invalidate old ones',
-                    color: Colors.orange,
+                    color: AppTheme.warningColor,
                     onTap: _regenerateCodes,
                   ),
                   const SizedBox(height: 8),
@@ -395,13 +395,13 @@ class _RecoveryCodesScreenState extends State<RecoveryCodesScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _buildHowToStep('1', 'Save codes in a secure location'),
+                        _buildHowToStep(context, '1', 'Save codes in a secure location'),
                         const SizedBox(height: 12),
-                        _buildHowToStep('2', 'Each code can only be used once'),
+                        _buildHowToStep(context, '2', 'Each code can only be used once'),
                         const SizedBox(height: 12),
-                        _buildHowToStep('3', 'Use codes when you lose device access'),
+                        _buildHowToStep(context, '3', 'Use codes when you lose device access'),
                         const SizedBox(height: 12),
-                        _buildHowToStep('4', 'Regenerate codes if you run out'),
+                        _buildHowToStep(context, '4', 'Regenerate codes if you run out'),
                       ],
                     ),
                   ),
@@ -434,7 +434,7 @@ class _RecoveryCodesScreenState extends State<RecoveryCodesScreen> {
               children: [
                 // Warning Card
                 Card(
-                  color: Colors.orange.withValues(alpha: 0.1),
+                  color: AppTheme.warningColor.withValues(alpha: 0.1),
                   elevation: 0,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(16),
@@ -446,7 +446,7 @@ class _RecoveryCodesScreenState extends State<RecoveryCodesScreen> {
                       children: [
                         Icon(
                           Icons.warning_amber_rounded,
-                          color: Colors.orange,
+                          color: AppTheme.warningColor,
                           size: 24,
                         ),
                         const SizedBox(width: 12),
@@ -507,14 +507,14 @@ class _RecoveryCodesScreenState extends State<RecoveryCodesScreen> {
                               width: 32,
                               height: 32,
                               decoration: BoxDecoration(
-                                color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                                color: theme.colorScheme.primary.withValues(alpha: 0.1),
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Center(
                                 child: Text(
                                   '${index + 1}',
                                   style: TextStyle(
-                                    color: AppTheme.primaryColor,
+                                    color: theme.colorScheme.primary,
                                     fontWeight: FontWeight.w600,
                                     fontSize: 14,
                                   ),
@@ -595,7 +595,7 @@ class _RecoveryCodesScreenState extends State<RecoveryCodesScreen> {
                   child: ElevatedButton(
                     onPressed: _acknowledgeAndClose,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.primaryColor,
+                      backgroundColor: theme.colorScheme.primary,
                       padding: const EdgeInsets.symmetric(vertical: 14),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
@@ -683,7 +683,8 @@ class _RecoveryCodesScreenState extends State<RecoveryCodesScreen> {
     );
   }
 
-  Widget _buildHowToStep(String number, String text) {
+  Widget _buildHowToStep(BuildContext context, String number, String text) {
+    final theme = Theme.of(context);
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -691,14 +692,14 @@ class _RecoveryCodesScreenState extends State<RecoveryCodesScreen> {
           width: 24,
           height: 24,
           decoration: BoxDecoration(
-            color: AppTheme.primaryColor.withValues(alpha: 0.1),
+            color: theme.colorScheme.primary.withValues(alpha: 0.1),
             shape: BoxShape.circle,
           ),
           child: Center(
             child: Text(
               number,
               style: TextStyle(
-                color: AppTheme.primaryColor,
+                color: theme.colorScheme.primary,
                 fontWeight: FontWeight.w600,
                 fontSize: 12,
               ),

@@ -1,23 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../app/theme.dart';
+import '../app/app_constants.dart';
 import '../services/backup_service.dart';
 import '../services/cloud_sync_service.dart';
-import '../services/encryption_service.dart';
-import '../services/integrity_service.dart';
-import '../services/database_service.dart';
-import '../services/account_service.dart';
+import '../services/platform_backup_service.dart';
 import '../services/auto_backup_service.dart';
 import '../services/platform_account_service.dart';
 import '../view_models/account_view_model.dart';
 import '../widgets/skeleton.dart';
 import '../widgets/custom_snackbar.dart';
 import '../widgets/restore_prompt_dialog.dart';
-import '../widgets/backup_status_card.dart';
+import '../widgets/backup_password_dialog.dart';
 import 'onboarding_screen.dart';
 import 'backup_screen.dart';
 import 'auto_backup_settings_screen.dart';
-import 'recovery_codes_screen.dart';
 import 'privacy_policy_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -55,14 +52,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
   // Lightweight skeletons for settings loading state
   Widget _buildLoadingSkeletons() {
     return ListView(
-      padding: const EdgeInsets.all(16),
-      children: const [
-        SizedBox(height: 4),
-        Skeleton(height: 64),
-        SizedBox(height: 12),
-        Skeleton(height: 64),
-        SizedBox(height: 24),
-        Skeleton(height: 64),
+      padding: AppConstants.getResponsivePadding(context),
+      children: [
+        SizedBox(height: AppConstants.getResponsiveSpacing(context, xs: 2.0, sm: 4.0)),
+        Skeleton(height: AppConstants.getResponsiveButtonHeight(context) + 16),
+        SizedBox(height: AppConstants.getResponsiveSpacing(context)),
+        Skeleton(height: AppConstants.getResponsiveButtonHeight(context) + 16),
+        SizedBox(height: AppConstants.getResponsiveSpacing(context, lg: 24.0)),
+        Skeleton(height: AppConstants.getResponsiveButtonHeight(context) + 16),
       ],
     );
   }
@@ -124,7 +121,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         if (mounted) {
           CustomSnackbar.show(
             context,
-            message: 'Please select a Google account to check for backup',
+            message: PlatformBackupService.accountSelectionMessage,
             type: SnackbarType.info,
           );
         }
@@ -135,7 +132,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         if (mounted) {
           CustomSnackbar.show(
             context,
-            message: 'No Google account selected',
+            message: PlatformBackupService.noAccountMessage,
             type: SnackbarType.error,
           );
         }
@@ -231,12 +228,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: Colors.blue.withValues(alpha: 0.1),
+                      color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Icon(
                       Icons.info_outline,
-                      color: Colors.blue[700],
+                      color: Theme.of(context).colorScheme.primary,
                       size: 24,
                     ),
                   ),
@@ -261,7 +258,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: AppTheme.primaryColor.withValues(alpha: 0.08),
+                      color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.08),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Column(
@@ -272,7 +269,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             Icon(
                               Icons.lightbulb_outline,
                               size: 20,
-                              color: AppTheme.primaryColor,
+                              color: Theme.of(context).colorScheme.primary,
                             ),
                             const SizedBox(width: 8),
                             Text(
@@ -338,6 +335,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   /// Show dialog when no backup is found
   void _showNoBackupDialog(BuildContext context, String accountId) {
+    final theme = Theme.of(context);
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -349,12 +347,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: Colors.orange.withValues(alpha: 0.1),
+                color: AppTheme.warningColor.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(
                 Icons.info_outline,
-                color: Colors.orange[700],
+                color: AppTheme.warningColor,
                 size: 24,
               ),
             ),
@@ -373,22 +371,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'We couldn\'t find a backup for the account:',
+                PlatformBackupService.noBackupMessage,
                 style: const TextStyle(fontSize: 15),
               ),
               const SizedBox(height: 8),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 decoration: BoxDecoration(
-                  color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                  color: theme.colorScheme.primary.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Row(
                   children: [
                     Icon(
-                      Icons.account_circle,
+                      PlatformBackupService.accountIcon,
                       size: 20,
-                      color: AppTheme.primaryColor,
+                      color: theme.colorScheme.primary,
                     ),
                     const SizedBox(width: 8),
                     Expanded(
@@ -432,10 +430,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: AppTheme.primaryColor.withValues(alpha: 0.08),
+                  color: theme.colorScheme.primary.withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
-                    color: AppTheme.primaryColor.withValues(alpha: 0.2),
+                    color: theme.colorScheme.primary.withValues(alpha: 0.2),
                   ),
                 ),
                 child: Column(
@@ -446,7 +444,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         Icon(
                           Icons.lightbulb_outline,
                           size: 20,
-                          color: AppTheme.primaryColor,
+                          color: theme.colorScheme.primary,
                         ),
                         const SizedBox(width: 8),
                         Text(
@@ -507,7 +505,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               _navigateToAutoBackup(context);
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.primaryColor,
+              backgroundColor: theme.colorScheme.primary,
               foregroundColor: Colors.white,
             ),
             child: const Text('Enable Backup'),
@@ -545,6 +543,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Widget _buildStepItem(BuildContext context, String text) {
+    final theme = Theme.of(context);
     return Padding(
       padding: const EdgeInsets.only(bottom: 4),
       child: Row(
@@ -553,7 +552,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           Icon(
             Icons.check_circle,
             size: 16,
-            color: AppTheme.primaryColor,
+            color: theme.colorScheme.primary,
           ),
           const SizedBox(width: 8),
           Expanded(
@@ -572,6 +571,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   /// Perform backup restore with loading indicator
   Future<void> _performRestore(BuildContext context, AutoBackupService autoBackupService) async {
+    // Prompt for password
+    final password = await showDialog<String>(
+      context: context,
+      builder: (context) => const BackupPasswordDialog(
+        title: 'Restore Backup',
+        description: 'Enter your backup password',
+        isCreating: false,
+      ),
+    );
+    
+    if (password == null || !mounted) return;
+    
     // Show loading dialog
     showDialog(
       context: context,
@@ -600,8 +611,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
     
     try {
-      // Perform restore
-      final restored = await autoBackupService.restoreAutoBackup();
+      // Perform restore with password
+      final restored = await autoBackupService.restoreAutoBackup(password);
       
       // Close loading dialog
       if (mounted) {
@@ -639,11 +650,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
         );
       }
     }
-  }
-
-  /// Show restore dialog and perform restore (legacy - kept for compatibility)
-  Future<void> _showRestoreDialog(BuildContext context) async {
-    await _checkAndRestoreBackup(context);
   }
 
   @override
@@ -686,13 +692,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             margin: const EdgeInsets.only(bottom: 12),
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
-                              color: Colors.blue.withOpacity(0.1),
+                              color: theme.colorScheme.primary.withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: Colors.blue.withOpacity(0.3)),
+                              border: Border.all(color: theme.colorScheme.primary.withValues(alpha: 0.3)),
                             ),
                             child: Row(
                               children: [
-                                const Icon(Icons.cloud_done, color: Colors.blue, size: 20),
+                                Icon(Icons.cloud_done, color: theme.colorScheme.primary, size: 20),
                                 const SizedBox(width: 12),
                                 Expanded(
                                   child: Column(
@@ -700,14 +706,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                     children: [
                                       Text(
                                         'Cloud Backup Available',
-                                        style: AppTheme.bodyMedium(Colors.blue).copyWith(
+                                        style: AppTheme.bodyMedium(theme.colorScheme.primary).copyWith(
                                           fontWeight: FontWeight.bold,
                                         ),
                                       ),
                                       const SizedBox(height: 2),
                                       Text(
                                         'Your accounts are synced to cloud',
-                                        style: AppTheme.caption(Colors.blue.withOpacity(0.7)),
+                                        style: AppTheme.caption(theme.colorScheme.primary.withValues(alpha: 0.7)),
                                       ),
                                     ],
                                   ),
@@ -815,10 +821,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 width: 40,
                 height: 40,
                 decoration: BoxDecoration(
-                  color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                  color: theme.colorScheme.primary.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Icon(icon, color: AppTheme.primaryColor, size: 20),
+                child: Icon(icon, color: theme.colorScheme.primary, size: 20),
               ),
               const SizedBox(width: 16),
               Expanded(

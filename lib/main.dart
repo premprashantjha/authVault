@@ -238,17 +238,27 @@ class _SplashAppState extends State<SplashApp> {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Image.asset(
-                      'assets/images/Logo1.png',
-                      height: 80,
-                      fit: BoxFit.contain,
-                      errorBuilder: (context, error, stackTrace) {
-                        return Icon(
-                          Icons.lock_outline,
-                          size: 64,
-                          color: theme.colorScheme.primary.withValues(alpha: 0.5),
-                        );
-                      },
+                    ColorFiltered(
+                      colorFilter: ColorFilter.mode(
+                        theme.brightness == Brightness.dark
+                            ? theme.colorScheme.primary // Use theme primary color
+                            : Colors.transparent,
+                        theme.brightness == Brightness.dark
+                            ? BlendMode.srcATop
+                            : BlendMode.dst,
+                      ),
+                      child: Image.asset(
+                        'assets/images/Logo_cdac.png',
+                        height: 80,
+                        fit: BoxFit.contain,
+                        errorBuilder: (context, error, stackTrace) {
+                          return Icon(
+                            Icons.lock_outline,
+                            size: 64,
+                            color: theme.colorScheme.primary.withValues(alpha: 0.5),
+                          );
+                        },
+                      ),
                     ),
                     const SizedBox(height: 24),
                     Text(

@@ -22,7 +22,28 @@ class DatabaseService {
         _integrityService = integrityService ?? IntegrityService();
 
   Future<Database> get database async {
-    if (_database != null) return _database!;
+    // Check if existing database is still valid and open
+    if (_database != null) {
+      try {
+        // Verify the database is still open and accessible
+        if (_database!.isOpen) {
+          // Quick test query to ensure database is responsive
+          await _database!.rawQuery('SELECT 1');
+          return _database!;
+        } else {
+          if (kDebugMode) {
+            debugPrint('⚠️ [DatabaseService] Database was closed, reinitializing...');
+          }
+          _database = null;
+        }
+      } catch (e) {
+        if (kDebugMode) {
+          debugPrint('⚠️ [DatabaseService] Database connection test failed: $e');
+        }
+        _database = null;
+      }
+    }
+    
     _database = await _initDatabase();
     return _database!;
   }
@@ -65,9 +86,23 @@ class DatabaseService {
     print('DB QUERY → DatabaseService: $hashCode');
     
     try {
+      // Ensure database is initialized and accessible
       final db = await database;
       
+      // Verify database is open and accessible
+      if (!db.isOpen) {
+        if (kDebugMode) {
+          debugPrint('⚠️ [DatabaseService] Database is not open, reinitializing...');
+        }
+        _database = null;
+        final reopenedDb = await database;
+        if (!reopenedDb.isOpen) {
+          throw Exception('Failed to reopen database');
+        }
+      }
+      
       print('DB PATH → ${db.path}');
+      print('DB OPEN → ${db.isOpen}');
       
       final List<Map<String, dynamic>> maps = await db.query(
         _tableName,
@@ -109,7 +144,9 @@ class DatabaseService {
         debugPrint('❌ [DatabaseService] Error loading accounts: $e');
         debugPrint('Stack trace: ${StackTrace.current}');
       }
-      return [];
+      // Rethrow the error so the caller can handle it appropriately
+      // Don't silently return empty list - let the ViewModel decide what to do
+      rethrow;
     }
   }
 

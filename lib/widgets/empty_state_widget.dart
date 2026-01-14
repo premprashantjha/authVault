@@ -55,6 +55,7 @@ class _EmptyStateWidgetState extends State<EmptyStateWidget> with SingleTickerPr
             constraints: BoxConstraints(minHeight: constraints.maxHeight - AppConstants.iconSizeXxl * 2),
             child: Column(
               mainAxisAlignment: AppTheme.mainAxisCenter,
+              mainAxisSize: MainAxisSize.min, // CRITICAL: Size to content
               children: [
                 // Animated CDAC Logo watermark
                 AnimatedBuilder(

@@ -21,7 +21,7 @@ import '../services/cloud_sync_service.dart';
 // Widgets
 import '../widgets/animated_button.dart';
 import '../widgets/animated_fab.dart';
-import '../widgets/skeleton.dart';
+import '../widgets/otp_card_skeleton.dart';
 import '../widgets/custom_snackbar.dart';
 import '../widgets/filter_modal.dart';
 import '../widgets/empty_state_widget.dart';
@@ -165,17 +165,29 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
+        toolbarHeight: 56, // Reduced from default ~64
+        titleSpacing: 12, // Reduced spacing
         title: Row(
           children: [
-            Image.asset(
-              'assets/images/Logo1.png',
-              height: AppConstants.iconSizeXl,
-              fit: BoxFit.contain,
+            ColorFiltered(
+              colorFilter: ColorFilter.mode(
+                theme.brightness == Brightness.dark
+                    ? theme.colorScheme.primary // Use theme primary color
+                    : Colors.transparent,
+                theme.brightness == Brightness.dark
+                    ? BlendMode.srcATop
+                    : BlendMode.dst,
+              ),
+              child: Image.asset(
+                'assets/images/Logo_cdac.png',
+                height: AppConstants.getResponsiveIconSize(context, small: 24.0, medium: 28.0, large: 32.0),
+                fit: BoxFit.contain,
+              ),
             ),
-            SizedBox(width: AppConstants.otpCardSpacing),
+            SizedBox(width: AppConstants.getResponsiveSpacing(context, xs: 8.0, sm: 10.0, md: 12.0)),
             Text(
               'Authenticator',
-              style: AppTheme.headlineMedium(theme.colorScheme.onSurface),
+              style: AppTheme.responsiveHeadlineMedium(context, theme.colorScheme.onSurface),
             ),
           ],
         ),
@@ -187,6 +199,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
             icon: Icon(
               _isSearchVisible ? Icons.close : Icons.search,
               color: theme.colorScheme.onSurface,
+              size: AppConstants.getResponsiveIconSize(context),
             ),
             onPressed: _toggleSearchBar,
           ),
@@ -201,16 +214,17 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                     icon: Icon(
                       Icons.filter_alt,
                       color: hasFilters ? theme.colorScheme.primary : theme.colorScheme.onSurface,
+                      size: AppConstants.getResponsiveIconSize(context),
                     ),
                     onPressed: _openFilterModal,
                   ),
                   if (hasFilters)
                     Positioned(
-                      right: AppConstants.otpCardSpacing,
-                      top: AppConstants.otpCardSpacing,
+                      right: AppConstants.getResponsiveSpacing(context, xs: 8.0, sm: 10.0, md: 12.0),
+                      top: AppConstants.getResponsiveSpacing(context, xs: 8.0, sm: 10.0, md: 12.0),
                       child: Container(
-                        width: AppConstants.spaceSm,
-                        height: AppConstants.spaceSm,
+                        width: AppConstants.getResponsiveSpacing(context, xs: 6.0, sm: 8.0, md: 10.0),
+                        height: AppConstants.getResponsiveSpacing(context, xs: 6.0, sm: 8.0, md: 10.0),
                         decoration: BoxDecoration(
                           color: theme.colorScheme.primary,
                           shape: BoxShape.circle,
@@ -225,6 +239,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
             icon: Icon(
               Icons.settings,
               color: theme.colorScheme.onSurface,
+              size: AppConstants.getResponsiveIconSize(context),
             ),
             onPressed: () => _navigateToSettings(context),
           ),
@@ -238,11 +253,11 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                 padding: EdgeInsets.all(AppConstants.spaceMd),
                 child: Column(
                   children: [
-                    Skeleton(height: AppConstants.iconSizeXxl * 2 - 8),
+                    const OTPCardSkeleton(),
                     SizedBox(height: AppConstants.otpCardSpacing),
-                    Skeleton(height: AppConstants.iconSizeXxl * 2 - 8),
+                    const OTPCardSkeleton(),
                     SizedBox(height: AppConstants.otpCardSpacing),
-                    Skeleton(height: AppConstants.iconSizeXxl * 2 - 8),
+                    const OTPCardSkeleton(),
                   ],
                 ),
               );
@@ -260,13 +275,20 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.error_outline, size: AppConstants.iconSizeXxl * 2, color: Colors.red),
-                  SizedBox(height: AppConstants.spaceMd),
+                  Icon(
+                    Icons.error_outline, 
+                    size: AppConstants.getResponsiveIconSize(context, small: 48.0, medium: 64.0, large: 72.0), 
+                    color: theme.colorScheme.error
+                  ),
+                  SizedBox(height: AppConstants.getResponsiveSpacing(context)),
                   Text('Error: $e'),
-                  SizedBox(height: AppConstants.spaceMd),
-                  ElevatedButton(
-                    onPressed: () => viewModel.reloadAfterUnlock(),
-                    child: const Text('Retry'),
+                  SizedBox(height: AppConstants.getResponsiveSpacing(context)),
+                  SizedBox(
+                    height: AppConstants.getResponsiveButtonHeight(context),
+                    child: ElevatedButton(
+                      onPressed: () => viewModel.reloadAfterUnlock(),
+                      child: const Text('Retry'),
+                    ),
                   ),
                 ],
               ),
@@ -282,8 +304,14 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
             if (mounted) setState(() => _fabOpen = false);
           });
         },
-        openIcon: const Icon(Icons.add, size: 28),
-        closeIcon: const Icon(Icons.close, size: 28),
+        openIcon: Icon(
+          Icons.add, 
+          size: AppConstants.getResponsiveIconSize(context, small: 24.0, medium: 28.0, large: 32.0)
+        ),
+        closeIcon: Icon(
+          Icons.close, 
+          size: AppConstants.getResponsiveIconSize(context, small: 24.0, medium: 28.0, large: 32.0)
+        ),
       ),
     );
   }
@@ -380,9 +408,6 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
 
   Widget _buildAccountsList(AccountViewModel viewModel) {
     final filteredAccounts = viewModel.filteredAccounts;
-    final secondsRemaining = viewModel.accountsWithOTP.isNotEmpty
-        ? viewModel.accountsWithOTP.first.secondsRemaining
-        : 30;
 
     return Column(
       children: [
@@ -397,7 +422,6 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
             _searchController.clear();
             viewModel.setSearchQuery('');
           },
-          secondsRemaining: secondsRemaining,
         ),
         // Accounts List with Pull-to-Refresh
         Expanded(
@@ -435,7 +459,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     
     return Dismissible(
       key: Key(item.account.id),
-      background: _buildSwipeBackground(item.isFavorite, AppTheme.primaryColor, Alignment.centerLeft),
+      background: _buildSwipeBackground(item.isFavorite, theme.colorScheme.primary, Alignment.centerLeft),
       secondaryBackground: _buildSwipeBackground(false, colorScheme.error, Alignment.centerRight, isDelete: true),
       confirmDismiss: (direction) => _handleSwipeDismiss(direction, item, viewModel),
       onDismissed: (direction) => _handleDismissed(direction, item, viewModel),
@@ -530,12 +554,32 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
 
   void _showManualEntryDialog(BuildContext context) {
     final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    
     showDialog(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        backgroundColor: theme.colorScheme.surface,
+        backgroundColor: colorScheme.surface,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppConstants.radiusLg)),
-        title: Text('Add Account', style: AppTheme.headlineMedium(theme.colorScheme.onSurface)),
+        title: Row(
+          children: [
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: colorScheme.primaryContainer,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(
+                Icons.add_circle_outline,
+                color: colorScheme.primary,
+                size: 24,
+              ),
+            ),
+            const SizedBox(width: 16),
+            Text('Add Account', style: AppTheme.headlineMedium(colorScheme.onSurface)),
+          ],
+        ),
         content: ManualEntryForm(
           onAccountAdded: (account) {
             Navigator.pop(dialogContext);

@@ -1,11 +1,12 @@
 // no extra dart:async required
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:permission_handler/permission_handler.dart';
 import '../services/qr_scanner_service.dart';
 import 'package:provider/provider.dart';
 import '../app/theme.dart';
+import '../app/app_constants.dart';
 import '../models/account.dart';
 import '../view_models/account_view_model.dart';
 import '../widgets/animated_button.dart';
@@ -25,30 +26,70 @@ class _QRScanScreenState extends State<QRScanScreen> with WidgetsBindingObserver
   String _errorMessage = '';
   bool _isProcessing = false;
   bool _torchOn = false;
+  bool _permissionGranted = false;
+  bool _isInitializing = true;
   CameraFacing _facing = CameraFacing.back;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _cameraController = MobileScannerController(facing: _facing, torchEnabled: false);
     _scanAnimation = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 2000),
     )..repeat();
+    
+    // Initialize camera with permission check
+    _initializeCamera();
+  }
+
+  Future<void> _initializeCamera() async {
+    try {
+      // Check and request camera permission
+      final permission = await Permission.camera.status;
+      
+      if (permission.isDenied) {
+        final result = await Permission.camera.request();
+        if (result.isDenied) {
+          _setError('Camera permission is required to scan QR codes. Please enable camera access in Settings.');
+          return;
+        }
+      }
+      
+      if (permission.isPermanentlyDenied) {
+        _setError('Camera permission is permanently denied. Please enable camera access in Settings.');
+        return;
+      }
+      
+      // Permission granted, initialize camera
+      _cameraController = MobileScannerController(
+        facing: _facing, 
+        torchEnabled: false,
+      );
+      
+      setState(() {
+        _permissionGranted = true;
+        _isInitializing = false;
+      });
+      
+    } catch (e) {
+      _setError('Failed to initialize camera: ${e.toString()}');
+    }
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _scanAnimation.dispose();
-    _cameraController.dispose();
+    if (_permissionGranted) {
+      _cameraController.dispose();
+    }
     super.dispose();
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (!mounted) return;
+    if (!mounted || !_permissionGranted) return;
     
     // Prevent camera restart during navigation transitions
     if (state == AppLifecycleState.inactive) {
@@ -62,6 +103,7 @@ class _QRScanScreenState extends State<QRScanScreen> with WidgetsBindingObserver
   }
 
   void _toggleTorch() async {
+    if (!_permissionGranted) return;
     try {
       await _cameraController.toggleTorch();
       setState(() => _torchOn = !_torchOn);
@@ -71,6 +113,7 @@ class _QRScanScreenState extends State<QRScanScreen> with WidgetsBindingObserver
   }
 
   void _switchCamera() async {
+    if (!_permissionGranted) return;
     try {
       await _cameraController.switchCamera();
       setState(() => _facing = _facing == CameraFacing.back ? CameraFacing.front : CameraFacing.back);
@@ -121,33 +164,73 @@ class _QRScanScreenState extends State<QRScanScreen> with WidgetsBindingObserver
 
   void _showDuplicateAccountDialog(Account account, AccountViewModel viewModel) {
     final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (dialogContext) => AlertDialog(
-        backgroundColor: theme.colorScheme.surface,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text('Account Already Exists', style: AppTheme.headlineMedium(theme.colorScheme.onSurface)),
+        backgroundColor: colorScheme.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppConstants.getResponsiveRadius(context, large: 20.0))
+        ),
+        title: Row(
+          children: [
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: colorScheme.primaryContainer,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(
+                Icons.info_outline,
+                color: colorScheme.primary,
+                size: 24,
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Text(
+                'Account Already Exists', 
+                style: AppTheme.responsiveHeadlineMedium(context, colorScheme.onSurface)
+              ),
+            ),
+          ],
+        ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('${account.issuer} - ${account.accountName}', style: AppTheme.bodyLarge(theme.colorScheme.onSurface).copyWith(fontWeight: FontWeight.w600)),
-            const SizedBox(height: 8),
-            Text('This account is already added to your authenticator.', style: AppTheme.bodyMedium(theme.colorScheme.onSurface)),
+            Text(
+              '${account.issuer} - ${account.accountName}', 
+              style: AppTheme.responsiveBodyLarge(context, colorScheme.onSurface).copyWith(
+                fontWeight: FontWeight.w600
+              )
+            ),
+            SizedBox(height: AppConstants.getResponsiveSpacing(context)),
+            Text(
+              'This account is already added to your authenticator.', 
+              style: AppTheme.responsiveBodyMedium(context, colorScheme.onSurface)
+            ),
           ],
         ),
         actions: [
           TextButton(
-            onPressed: () {
+            onPressed: () async {
               Navigator.pop(dialogContext);
               // Restart camera for scanning again
               _isProcessing = false;
-              _cameraController.start();
+              if (_permissionGranted) {
+                _cameraController.start();
+              }
             },
-            child: Text('Cancel', style: AppTheme.bodyMedium(theme.colorScheme.onSurface)),
+            child: Text(
+              'Cancel', 
+              style: AppTheme.responsiveBodyMedium(context, colorScheme.onSurface)
+            ),
           ),
-          TextButton(
+          ElevatedButton(
             onPressed: () async {
               Navigator.pop(dialogContext);
               final success = await viewModel.updateAccount(account);
@@ -163,8 +246,10 @@ class _QRScanScreenState extends State<QRScanScreen> with WidgetsBindingObserver
                 Navigator.of(context).pop(true);
               }
             },
-            style: TextButton.styleFrom(foregroundColor: AppTheme.primaryColor),
-            child: Text('Update', style: AppTheme.bodyMedium(theme.colorScheme.onSurface)),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: colorScheme.primary,
+            ),
+            child: Text('Update', style: AppTheme.bodyMedium(colorScheme.onPrimary)),
           ),
         ],
       ),
@@ -195,12 +280,14 @@ class _QRScanScreenState extends State<QRScanScreen> with WidgetsBindingObserver
         ),
         actions: [
           IconButton(
-            icon: Icon(_torchOn ? Icons.flash_on : Icons.flash_off, color: Colors.white),
-            onPressed: _toggleTorch,
+            icon: Icon(_torchOn ? Icons.flash_on : Icons.flash_off, 
+                      color: _permissionGranted ? Colors.white : Colors.white38),
+            onPressed: _permissionGranted ? _toggleTorch : null,
           ),
           IconButton(
-            icon: const Icon(Icons.flip_camera_ios, color: Colors.white),
-            onPressed: _switchCamera,
+            icon: Icon(Icons.flip_camera_ios, 
+                      color: _permissionGranted ? Colors.white : Colors.white38),
+            onPressed: _permissionGranted ? _switchCamera : null,
           ),
         ],
       ),
@@ -209,7 +296,17 @@ class _QRScanScreenState extends State<QRScanScreen> with WidgetsBindingObserver
   }
 
   Widget _buildBody() {
-    if (_hasError) return _buildErrorState();
+    if (_isInitializing) {
+      return _buildLoadingState();
+    }
+    
+    if (_hasError) {
+      return _buildErrorState();
+    }
+    
+    if (!_permissionGranted) {
+      return _buildPermissionDeniedState();
+    }
 
     return Stack(
       children: [
@@ -308,6 +405,85 @@ class _QRScanScreenState extends State<QRScanScreen> with WidgetsBindingObserver
     );
   }
 
+  Widget _buildLoadingState() {
+    return Container(
+      color: Colors.black,
+      child: const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircularProgressIndicator(color: Colors.white),
+            SizedBox(height: 20),
+            Text(
+              'Initializing Camera...',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPermissionDeniedState() {
+    return Container(
+      color: Colors.black,
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.camera_alt_outlined, size: 64, color: Colors.white70),
+              const SizedBox(height: 20),
+              const Text(
+                'Camera Permission Required',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                'To scan QR codes, please allow camera access in your device settings.',
+                style: TextStyle(color: Colors.white70, fontSize: 14),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 30),
+              AnimatedButton(
+                onTap: () async {
+                  await openAppSettings();
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Text(
+                    'Open Settings',
+                    style: TextStyle(color: Colors.black, fontWeight: FontWeight.w600),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text(
+                  'Cancel',
+                  style: TextStyle(color: Colors.white70),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildErrorState() {
     return Container(
       color: Colors.black,
@@ -339,10 +515,9 @@ class _QRScanScreenState extends State<QRScanScreen> with WidgetsBindingObserver
                   setState(() {
                     _hasError = false;
                     _errorMessage = '';
+                    _isInitializing = true;
                   });
-                  try {
-                    await _cameraController.start();
-                  } catch (_) {}
+                  await _initializeCamera();
                 },
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),

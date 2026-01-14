@@ -5,27 +5,28 @@ import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/account.dart';
 import 'account_service.dart';
-import 'backup_encryption_service.dart';
+import 'encryption_service.dart';
 
 /// Service for creating and restoring encrypted backups
 /// 
 /// Features:
+/// - Password-based encryption for cross-device recovery
 /// - Zero-knowledge encrypted backups
 /// - Includes accounts, favorites, and settings
 /// - Duplicate detection on restore
 /// - Merge strategies (skip, replace, keep both)
 class BackupService {
   final AccountService _accountService;
-  final BackupEncryptionService _encryptionService;
+  final EncryptionService _encryptionService;
   
   static const String _backupFileExtension = '.cdac';
   static const String _favoriteAccountsKey = 'favorite_account_ids';
 
   BackupService({
     required AccountService accountService,
-    BackupEncryptionService? encryptionService,
+    EncryptionService? encryptionService,
   })  : _accountService = accountService,
-        _encryptionService = encryptionService ?? BackupEncryptionService();
+        _encryptionService = encryptionService ?? EncryptionService();
 
   /// Create encrypted backup
   /// 
@@ -35,7 +36,7 @@ class BackupService {
       // Validate password
       final passwordError = _encryptionService.validatePassword(password);
       if (passwordError != null) {
-        throw BackupException(passwordError);
+        throw EncryptionException(passwordError);
       }
 
       // Gather data to backup
@@ -57,8 +58,8 @@ class BackupService {
       
       final jsonData = json.encode(backupData);
       
-      // Encrypt backup
-      final encryptedData = await _encryptionService.encryptBackup(jsonData, password);
+      // ✅ Encrypt backup with PASSWORD (cross-device compatible)
+      final encryptedData = await _encryptionService.encryptWithPassword(jsonData, password);
       
       // Encode to base64 to hide JSON structure from users
       final encodedData = base64.encode(utf8.encode(encryptedData));
@@ -67,16 +68,16 @@ class BackupService {
       final filePath = await _saveBackupFile(encodedData);
       
       if (kDebugMode) {
-        debugPrint('Backup created: $filePath (${accounts.length} accounts)');
+        debugPrint('✅ Password-based backup created: $filePath (${accounts.length} accounts)');
       }
       
       return filePath;
     } catch (e) {
-      if (e is BackupException) rethrow;
+      if (e is EncryptionException) rethrow;
       if (kDebugMode) {
         debugPrint('Backup creation error: $e');
       }
-      throw BackupException('Failed to create backup: $e');
+      throw EncryptionException('Failed to create backup: $e');
     }
   }
 
@@ -92,7 +93,7 @@ class BackupService {
       // Read backup file
       final file = File(filePath);
       if (!await file.exists()) {
-        throw BackupException('❌ File not found\n\nThe backup file could not be found.');
+        throw EncryptionException('❌ File not found\n\nThe backup file could not be found.');
       }
       
       final encodedData = await file.readAsString();
@@ -103,17 +104,17 @@ class BackupService {
         final decodedBytes = base64.decode(encodedData);
         encryptedData = utf8.decode(decodedBytes);
       } catch (e) {
-        throw BackupException('❌ Invalid backup file\n\nThe file appears to be corrupted or not a valid backup.');
+        throw EncryptionException('❌ Invalid backup file\n\nThe file appears to be corrupted or not a valid backup.');
       }
       
       // Validate file format first
-      final validationError = _encryptionService.validateBackupFile(encryptedData);
+      final validationError = _validateBackupFile(encryptedData);
       if (validationError != null) {
-        throw BackupException('❌ Invalid backup file\n\n$validationError\n\nThis file may be corrupted or not a valid backup.');
+        throw EncryptionException('❌ Invalid backup file\n\n$validationError\n\nThis file may be corrupted or not a valid backup.');
       }
       
-      // Decrypt backup (this will throw specific error if password is wrong)
-      final jsonData = await _encryptionService.decryptBackup(encryptedData, password);
+      // ✅ Decrypt backup with PASSWORD
+      final jsonData = await _encryptionService.decryptWithPassword(encryptedData, password);
       final backupData = json.decode(jsonData) as Map<String, dynamic>;
       
       // Validate backup structure
@@ -138,13 +139,13 @@ class BackupService {
       }
       
       return result;
-    } on BackupException {
+    } on EncryptionException {
       rethrow;
     } catch (e) {
       if (kDebugMode) {
         debugPrint('Backup restore error: $e');
       }
-      throw BackupException('Failed to restore backup: $e');
+      throw EncryptionException('Failed to restore backup: $e');
     }
   }
 
@@ -153,7 +154,7 @@ class BackupService {
     try {
       final file = File(filePath);
       if (!await file.exists()) {
-        throw BackupException('Backup file not found');
+        throw EncryptionException('Backup file not found');
       }
       
       final encodedData = await file.readAsString();
@@ -171,28 +172,40 @@ class BackupService {
         filePath: filePath,
         fileSize: fileSize,
         createdAt: createdAt,
-        version: envelope['version'] as int,
-        kdf: envelope['kdf'] as String,
-        cipher: envelope['cipher'] as String,
+        version: envelope['v'] as int? ?? 1, // Use 'v' not 'version'
+        kdf: envelope['kdf'] as String? ?? 'argon2id',
+        cipher: envelope['alg'] as String? ?? 'XChaCha20-Poly1305', // Use 'alg' not 'cipher'
       );
     } catch (e) {
       if (kDebugMode) {
         debugPrint('Error reading backup info: $e');
       }
-      throw BackupException('Failed to read backup file: $e');
+      throw EncryptionException('Failed to read backup file: $e');
     }
   }
 
   /// Validate backup data structure
   void _validateBackupData(Map<String, dynamic> data) {
     if (!data.containsKey('app_version')) {
-      throw BackupException('Invalid backup: missing app_version');
+      throw EncryptionException('Invalid backup: missing app_version');
     }
     if (!data.containsKey('accounts')) {
-      throw BackupException('Invalid backup: missing accounts');
+      throw EncryptionException('Invalid backup: missing accounts');
     }
     if (!data.containsKey('backup_timestamp')) {
-      throw BackupException('Invalid backup: missing timestamp');
+      throw EncryptionException('Invalid backup: missing timestamp');
+    }
+  }
+
+  /// Validate backup file format
+  String? _validateBackupFile(String encryptedData) {
+    try {
+      final envelope = json.decode(encryptedData) as Map<String, dynamic>;
+      if (!envelope.containsKey('v')) return 'Missing version information';
+      if (!envelope.containsKey('ct')) return 'Missing encrypted content';
+      return null;
+    } catch (e) {
+      return 'Invalid file format';
     }
   }
 
@@ -351,7 +364,7 @@ class BackupService {
       if (kDebugMode) {
         debugPrint('Error deleting backup: $e');
       }
-      throw BackupException('Failed to delete backup: $e');
+      throw EncryptionException('Failed to delete backup: $e');
     }
   }
 }
