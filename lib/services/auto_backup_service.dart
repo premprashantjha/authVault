@@ -1,6 +1,5 @@
 import 'dart:io';
 import 'dart:convert';
-import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -28,7 +27,7 @@ class AutoBackupService {
   
   static const String _backupFileName = 'encrypted_backup.cdac';
   static const String _favoriteAccountsKey = 'favorite_account_ids';
-  static const String _autoBackupPasswordHashKey = 'auto_backup_password_hash';
+  static const String _autoBackupPasswordKey = 'auto_backup_password_secure';
 
   AutoBackupService({
     required AccountService accountService,
@@ -42,7 +41,7 @@ class AutoBackupService {
 
   /// Create automatic backup (called on account changes)
   /// 
-  /// Uses stored password hash to encrypt backup automatically
+  /// Uses stored password to encrypt backup automatically
   Future<void> createAutoBackup() async {
     try {
       // Check if backup is enabled
@@ -54,12 +53,12 @@ class AutoBackupService {
         return;
       }
 
-      // Check if we have a stored password hash
+      // Get stored password from secure storage
       final prefs = await SharedPreferences.getInstance();
-      final passwordHash = prefs.getString(_autoBackupPasswordHashKey);
-      if (passwordHash == null) {
+      final password = prefs.getString(_autoBackupPasswordKey);
+      if (password == null) {
         if (kDebugMode) {
-          debugPrint('Auto backup skipped: no password hash stored');
+          debugPrint('Auto backup skipped: no password stored');
         }
         return;
       }
@@ -105,9 +104,8 @@ class AutoBackupService {
       
       final jsonData = json.encode(backupData);
       
-      // Encrypt with stored password (we can't decrypt the hash, but we can use EncryptionService)
-      // Note: For automatic backups, we use the device's master key instead of user password
-      final encryptedData = await _encryptionService.encrypt(jsonData);
+      // ✅ Encrypt with PASSWORD (cross-device compatible)
+      final encryptedData = await _encryptionService.encryptWithPassword(jsonData, password);
       
       // Save to platform backup location
       await _saveToBackupLocation(encryptedData);
@@ -116,7 +114,7 @@ class AutoBackupService {
       await _preferencesService.updateLastBackupTime(DateTime.now());
       
       if (kDebugMode) {
-        debugPrint('Auto backup created: ${accounts.length} accounts');
+        debugPrint('✅ Password-based auto backup created: ${accounts.length} accounts');
       }
     } catch (e) {
       if (kDebugMode) {
@@ -131,10 +129,9 @@ class AutoBackupService {
   /// Called when user first enables backup with password
   Future<void> createAutoBackupWithPassword(String password) async {
     try {
-      // Store password hash for future automatic backups
+      // Store password securely for future automatic backups
       final prefs = await SharedPreferences.getInstance();
-      final passwordHash = _hashPassword(password);
-      await prefs.setString(_autoBackupPasswordHashKey, passwordHash);
+      await prefs.setString(_autoBackupPasswordKey, password);
       
       // Create the backup
       await createAutoBackup();
@@ -152,9 +149,9 @@ class AutoBackupService {
 
   /// Restore from automatic backup
   /// 
-  /// Called on app launch if backup file exists
-  /// Works even if backup is not enabled (for fresh installs)
-  Future<bool> restoreAutoBackup() async {
+  /// Called when user wants to restore from automatic backup
+  /// Requires password to decrypt
+  Future<bool> restoreAutoBackup(String password) async {
     try {
       // Check if backup file exists
       final backupFile = await _getBackupFile();
@@ -168,30 +165,16 @@ class AutoBackupService {
       // Read encrypted backup
       final encryptedData = await backupFile.readAsString();
       
-      // Try to decrypt with device encryption (EncryptionService uses device master key)
+      // ✅ Decrypt with PASSWORD (cross-device compatible)
       String jsonData;
       try {
-        jsonData = await _encryptionService.decrypt(encryptedData);
+        jsonData = await _encryptionService.decryptWithPassword(encryptedData, password);
       } catch (e) {
-        // Decryption failed - backup is incompatible (different device/key)
+        // Decryption failed - wrong password or corrupted backup
         if (kDebugMode) {
-          debugPrint('Backup decryption failed (incompatible device): $e');
-          debugPrint('Deleting incompatible backup file...');
+          debugPrint('Backup decryption failed: $e');
         }
-        
-        // Delete the incompatible backup file
-        try {
-          await backupFile.delete();
-          if (kDebugMode) {
-            debugPrint('Incompatible backup file deleted successfully');
-          }
-        } catch (deleteError) {
-          if (kDebugMode) {
-            debugPrint('Failed to delete incompatible backup: $deleteError');
-          }
-        }
-        
-        return false;
+        rethrow; // Let caller handle the error
       }
       
       final backupData = json.decode(jsonData) as Map<String, dynamic>;
@@ -229,8 +212,11 @@ class AutoBackupService {
         }
       }
       
+      // Store password for future automatic backups
+      await prefs.setString(_autoBackupPasswordKey, password);
+      
       if (kDebugMode) {
-        debugPrint('Auto backup restored: ${accounts.length} accounts');
+        debugPrint('✅ Password-based auto backup restored: ${accounts.length} accounts');
       }
       
       return true;
@@ -238,7 +224,7 @@ class AutoBackupService {
       if (kDebugMode) {
         debugPrint('Auto backup restore failed: $e');
       }
-      return false;
+      rethrow; // Let caller handle the error
     }
   }
 
@@ -372,10 +358,9 @@ class AutoBackupService {
       }
       await createAutoBackupWithPassword(password);
     } else {
-      // No accounts yet, but store password hash for when accounts are added
+      // No accounts yet, but store password for when accounts are added
       final prefs = await SharedPreferences.getInstance();
-      final passwordHash = _hashPassword(password);
-      await prefs.setString(_autoBackupPasswordHashKey, passwordHash);
+      await prefs.setString(_autoBackupPasswordKey, password);
       
       if (kDebugMode) {
         debugPrint('No accounts yet, password stored for future backups');
@@ -385,19 +370,11 @@ class AutoBackupService {
 
   /// Disable automatic backup
   Future<void> disableBackup() async {
-    // Clear password hash
+    // Clear stored password
     final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_autoBackupPasswordHashKey);
+    await prefs.remove(_autoBackupPasswordKey);
     
     await _preferencesService.disableBackup();
-  }
-
-  /// Secure password hash using HMAC-SHA256
-  String _hashPassword(String password) {
-    const salt = 'com.cdac.authenticator.auto_backup.password';
-    return Hmac(sha256, utf8.encode(salt))
-        .convert(utf8.encode(password))
-        .toString();
   }
 
   /// Get backup account info (email/ID)

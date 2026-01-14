@@ -23,7 +23,7 @@ class SearchBarWidget extends StatelessWidget {
     
     final searchField = Padding(
       key: const ValueKey('home_search_field'),
-      padding: const EdgeInsets.only(top: 12),
+      padding: const EdgeInsets.only(top: 4), // Reduced from 12 to 4
       child: TextField(
         controller: controller,
         focusNode: focusNode,

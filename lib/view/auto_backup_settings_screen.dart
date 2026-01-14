@@ -81,7 +81,7 @@ class _AutoBackupSettingsScreenState extends State<AutoBackupSettingsScreen> {
       if (!mounted) return;
       final confirmed = await showDialog<bool>(
         context: context,
-        builder: (context) => _buildEnableBackupDialog(accountId),
+        builder: (dialogContext) => _buildEnableBackupDialog(accountId, dialogContext),
       );
 
       if (confirmed == true) {
@@ -171,7 +171,8 @@ class _AutoBackupSettingsScreenState extends State<AutoBackupSettingsScreen> {
     }
   }
 
-  Widget _buildEnableBackupDialog(String accountId) {
+  Widget _buildEnableBackupDialog(String accountId, BuildContext context) {
+    final theme = Theme.of(context);
     return AlertDialog(
       title: const Text('Enable Automatic Backup?'),
       content: Column(
@@ -186,14 +187,14 @@ class _AutoBackupSettingsScreenState extends State<AutoBackupSettingsScreen> {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: AppTheme.primaryColor.withValues(alpha: 0.1),
+              color: theme.colorScheme.primary.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Row(
               children: [
                 Icon(
                   Icons.account_circle,
-                  color: AppTheme.primaryColor,
+                  color: theme.colorScheme.primary,
                   size: 20,
                 ),
                 const SizedBox(width: 8),
@@ -246,7 +247,7 @@ class _AutoBackupSettingsScreenState extends State<AutoBackupSettingsScreen> {
         ElevatedButton(
           onPressed: () => Navigator.pop(context, true),
           style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.orange,
+            backgroundColor: AppTheme.warningColor,
           ),
           child: const Text('Disable'),
         ),
@@ -330,12 +331,12 @@ class _AutoBackupSettingsScreenState extends State<AutoBackupSettingsScreen> {
                           width: 40,
                           height: 40,
                           decoration: BoxDecoration(
-                            color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                            color: theme.colorScheme.primary.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Icon(
                             _isBackupEnabled ? Icons.cloud_done : Icons.cloud_off,
-                            color: AppTheme.primaryColor,
+                            color: theme.colorScheme.primary,
                             size: 20,
                           ),
                         ),
@@ -362,7 +363,7 @@ class _AutoBackupSettingsScreenState extends State<AutoBackupSettingsScreen> {
                           value: _isBackupEnabled,
                           onChanged: _toggleBackup,
                           activeColor: Colors.white,
-                          activeTrackColor: AppTheme.primaryColor,
+                          activeTrackColor: theme.colorScheme.primary,
                         ),
                       ],
                     ),
@@ -396,7 +397,7 @@ class _AutoBackupSettingsScreenState extends State<AutoBackupSettingsScreen> {
                         children: [
                           Icon(
                             Icons.account_circle,
-                            color: AppTheme.primaryColor,
+                            color: theme.colorScheme.primary,
                             size: 24,
                           ),
                           const SizedBox(width: 12),
@@ -523,7 +524,7 @@ class _AutoBackupSettingsScreenState extends State<AutoBackupSettingsScreen> {
       children: [
         Icon(
           icon,
-          color: AppTheme.primaryColor,
+          color: theme.colorScheme.primary,
           size: 20,
         ),
         const SizedBox(width: 12),

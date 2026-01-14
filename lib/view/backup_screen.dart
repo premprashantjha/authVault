@@ -150,14 +150,29 @@ class _BackupScreenState extends State<BackupScreen> {
   }
 
   Future<void> _showBackupSuccess(String filePath) async {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    
     final result = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: Row(
           children: [
-            Icon(Icons.check_circle, color: Theme.of(context).colorScheme.tertiary),
-            const SizedBox(width: 12),
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: colorScheme.primaryContainer,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(
+                Icons.check_circle,
+                color: colorScheme.primary,
+                size: 24,
+              ),
+            ),
+            const SizedBox(width: 16),
             const Text('Backup Created'),
           ],
         ),
@@ -169,20 +184,20 @@ class _BackupScreenState extends State<BackupScreen> {
             const SizedBox(height: 16),
             Text(
               'Store this backup in a safe location. You\'ll need the password to restore it.',
-              style: TextStyle(
-                fontSize: 13,
-                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
-              ),
+              style: AppTheme.caption(colorScheme.onSurface.withValues(alpha: 0.7)),
             ),
           ],
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop('done'),
-            child: const Text('Done'),
+            child: Text('Done', style: AppTheme.bodyMedium(colorScheme.onSurface)),
           ),
           ElevatedButton.icon(
             onPressed: () => Navigator.of(context).pop('share'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: colorScheme.primary,
+            ),
             icon: const Icon(Icons.share, size: 18),
             label: const Text('Share'),
           ),
@@ -519,17 +534,17 @@ class _BackupScreenState extends State<BackupScreen> {
                           Container(
                             padding: const EdgeInsets.all(16),
                             decoration: BoxDecoration(
-                              color: Colors.green.withOpacity(0.1),
+                              color: AppTheme.successColor.withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(12),
                               border: Border.all(
-                                color: Colors.green.withOpacity(0.3),
+                                color: AppTheme.successColor.withValues(alpha: 0.3),
                               ),
                             ),
                             child: Row(
                               children: [
                                 Icon(
                                   Icons.cloud_download_rounded,
-                                  color: Colors.green,
+                                  color: AppTheme.successColor,
                                   size: 32,
                                 ),
                                 const SizedBox(width: 16),
@@ -562,7 +577,7 @@ class _BackupScreenState extends State<BackupScreen> {
                             style: ElevatedButton.styleFrom(
                               minimumSize: const Size(double.infinity, 52),
                               padding: const EdgeInsets.symmetric(vertical: 14),
-                              backgroundColor: Colors.green,
+                              backgroundColor: AppTheme.successColor,
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(12),
                               ),
@@ -691,7 +706,7 @@ class _BackupScreenState extends State<BackupScreen> {
                 width: 48,
                 height: 48,
                 decoration: BoxDecoration(
-                  color: colorScheme.primaryContainer,
+                  color: colorScheme.primary.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Icon(
@@ -971,14 +986,7 @@ class _MergeStrategyOption extends StatelessWidget {
               width: 48,
               height: 48,
               decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    colorScheme.primaryContainer,
-                    colorScheme.primaryContainer.withValues(alpha: 0.7),
-                  ],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
+                color: theme.colorScheme.primary.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(14),
               ),
               child: Icon(icon, color: colorScheme.primary, size: 24),

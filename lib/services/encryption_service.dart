@@ -239,6 +239,192 @@ class EncryptionService {
       };
     }
   }
+
+  // ============================================================================
+  // PASSWORD-BASED ENCRYPTION (for backups)
+  // ============================================================================
+
+  /// Encrypt data with password using Argon2id + XChaCha20-Poly1305
+  /// 
+  /// This is used for manual backups that need to be restored on different devices.
+  /// The password is used to derive an encryption key using Argon2id KDF.
+  /// 
+  /// Security:
+  /// - Argon2id makes brute-force attacks expensive
+  /// - Random salt prevents rainbow table attacks
+  /// - XChaCha20-Poly1305 provides authenticated encryption
+  /// - Password never stored or transmitted
+  Future<String> encryptWithPassword(String plainText, String password) async {
+    if (plainText.isEmpty) {
+      throw EncryptionException('Cannot encrypt empty plaintext');
+    }
+    if (password.isEmpty) {
+      throw EncryptionException('Password cannot be empty');
+    }
+
+    try {
+      // Generate random salt for Argon2id
+      final algorithm = crypto.Xchacha20.poly1305Aead();
+      final salt = algorithm.newNonce(); // 24 bytes of random data
+      
+      // Derive encryption key from password using Argon2id
+      final argon2id = crypto.Argon2id(
+        memory: 65536, // 64 MB
+        iterations: 3,
+        parallelism: 4,
+        hashLength: 32, // 256-bit key
+      );
+      
+      final derivedKey = await argon2id.deriveKey(
+        secretKey: crypto.SecretKey(utf8.encode(password)),
+        nonce: salt,
+      );
+      
+      // Encrypt data with derived key
+      final nonce = algorithm.newNonce();
+      final secretBox = await algorithm.encrypt(
+        utf8.encode(plainText),
+        secretKey: derivedKey,
+        nonce: nonce,
+      );
+      
+      // Create envelope with KDF parameters
+      final envelope = {
+        'v': _currentVersion,
+        'alg': _algorithm,
+        'kdf': 'argon2id',
+        'kdf_params': {
+          'memory': 65536,
+          'iterations': 3,
+          'parallelism': 4,
+          'salt': base64Encode(salt),
+        },
+        'iv': base64Encode(secretBox.nonce),
+        'ct': base64Encode(secretBox.cipherText),
+        'tag': base64Encode(secretBox.mac.bytes),
+      };
+      
+      return json.encode(envelope);
+      
+    } catch (e) {
+      if (e is EncryptionException) rethrow;
+      throw EncryptionException('Password-based encryption failed: $e');
+    }
+  }
+
+  /// Decrypt data with password
+  /// 
+  /// Derives the encryption key from the password using the same KDF parameters
+  /// that were used during encryption (stored in the envelope).
+  Future<String> decryptWithPassword(String encryptedText, String password) async {
+    if (encryptedText.isEmpty) {
+      throw EncryptionException('Cannot decrypt empty ciphertext');
+    }
+    if (password.isEmpty) {
+      throw EncryptionException('Password cannot be empty');
+    }
+
+    try {
+      // Parse envelope
+      final envelope = json.decode(encryptedText) as Map<String, dynamic>;
+      
+      // Verify version
+      final version = envelope['v'] as int?;
+      if (version == null || version > _currentVersion) {
+        throw EncryptionException('Unsupported envelope version: $version');
+      }
+      
+      // Verify KDF
+      final kdf = envelope['kdf'] as String?;
+      if (kdf != 'argon2id') {
+        throw EncryptionException('Unsupported KDF: $kdf');
+      }
+      
+      // Extract KDF parameters
+      final kdfParams = envelope['kdf_params'] as Map<String, dynamic>;
+      final salt = base64Decode(kdfParams['salt'] as String);
+      final memory = kdfParams['memory'] as int;
+      final iterations = kdfParams['iterations'] as int;
+      final parallelism = kdfParams['parallelism'] as int;
+      
+      // Derive encryption key from password
+      final argon2id = crypto.Argon2id(
+        memory: memory,
+        iterations: iterations,
+        parallelism: parallelism,
+        hashLength: 32,
+      );
+      
+      final derivedKey = await argon2id.deriveKey(
+        secretKey: crypto.SecretKey(utf8.encode(password)),
+        nonce: salt,
+      );
+      
+      // Extract encrypted data
+      final iv = base64Decode(envelope['iv'] as String);
+      final ct = base64Decode(envelope['ct'] as String);
+      final tag = base64Decode(envelope['tag'] as String);
+      
+      // Decrypt data
+      final algorithm = crypto.Xchacha20.poly1305Aead();
+      final secretBox = crypto.SecretBox(
+        ct,
+        nonce: iv,
+        mac: crypto.Mac(tag),
+      );
+      
+      final clearBytes = await algorithm.decrypt(
+        secretBox,
+        secretKey: derivedKey,
+      );
+      
+      return utf8.decode(clearBytes);
+      
+    } on crypto.SecretBoxAuthenticationError {
+      throw EncryptionException('Incorrect password or corrupted data');
+    } on FormatException {
+      throw EncryptionException('Invalid backup format');
+    } catch (e) {
+      if (e is EncryptionException) rethrow;
+      throw EncryptionException('Password-based decryption failed: $e');
+    }
+  }
+
+  /// Validate password strength
+  /// Returns null if valid, error message if invalid
+  String? validatePassword(String password) {
+    if (password.isEmpty) {
+      return 'Password cannot be empty';
+    }
+    if (password.length < 6) {
+      return 'Password must be at least 6 characters';
+    }
+    return null;
+  }
+
+  /// Get password strength warning (non-blocking)
+  String? getPasswordWarning(String password) {
+    if (password.length < 12) {
+      return 'Recommended: Use at least 12 characters for better security';
+    }
+    
+    final hasLower = password.contains(RegExp(r'[a-z]'));
+    final hasUpper = password.contains(RegExp(r'[A-Z]'));
+    final hasDigit = password.contains(RegExp(r'[0-9]'));
+    final hasSpecial = password.contains(RegExp(r'[!@#$%^&*(),.?":{}|<>]'));
+    
+    int variety = 0;
+    if (hasLower) variety++;
+    if (hasUpper) variety++;
+    if (hasDigit) variety++;
+    if (hasSpecial) variety++;
+    
+    if (variety < 2) {
+      return 'Recommended: Mix letters, numbers, and symbols';
+    }
+    
+    return null;
+  }
 }
 
 /// Custom exception for encryption operations

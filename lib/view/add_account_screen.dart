@@ -50,7 +50,7 @@ class _AddAccountScreenState extends State<AddAccountScreen> {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.qr_code_scanner, size: 40, color: Colors.blue),
+                      Icon(Icons.qr_code_scanner, size: 40, color: Theme.of(context).colorScheme.primary),
                       const SizedBox(height: 8),
                       const Text(
                         'Scan QR Code',
@@ -120,7 +120,7 @@ class _AddAccountScreenState extends State<AddAccountScreen> {
                   width: double.infinity,
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   decoration: BoxDecoration(
-                    color: AppTheme.primaryColor,
+                    color: theme.colorScheme.primary,
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Center(

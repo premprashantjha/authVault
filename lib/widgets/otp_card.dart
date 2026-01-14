@@ -35,19 +35,28 @@ class _OTPCardState extends State<OTPCard> {
   @override
   void initState() {
     super.initState();
-    _displaySecondsRemaining = widget.account.secondsRemaining;
-    _displayProgress = widget.account.progress;
+    _displaySecondsRemaining = _calculateSecondsRemaining();
+    _displayProgress = _displaySecondsRemaining / 30.0;
     _startDisplayTimer();
   }
 
   @override
   void didUpdateWidget(OTPCard oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // Update display values when widget updates (e.g., new OTP code)
+    // Sync with actual TOTP time when OTP regenerates
     if (oldWidget.account.otp != widget.account.otp) {
-      _displaySecondsRemaining = widget.account.secondsRemaining;
-      _displayProgress = widget.account.progress;
+      _displaySecondsRemaining = _calculateSecondsRemaining();
+      _displayProgress = _displaySecondsRemaining / 30.0;
     }
+  }
+
+  /// Calculate seconds remaining based on actual TOTP time window
+  /// This ensures all timers are synchronized to the same 30-second window
+  int _calculateSecondsRemaining() {
+    final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+    final timeStep = now ~/ 30;
+    final nextTimeStep = (timeStep + 1) * 30;
+    return nextTimeStep - now;
   }
 
   void _startDisplayTimer() {
@@ -55,7 +64,8 @@ class _OTPCardState extends State<OTPCard> {
     _displayTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (mounted) {
         setState(() {
-          _displaySecondsRemaining = _displaySecondsRemaining > 0 ? _displaySecondsRemaining - 1 : 30;
+          // Recalculate from actual time to stay synchronized
+          _displaySecondsRemaining = _calculateSecondsRemaining();
           _displayProgress = _displaySecondsRemaining / 30.0;
         });
       }
@@ -148,7 +158,7 @@ class _OTPCardState extends State<OTPCard> {
                         widget.account.isFavorite ? Icons.star : Icons.star_border,
                         key: ValueKey(widget.account.isFavorite),
                         color: widget.account.isFavorite
-                            ? AppTheme.primaryColor
+                            ? theme.colorScheme.primary
                             : theme.colorScheme.onSurface.withValues(alpha: 0.5),
                         size: AppConstants.getResponsiveIconSize(context, small: 20.0, medium: 22.0, large: 24.0),
                       ),

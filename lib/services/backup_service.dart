@@ -34,7 +34,7 @@ class BackupService {
   Future<String> createBackup(String password) async {
     try {
       // Validate password
-      final passwordError = _validatePassword(password);
+      final passwordError = _encryptionService.validatePassword(password);
       if (passwordError != null) {
         throw EncryptionException(passwordError);
       }
@@ -58,8 +58,8 @@ class BackupService {
       
       final jsonData = json.encode(backupData);
       
-      // Encrypt backup using EncryptionService (password-based)
-      final encryptedData = await _encryptionService.encrypt(jsonData);
+      // ✅ Encrypt backup with PASSWORD (cross-device compatible)
+      final encryptedData = await _encryptionService.encryptWithPassword(jsonData, password);
       
       // Encode to base64 to hide JSON structure from users
       final encodedData = base64.encode(utf8.encode(encryptedData));
@@ -68,7 +68,7 @@ class BackupService {
       final filePath = await _saveBackupFile(encodedData);
       
       if (kDebugMode) {
-        debugPrint('Backup created: $filePath (${accounts.length} accounts)');
+        debugPrint('✅ Password-based backup created: $filePath (${accounts.length} accounts)');
       }
       
       return filePath;
@@ -113,8 +113,8 @@ class BackupService {
         throw EncryptionException('❌ Invalid backup file\n\n$validationError\n\nThis file may be corrupted or not a valid backup.');
       }
       
-      // Decrypt backup using EncryptionService
-      final jsonData = await _encryptionService.decrypt(encryptedData);
+      // ✅ Decrypt backup with PASSWORD
+      final jsonData = await _encryptionService.decryptWithPassword(encryptedData, password);
       final backupData = json.decode(jsonData) as Map<String, dynamic>;
       
       // Validate backup structure
@@ -172,9 +172,9 @@ class BackupService {
         filePath: filePath,
         fileSize: fileSize,
         createdAt: createdAt,
-        version: envelope['version'] as int,
-        kdf: envelope['kdf'] as String,
-        cipher: envelope['cipher'] as String,
+        version: envelope['v'] as int? ?? 1, // Use 'v' not 'version'
+        kdf: envelope['kdf'] as String? ?? 'argon2id',
+        cipher: envelope['alg'] as String? ?? 'XChaCha20-Poly1305', // Use 'alg' not 'cipher'
       );
     } catch (e) {
       if (kDebugMode) {
@@ -195,12 +195,6 @@ class BackupService {
     if (!data.containsKey('backup_timestamp')) {
       throw EncryptionException('Invalid backup: missing timestamp');
     }
-  }
-
-  /// Validate password
-  String? _validatePassword(String password) {
-    if (password.length < 8) return 'Password must be at least 8 characters';
-    return null;
   }
 
   /// Validate backup file format

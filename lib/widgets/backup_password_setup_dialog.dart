@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../app/theme.dart';
 import '../services/platform_backup_service.dart';
 
@@ -26,12 +27,15 @@ class BackupPasswordSetupDialog extends StatefulWidget {
 class _BackupPasswordSetupDialogState extends State<BackupPasswordSetupDialog> {
   final _passwordController = TextEditingController();
   final _confirmController = TextEditingController();
+  final _passwordFocusNode = FocusNode();
+  final _confirmFocusNode = FocusNode();
   
   bool _obscurePassword = true;
   bool _obscureConfirm = true;
   int _passwordStrength = 0;
-  String? _passwordWarning;
-  bool _passwordsMatch = true;
+  String? _passwordError; // For submit-time errors only
+  bool _passwordTouched = false; // Track if user has interacted
+  bool _confirmTouched = false; // Track if user has interacted
   
   // Cache platform account - fetch once
   String? _platformAccount;
@@ -41,8 +45,19 @@ class _BackupPasswordSetupDialogState extends State<BackupPasswordSetupDialog> {
   void initState() {
     super.initState();
     _passwordController.addListener(_updatePasswordStrength);
-    _confirmController.addListener(_checkPasswordsMatch);
     _loadPlatformAccount(); // Fetch once on init
+    
+    // Track when fields lose focus (user finished typing)
+    _passwordFocusNode.addListener(() {
+      if (!_passwordFocusNode.hasFocus && _passwordController.text.isNotEmpty) {
+        setState(() => _passwordTouched = true);
+      }
+    });
+    _confirmFocusNode.addListener(() {
+      if (!_confirmFocusNode.hasFocus && _confirmController.text.isNotEmpty) {
+        setState(() => _confirmTouched = true);
+      }
+    });
   }
   
   Future<void> _loadPlatformAccount() async {
@@ -68,6 +83,8 @@ class _BackupPasswordSetupDialogState extends State<BackupPasswordSetupDialog> {
   void dispose() {
     _passwordController.dispose();
     _confirmController.dispose();
+    _passwordFocusNode.dispose();
+    _confirmFocusNode.dispose();
     super.dispose();
   }
 
@@ -75,54 +92,91 @@ class _BackupPasswordSetupDialogState extends State<BackupPasswordSetupDialog> {
     setState(() {
       final password = _passwordController.text;
       _passwordStrength = _estimatePasswordStrength(password);
-      _passwordWarning = _getPasswordWarning(password);
+      _passwordError = null;
+      
+      // Mark as touched once user starts typing
+      if (password.isNotEmpty && !_passwordTouched) {
+        _passwordTouched = true;
+      }
     });
   }
 
-  /// Simple password strength estimation
-  int _estimatePasswordStrength(String password) {
-    if (password.length < 8) return 0;
-    if (password.length < 12) return 1;
-    if (password.length >= 16) return 3;
-    return 2;
+  void _onConfirmChanged(String value) {
+    setState(() {
+      _passwordError = null;
+      // Mark as touched once user starts typing
+      if (value.isNotEmpty && !_confirmTouched) {
+        _confirmTouched = true;
+      }
+    });
   }
 
-  /// Get password warning message
-  String? _getPasswordWarning(String password) {
+  /// Get inline hint for password field (shown while typing)
+  String? _getPasswordHint() {
+    if (!_passwordTouched) return null;
+    
+    final password = _passwordController.text;
     if (password.isEmpty) return null;
-    if (password.length < 8) return 'Too short';
-    if (password.length < 12) return 'Could be stronger';
+    if (password.length < 8) {
+      return 'Password must be at least 8 characters';
+    }
     return null;
   }
 
-  void _checkPasswordsMatch() {
-    setState(() {
-      _passwordsMatch = _passwordController.text == _confirmController.text;
-    });
+  /// Get inline hint for confirm field (shown while typing)
+  String? _getConfirmHint() {
+    if (!_confirmTouched) return null;
+    
+    final password = _passwordController.text;
+    final confirm = _confirmController.text;
+    
+    if (confirm.isEmpty) return null;
+    if (password != confirm) {
+      return 'Passwords do not match';
+    }
+    return null;
+  }
+
+  /// Simple password strength estimation (0-100 scale)
+  /// More lenient and encouraging for users
+  int _estimatePasswordStrength(String password) {
+    int strength = 0;
+    
+    // Length scoring (more generous)
+    if (password.length >= 8) strength += 40;  // Good start!
+    if (password.length >= 10) strength += 20; // Even better
+    if (password.length >= 12) strength += 20; // Great!
+    if (password.length >= 16) strength += 10; // Excellent!
+    
+    // Bonus for variety (but not required)
+    if (password.contains(RegExp(r'[A-Z]'))) strength += 5;  // Uppercase
+    if (password.contains(RegExp(r'[a-z]'))) strength += 5;  // Lowercase
+    if (password.contains(RegExp(r'[0-9]'))) strength += 5;  // Numbers
+    if (password.contains(RegExp(r'[!@#$%^&*(),.?":{}|<>]'))) strength += 5; // Special chars
+    
+    return strength.clamp(0, 100);
   }
 
   void _handleConfirm() {
     final password = _passwordController.text;
     final confirm = _confirmController.text;
     
-    // Validate
+    // Validate and show inline error
     final error = _validatePassword(password);
     if (error != null) {
-      _showError(error);
+      setState(() => _passwordError = error);
+      HapticFeedback.heavyImpact();
       return;
     }
     
     if (password != confirm) {
-      _showError('Passwords do not match');
+      setState(() => _passwordError = 'Passwords do not match');
+      HapticFeedback.heavyImpact();
       return;
     }
     
-    // Show warning if weak password
-    if (_passwordStrength < 50 && _passwordWarning != null) {
-      _showWeakPasswordWarning(password);
-      return;
-    }
-    
+    // Return password
+    HapticFeedback.lightImpact();
     Navigator.of(context).pop(password);
   }
 
@@ -131,42 +185,6 @@ class _BackupPasswordSetupDialogState extends State<BackupPasswordSetupDialog> {
     if (password.isEmpty) return 'Password is required';
     if (password.length < 8) return 'Password must be at least 8 characters';
     return null;
-  }
-
-  void _showError(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: Theme.of(context).colorScheme.error,
-      ),
-    );
-  }
-
-  void _showWeakPasswordWarning(String password) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('Weak Password'),
-        content: Text(
-          '$_passwordWarning\n\n'
-          'Are you sure you want to use this password?',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Change Password'),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-              Navigator.of(context).pop(password);
-            },
-            child: const Text('Use Anyway'),
-          ),
-        ],
-      ),
-    );
   }
 
   @override
@@ -277,43 +295,87 @@ class _BackupPasswordSetupDialogState extends State<BackupPasswordSetupDialog> {
                 // Password field
                 TextField(
                   controller: _passwordController,
+                  focusNode: _passwordFocusNode,
                   obscureText: _obscurePassword,
+                  autofocus: true,
                   style: AppTheme.bodyMedium(colorScheme.onSurface),
+                  cursorColor: colorScheme.primary,
                   decoration: InputDecoration(
                     labelText: 'Password',
-                    hintText: 'Enter a strong password',
-                    prefixIcon: const Icon(Icons.lock_outline),
+                    labelStyle: AppTheme.bodyMedium(colorScheme.onSurface.withValues(alpha: 0.7)),
+                    hintText: 'At least 8 characters',
+                    hintStyle: AppTheme.bodyMedium(colorScheme.onSurface.withValues(alpha: 0.5)),
+                    helperText: _getPasswordHint(),
+                    helperStyle: _getPasswordHint() != null 
+                        ? AppTheme.caption(colorScheme.error)
+                        : null,
+                    prefixIcon: Icon(Icons.lock, color: colorScheme.onSurface.withValues(alpha: 0.7)),
                     suffixIcon: IconButton(
-                      icon: Icon(_obscurePassword ? Icons.visibility_off : Icons.visibility),
+                      icon: Icon(
+                        _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                        color: colorScheme.onSurface.withValues(alpha: 0.7),
+                      ),
                       onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
                       tooltip: _obscurePassword ? 'Show password' : 'Hide password',
                     ),
-                    border: OutlineInputBorder(
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    enabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(
+                        color: _getPasswordHint() != null 
+                            ? colorScheme.error.withValues(alpha: 0.5)
+                            : colorScheme.outline.withValues(alpha: 0.3),
+                      ),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(
+                        color: _getPasswordHint() != null 
+                            ? colorScheme.error
+                            : colorScheme.primary,
+                        width: 2,
+                      ),
                     ),
                   ),
                   onSubmitted: (_) => _handleConfirm(),
                 ),
+                
+                // Error message
+                if (_passwordError != null) ...[
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: colorScheme.errorContainer,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.error_outline, color: colorScheme.error, size: 20),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            _passwordError!,
+                            style: AppTheme.caption(colorScheme.error),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+                
                 const SizedBox(height: 16),
                 
                 // Password strength indicator
                 if (_passwordController.text.isNotEmpty) ...[
+                  const SizedBox(height: 12),
                   Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Expanded(
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(4),
-                          child: LinearProgressIndicator(
-                            value: _passwordStrength / 100,
-                            minHeight: 6,
-                            backgroundColor: colorScheme.surfaceContainerHighest,
-                            valueColor: AlwaysStoppedAnimation<Color>(
-                              _getStrengthColor(_passwordStrength, colorScheme),
-                            ),
-                          ),
-                        ),
+                      Text(
+                        'Password Strength',
+                        style: AppTheme.caption(colorScheme.onSurface.withValues(alpha: 0.7)),
                       ),
-                      const SizedBox(width: 12),
                       Text(
                         _getStrengthText(_passwordStrength),
                         style: AppTheme.caption(
@@ -322,57 +384,89 @@ class _BackupPasswordSetupDialogState extends State<BackupPasswordSetupDialog> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 6),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(4),
+                    child: LinearProgressIndicator(
+                      value: _passwordStrength / 100,
+                      minHeight: 6,
+                      backgroundColor: colorScheme.surfaceContainerHighest,
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        _getStrengthColor(_passwordStrength, colorScheme),
+                      ),
+                    ),
+                  ),
                 ],
                 
-                // Confirm password field
+                const SizedBox(height: 16),
                 TextField(
                   controller: _confirmController,
+                  focusNode: _confirmFocusNode,
                   obscureText: _obscureConfirm,
                   style: AppTheme.bodyMedium(colorScheme.onSurface),
+                  cursorColor: colorScheme.primary,
+                  onChanged: _onConfirmChanged,
                   decoration: InputDecoration(
                     labelText: 'Confirm Password',
-                    hintText: 'Re-enter your password',
-                    prefixIcon: const Icon(Icons.lock_outline),
+                    labelStyle: AppTheme.bodyMedium(colorScheme.onSurface.withValues(alpha: 0.7)),
+                    hintText: 'Re-enter password',
+                    hintStyle: AppTheme.bodyMedium(colorScheme.onSurface.withValues(alpha: 0.5)),
+                    helperText: _getConfirmHint(),
+                    helperStyle: _getConfirmHint() != null 
+                        ? AppTheme.caption(colorScheme.error)
+                        : null,
+                    prefixIcon: Icon(Icons.lock, color: colorScheme.onSurface.withValues(alpha: 0.7)),
                     suffixIcon: IconButton(
-                      icon: Icon(_obscureConfirm ? Icons.visibility_off : Icons.visibility),
+                      icon: Icon(
+                        _obscureConfirm ? Icons.visibility_off : Icons.visibility,
+                        color: colorScheme.onSurface.withValues(alpha: 0.7),
+                      ),
                       onPressed: () => setState(() => _obscureConfirm = !_obscureConfirm),
                       tooltip: _obscureConfirm ? 'Show password' : 'Hide password',
                     ),
-                    border: OutlineInputBorder(
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    enabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(
+                        color: _getConfirmHint() != null 
+                            ? colorScheme.error.withValues(alpha: 0.5)
+                            : colorScheme.outline.withValues(alpha: 0.3),
+                      ),
                     ),
-                    errorText: _confirmController.text.isNotEmpty && !_passwordsMatch
-                        ? 'Passwords do not match'
-                        : null,
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(
+                        color: _getConfirmHint() != null 
+                            ? colorScheme.error
+                            : colorScheme.primary,
+                        width: 2,
+                      ),
+                    ),
                   ),
                   onSubmitted: (_) => _handleConfirm(),
                 ),
-                const SizedBox(height: 20),
                 
-                // Warning
+                const SizedBox(height: 16),
+                
+                // Security notice
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: colorScheme.errorContainer.withValues(alpha: 0.3),
-                    borderRadius: BorderRadius.circular(12),
+                    color: colorScheme.primaryContainer.withValues(alpha: 0.3),
+                    borderRadius: BorderRadius.circular(8),
                     border: Border.all(
-                      color: colorScheme.error.withValues(alpha: 0.3),
+                      color: colorScheme.primary.withValues(alpha: 0.3),
                     ),
                   ),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(
-                        Icons.warning_amber_rounded,
-                        color: colorScheme.error,
-                        size: 20,
-                      ),
-                      const SizedBox(width: 12),
+                      Icon(Icons.info_outline, color: colorScheme.primary, size: 20),
+                      const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          'Store this password safely. It cannot be recovered if lost.',
-                          style: AppTheme.caption(colorScheme.error),
+                          'This password encrypts your backup. Store it securely - it cannot be recovered if lost.',
+                          style: AppTheme.caption(colorScheme.onSurface.withValues(alpha: 0.8)),
                         ),
                       ),
                     ],
@@ -384,28 +478,35 @@ class _BackupPasswordSetupDialogState extends State<BackupPasswordSetupDialog> {
                 Row(
                   children: [
                     Expanded(
-                      child: TextButton(
+                      child: OutlinedButton(
                         onPressed: () => Navigator.of(context).pop(),
-                        style: TextButton.styleFrom(
+                        style: OutlinedButton.styleFrom(
                           padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
                         ),
-                        child: const Text('Cancel'),
+                        child: Text('Cancel', style: AppTheme.bodyMedium(colorScheme.onSurface)),
                       ),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
                       flex: 2,
                       child: ElevatedButton(
-                        onPressed: _passwordController.text.length >= 6 && _passwordsMatch
-                            ? _handleConfirm
-                            : null,
+                        onPressed: _handleConfirm,
                         style: ElevatedButton.styleFrom(
+                          backgroundColor: colorScheme.primary,
                           padding: const EdgeInsets.symmetric(vertical: 14),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
                         ),
-                        child: const Text('Confirm'),
+                        child: Text(
+                          'Confirm',
+                          style: AppTheme.bodyMedium(colorScheme.onPrimary).copyWith(
+                            fontWeight: AppTheme.weightSemiBold,
+                          ),
+                        ),
                       ),
                     ),
                   ],
@@ -419,16 +520,16 @@ class _BackupPasswordSetupDialogState extends State<BackupPasswordSetupDialog> {
   }
 
   Color _getStrengthColor(int strength, ColorScheme colorScheme) {
-    if (strength < 30) return colorScheme.error;
-    if (strength < 50) return Colors.orange;
-    if (strength < 70) return Colors.amber;
-    return Colors.green;
+    if (strength < 40) return colorScheme.error;      // Less than 8 chars
+    if (strength < 60) return Colors.orange;          // 8-9 chars
+    if (strength < 80) return Colors.amber;           // 10-11 chars
+    return AppTheme.successColor;                     // 12+ chars or with variety
   }
 
   String _getStrengthText(int strength) {
-    if (strength < 30) return 'Weak';
-    if (strength < 50) return 'Fair';
-    if (strength < 70) return 'Good';
-    return 'Strong';
+    if (strength < 40) return 'Too Short';
+    if (strength < 60) return 'Good';
+    if (strength < 80) return 'Strong';
+    return 'Very Strong';
   }
 }

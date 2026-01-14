@@ -164,17 +164,39 @@ class _QRScanScreenState extends State<QRScanScreen> with WidgetsBindingObserver
 
   void _showDuplicateAccountDialog(Account account, AccountViewModel viewModel) {
     final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (dialogContext) => AlertDialog(
-        backgroundColor: theme.colorScheme.surface,
+        backgroundColor: colorScheme.surface,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppConstants.getResponsiveRadius(context, large: 20.0))
         ),
-        title: Text(
-          'Account Already Exists', 
-          style: AppTheme.responsiveHeadlineMedium(context, theme.colorScheme.onSurface)
+        title: Row(
+          children: [
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: colorScheme.primaryContainer,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(
+                Icons.info_outline,
+                color: colorScheme.primary,
+                size: 24,
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Text(
+                'Account Already Exists', 
+                style: AppTheme.responsiveHeadlineMedium(context, colorScheme.onSurface)
+              ),
+            ),
+          ],
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -182,14 +204,14 @@ class _QRScanScreenState extends State<QRScanScreen> with WidgetsBindingObserver
           children: [
             Text(
               '${account.issuer} - ${account.accountName}', 
-              style: AppTheme.responsiveBodyLarge(context, theme.colorScheme.onSurface).copyWith(
+              style: AppTheme.responsiveBodyLarge(context, colorScheme.onSurface).copyWith(
                 fontWeight: FontWeight.w600
               )
             ),
             SizedBox(height: AppConstants.getResponsiveSpacing(context)),
             Text(
               'This account is already added to your authenticator.', 
-              style: AppTheme.responsiveBodyMedium(context, theme.colorScheme.onSurface)
+              style: AppTheme.responsiveBodyMedium(context, colorScheme.onSurface)
             ),
           ],
         ),
@@ -205,10 +227,10 @@ class _QRScanScreenState extends State<QRScanScreen> with WidgetsBindingObserver
             },
             child: Text(
               'Cancel', 
-              style: AppTheme.responsiveBodyMedium(context, theme.colorScheme.onSurface)
+              style: AppTheme.responsiveBodyMedium(context, colorScheme.onSurface)
             ),
           ),
-          TextButton(
+          ElevatedButton(
             onPressed: () async {
               Navigator.pop(dialogContext);
               final success = await viewModel.updateAccount(account);
@@ -224,8 +246,10 @@ class _QRScanScreenState extends State<QRScanScreen> with WidgetsBindingObserver
                 Navigator.of(context).pop(true);
               }
             },
-            style: TextButton.styleFrom(foregroundColor: AppTheme.primaryColor),
-            child: Text('Update', style: AppTheme.bodyMedium(theme.colorScheme.onSurface)),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: colorScheme.primary,
+            ),
+            child: Text('Update', style: AppTheme.bodyMedium(colorScheme.onPrimary)),
           ),
         ],
       ),

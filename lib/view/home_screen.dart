@@ -21,7 +21,7 @@ import '../services/cloud_sync_service.dart';
 // Widgets
 import '../widgets/animated_button.dart';
 import '../widgets/animated_fab.dart';
-import '../widgets/skeleton.dart';
+import '../widgets/otp_card_skeleton.dart';
 import '../widgets/custom_snackbar.dart';
 import '../widgets/filter_modal.dart';
 import '../widgets/empty_state_widget.dart';
@@ -165,14 +165,26 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
+        toolbarHeight: 56, // Reduced from default ~64
+        titleSpacing: 12, // Reduced spacing
         title: Row(
           children: [
-            Image.asset(
-              'assets/images/Logo1.png',
-              height: AppConstants.getResponsiveIconSize(context, small: 28.0, medium: 32.0, large: 36.0),
-              fit: BoxFit.contain,
+            ColorFiltered(
+              colorFilter: ColorFilter.mode(
+                theme.brightness == Brightness.dark
+                    ? theme.colorScheme.primary // Use theme primary color
+                    : Colors.transparent,
+                theme.brightness == Brightness.dark
+                    ? BlendMode.srcATop
+                    : BlendMode.dst,
+              ),
+              child: Image.asset(
+                'assets/images/Logo_cdac.png',
+                height: AppConstants.getResponsiveIconSize(context, small: 24.0, medium: 28.0, large: 32.0),
+                fit: BoxFit.contain,
+              ),
             ),
-            SizedBox(width: AppConstants.getResponsiveSpacing(context)),
+            SizedBox(width: AppConstants.getResponsiveSpacing(context, xs: 8.0, sm: 10.0, md: 12.0)),
             Text(
               'Authenticator',
               style: AppTheme.responsiveHeadlineMedium(context, theme.colorScheme.onSurface),
@@ -238,14 +250,14 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
           try {
             if (viewModel.isLoading) {
               return Padding(
-                padding: AppConstants.getResponsivePadding(context),
+                padding: EdgeInsets.all(AppConstants.spaceMd),
                 child: Column(
                   children: [
-                    Skeleton(height: AppConstants.getResponsiveOTPCardMinHeight(context)),
-                    SizedBox(height: AppConstants.getResponsiveSpacing(context)),
-                    Skeleton(height: AppConstants.getResponsiveOTPCardMinHeight(context)),
-                    SizedBox(height: AppConstants.getResponsiveSpacing(context)),
-                    Skeleton(height: AppConstants.getResponsiveOTPCardMinHeight(context)),
+                    const OTPCardSkeleton(),
+                    SizedBox(height: AppConstants.otpCardSpacing),
+                    const OTPCardSkeleton(),
+                    SizedBox(height: AppConstants.otpCardSpacing),
+                    const OTPCardSkeleton(),
                   ],
                 ),
               );
@@ -266,7 +278,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                   Icon(
                     Icons.error_outline, 
                     size: AppConstants.getResponsiveIconSize(context, small: 48.0, medium: 64.0, large: 72.0), 
-                    color: Colors.red
+                    color: theme.colorScheme.error
                   ),
                   SizedBox(height: AppConstants.getResponsiveSpacing(context)),
                   Text('Error: $e'),
@@ -396,9 +408,6 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
 
   Widget _buildAccountsList(AccountViewModel viewModel) {
     final filteredAccounts = viewModel.filteredAccounts;
-    final secondsRemaining = viewModel.accountsWithOTP.isNotEmpty
-        ? viewModel.accountsWithOTP.first.secondsRemaining
-        : 30;
 
     return Column(
       children: [
@@ -413,7 +422,6 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
             _searchController.clear();
             viewModel.setSearchQuery('');
           },
-          secondsRemaining: secondsRemaining,
         ),
         // Accounts List with Pull-to-Refresh
         Expanded(
@@ -451,7 +459,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     
     return Dismissible(
       key: Key(item.account.id),
-      background: _buildSwipeBackground(item.isFavorite, AppTheme.primaryColor, Alignment.centerLeft),
+      background: _buildSwipeBackground(item.isFavorite, theme.colorScheme.primary, Alignment.centerLeft),
       secondaryBackground: _buildSwipeBackground(false, colorScheme.error, Alignment.centerRight, isDelete: true),
       confirmDismiss: (direction) => _handleSwipeDismiss(direction, item, viewModel),
       onDismissed: (direction) => _handleDismissed(direction, item, viewModel),
@@ -546,12 +554,32 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
 
   void _showManualEntryDialog(BuildContext context) {
     final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    
     showDialog(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        backgroundColor: theme.colorScheme.surface,
+        backgroundColor: colorScheme.surface,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppConstants.radiusLg)),
-        title: Text('Add Account', style: AppTheme.headlineMedium(theme.colorScheme.onSurface)),
+        title: Row(
+          children: [
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: colorScheme.primaryContainer,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(
+                Icons.add_circle_outline,
+                color: colorScheme.primary,
+                size: 24,
+              ),
+            ),
+            const SizedBox(width: 16),
+            Text('Add Account', style: AppTheme.headlineMedium(colorScheme.onSurface)),
+          ],
+        ),
         content: ManualEntryForm(
           onAccountAdded: (account) {
             Navigator.pop(dialogContext);
