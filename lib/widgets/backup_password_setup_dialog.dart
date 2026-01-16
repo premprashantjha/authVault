@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../app/theme.dart';
-import '../services/platform_backup_service.dart';
 
 /// Simplified password setup dialog
 /// 
@@ -33,21 +32,15 @@ class _BackupPasswordSetupDialogState extends State<BackupPasswordSetupDialog> {
   bool _obscurePassword = true;
   bool _obscureConfirm = true;
   int _passwordStrength = 0;
-  String? _passwordError; // For submit-time errors only
-  bool _passwordTouched = false; // Track if user has interacted
-  bool _confirmTouched = false; // Track if user has interacted
-  
-  // Cache platform account - fetch once
-  String? _platformAccount;
-  bool _isLoadingAccount = true;
+  String? _passwordError;
+  bool _passwordTouched = false;
+  bool _confirmTouched = false;
 
   @override
   void initState() {
     super.initState();
     _passwordController.addListener(_updatePasswordStrength);
-    _loadPlatformAccount(); // Fetch once on init
     
-    // Track when fields lose focus (user finished typing)
     _passwordFocusNode.addListener(() {
       if (!_passwordFocusNode.hasFocus && _passwordController.text.isNotEmpty) {
         setState(() => _passwordTouched = true);
@@ -58,25 +51,6 @@ class _BackupPasswordSetupDialogState extends State<BackupPasswordSetupDialog> {
         setState(() => _confirmTouched = true);
       }
     });
-  }
-  
-  Future<void> _loadPlatformAccount() async {
-    try {
-      final account = await PlatformBackupService.getPrimaryAccount();
-      if (mounted) {
-        setState(() {
-          _platformAccount = account;
-          _isLoadingAccount = false;
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _platformAccount = null;
-          _isLoadingAccount = false;
-        });
-      }
-    }
   }
 
   @override
@@ -218,79 +192,6 @@ class _BackupPasswordSetupDialogState extends State<BackupPasswordSetupDialog> {
                   style: AppTheme.bodyMedium(colorScheme.onSurface.withValues(alpha: 0.7)),
                 ),
                 const SizedBox(height: 16),
-                
-                // Google Account Info (cached, not fetched repeatedly)
-                if (_isLoadingAccount)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 16),
-                    child: Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: colorScheme.surfaceContainerHighest,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Row(
-                        children: [
-                          SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              valueColor: AlwaysStoppedAnimation<Color>(colorScheme.primary),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Text(
-                            'Loading account...',
-                            style: AppTheme.caption(colorScheme.onSurface.withValues(alpha: 0.7)),
-                          ),
-                        ],
-                      ),
-                    ),
-                  )
-                else if (_platformAccount != null)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 16),
-                    child: Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: colorScheme.primaryContainer.withValues(alpha: 0.3),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: colorScheme.primary.withValues(alpha: 0.3),
-                        ),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(
-                            PlatformBackupService.accountIcon,
-                            color: colorScheme.primary,
-                            size: 20,
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  '${PlatformBackupService.backupProviderName} Account',
-                                  style: AppTheme.caption(colorScheme.primary).copyWith(
-                                    fontWeight: AppTheme.weightSemiBold,
-                                  ),
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  _platformAccount!,
-                                  style: AppTheme.caption(colorScheme.onSurface.withValues(alpha: 0.8)),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
                 
                 // Password field
                 TextField(

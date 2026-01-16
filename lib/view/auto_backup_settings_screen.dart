@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 import '../app/theme.dart';
-import '../services/auto_backup_service.dart';
-import '../services/platform_account_service.dart';
+import '../services/local_backup_service.dart';
+import '../services/backup_ui_strings.dart';
+import '../view_models/account_view_model.dart';
 import '../widgets/backup_password_setup_dialog.dart';
+import '../widgets/backup_password_dialog.dart';
 import '../widgets/custom_snackbar.dart';
 
 class AutoBackupSettingsScreen extends StatefulWidget {
-  final AutoBackupService backupService;
+  final LocalBackupService backupService;
 
   const AutoBackupSettingsScreen({
     super.key,
@@ -21,7 +23,6 @@ class AutoBackupSettingsScreen extends StatefulWidget {
 class _AutoBackupSettingsScreenState extends State<AutoBackupSettingsScreen> {
   bool _isBackupEnabled = false;
   bool _isLoading = true;
-  String? _backupAccountId;
   DateTime? _lastBackupTime;
 
   @override
@@ -35,12 +36,10 @@ class _AutoBackupSettingsScreenState extends State<AutoBackupSettingsScreen> {
     
     try {
       final isEnabled = await widget.backupService.isBackupEnabled();
-      final accountId = await widget.backupService.getBackupAccountId();
       final lastBackup = await widget.backupService.getLastBackupTime();
       
       setState(() {
         _isBackupEnabled = isEnabled;
-        _backupAccountId = accountId;
         _lastBackupTime = lastBackup;
         _isLoading = false;
       });
@@ -51,41 +50,32 @@ class _AutoBackupSettingsScreenState extends State<AutoBackupSettingsScreen> {
 
   Future<void> _toggleBackup(bool value) async {
     if (value) {
-      // Enable backup - verify account first
       await _enableBackup();
     } else {
-      // Disable backup
       await _disableBackup();
     }
   }
 
   Future<void> _enableBackup() async {
     try {
-      // Get platform account (shows system account picker ONCE)
-      final platformService = PlatformAccountService();
-      final accountId = await platformService.getAccountId();
-
-      // Show password setup dialog
       if (!mounted) return;
       final password = await showDialog<String>(
         context: context,
         builder: (context) => const BackupPasswordSetupDialog(
-          title: 'Enable Auto Backup',
-          description: 'Set a password to protect your automatic backups',
+          title: 'Enable Local Encrypted Backup',
+          description: 'Set a password to protect your local backup',
         ),
       );
 
-      if (password == null) return; // User cancelled
+      if (password == null) return;
 
-      // Show confirmation dialog
       if (!mounted) return;
       final confirmed = await showDialog<bool>(
         context: context,
-        builder: (dialogContext) => _buildEnableBackupDialog(accountId, dialogContext),
+        builder: (dialogContext) => _buildEnableBackupDialog(dialogContext),
       );
 
       if (confirmed == true) {
-        // Show loading while enabling
         if (!mounted) return;
         showDialog(
           context: context,
@@ -95,41 +85,19 @@ class _AutoBackupSettingsScreenState extends State<AutoBackupSettingsScreen> {
           ),
         );
 
-        // Enable backup with the account ID and password
-        await widget.backupService.enableBackupWithAccount(accountId, password);
+        const accountId = 'local_device';
+        await widget.backupService.enableBackup(accountId, password);
         
-        // Close loading
         if (!mounted) return;
         Navigator.pop(context);
         
-        // Reload status
         await _loadBackupStatus();
         
         if (!mounted) return;
         CustomSnackbar.show(
           context,
-          message: '✓ Automatic backup enabled',
+          message: BackupUIStrings.backupEnabledMessage,
           type: SnackbarType.success,
-        );
-      }
-    } on PlatformException catch (e) {
-      if (!mounted) return;
-      
-      if (e.code == 'CANCELLED') {
-        // User cancelled account selection - just return, no error
-        return;
-      } else if (e.code == 'NO_ACCOUNT_SELECTED') {
-        // No account was selected
-        CustomSnackbar.show(
-          context,
-          message: 'Please select a Google account to continue',
-          type: SnackbarType.error,
-        );
-      } else {
-        CustomSnackbar.show(
-          context,
-          message: e.message ?? 'Failed to enable backup',
-          type: SnackbarType.error,
         );
       }
     } catch (e) {
@@ -157,7 +125,7 @@ class _AutoBackupSettingsScreenState extends State<AutoBackupSettingsScreen> {
         if (!mounted) return;
         CustomSnackbar.show(
           context,
-          message: 'Automatic backup disabled',
+          message: BackupUIStrings.backupDisabledMessage,
           type: SnackbarType.info,
         );
       } catch (e) {
@@ -171,10 +139,130 @@ class _AutoBackupSettingsScreenState extends State<AutoBackupSettingsScreen> {
     }
   }
 
-  Widget _buildEnableBackupDialog(String accountId, BuildContext context) {
+  Future<void> _restoreBackup() async {
+    try {
+      // Check if backup exists
+      final hasBackup = await widget.backupService.hasBackup();
+      
+      if (!hasBackup) {
+        if (!mounted) return;
+        CustomSnackbar.show(
+          context,
+          message: 'No local backup found. Enable backup and add accounts first.',
+          type: SnackbarType.info,
+        );
+        return;
+      }
+
+      // Show confirmation dialog (without account count since we need password to decrypt)
+      if (!mounted) return;
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Restore Local Backup?'),
+          content: const Text(
+            'This will restore your accounts from the local backup.\n\n'
+            'Existing accounts will be kept, and duplicates will be skipped.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Restore'),
+            ),
+          ],
+        ),
+      );
+
+      if (confirmed != true) return;
+
+      // Prompt for password
+      if (!mounted) return;
+      final password = await showDialog<String>(
+        context: context,
+        builder: (context) => const BackupPasswordDialog(
+          title: 'Restore Backup',
+          description: 'Enter your backup password',
+          isCreating: false,
+        ),
+      );
+
+      if (password == null) return;
+
+      // Show loading
+      if (!mounted) return;
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+
+      // Perform restore
+      final success = await widget.backupService.restoreAutoBackup(password);
+
+      // Close loading
+      if (!mounted) return;
+      Navigator.pop(context);
+
+      if (success) {
+        // Reload accounts in view model
+        final viewModel = Provider.of<AccountViewModel>(context, listen: false);
+        await viewModel.reloadAfterUnlock();
+
+        if (!mounted) return;
+        CustomSnackbar.show(
+          context,
+          message: BackupUIStrings.restoreSuccessMessage,
+          type: SnackbarType.success,
+        );
+
+        // Go back to home
+        Navigator.of(context).pop();
+      } else {
+        if (!mounted) return;
+        CustomSnackbar.show(
+          context,
+          message: 'Restore failed. Please try again.',
+          type: SnackbarType.error,
+        );
+      }
+    } catch (e) {
+      // Close loading if open
+      if (mounted && Navigator.canPop(context)) {
+        Navigator.pop(context);
+      }
+
+      if (!mounted) return;
+      
+      // Check if it's a password error
+      final errorMessage = e.toString();
+      if (errorMessage.contains('password') || 
+          errorMessage.contains('Authentication failed') ||
+          errorMessage.contains('decryption')) {
+        CustomSnackbar.show(
+          context,
+          message: 'Incorrect password. Please try again.',
+          type: SnackbarType.error,
+        );
+      } else {
+        CustomSnackbar.show(
+          context,
+          message: 'Restore failed: ${e.toString()}',
+          type: SnackbarType.error,
+        );
+      }
+    }
+  }
+
+  Widget _buildEnableBackupDialog(BuildContext context) {
     final theme = Theme.of(context);
     return AlertDialog(
-      title: const Text('Enable Automatic Backup?'),
+      title: const Text('Enable Local Encrypted Backup?'),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -193,15 +281,15 @@ class _AutoBackupSettingsScreenState extends State<AutoBackupSettingsScreen> {
             child: Row(
               children: [
                 Icon(
-                  Icons.account_circle,
+                  Icons.phone_android,
                   color: theme.colorScheme.primary,
                   size: 20,
                 ),
                 const SizedBox(width: 8),
-                Expanded(
+                const Expanded(
                   child: Text(
-                    accountId,
-                    style: const TextStyle(
+                    BackupUIStrings.backupLocation,
+                    style: TextStyle(
                       fontWeight: FontWeight.w600,
                       fontSize: 14,
                     ),
@@ -212,9 +300,9 @@ class _AutoBackupSettingsScreenState extends State<AutoBackupSettingsScreen> {
           ),
           const SizedBox(height: 16),
           const Text(
-            '• Backups are encrypted with your account\n'
-            '• Works across all your devices\n'
-            '• Automatic restore on new devices',
+            '• Backups are encrypted with your password\n'
+            '• Stored securely on this device\n'
+            '• Automatic updates when accounts change',
             style: TextStyle(fontSize: 13),
           ),
         ],
@@ -234,9 +322,9 @@ class _AutoBackupSettingsScreenState extends State<AutoBackupSettingsScreen> {
 
   Widget _buildDisableBackupDialog() {
     return AlertDialog(
-      title: const Text('Disable Automatic Backup?'),
+      title: const Text('Disable Local Encrypted Backup?'),
       content: const Text(
-        'Your existing backup will remain, but new changes won\'t be backed up automatically.\n\n'
+        'Your existing backup will remain on this device, but new changes won\'t be backed up automatically.\n\n'
         'You can re-enable backup anytime.',
       ),
       actions: [
@@ -253,22 +341,6 @@ class _AutoBackupSettingsScreenState extends State<AutoBackupSettingsScreen> {
         ),
       ],
     );
-  }
-
-  Future<void> _openDeviceSettings() async {
-    try {
-      // Try to open Android settings
-      const platform = MethodChannel('authenticator/settings');
-      await platform.invokeMethod('openSettings');
-    } catch (e) {
-      // If it fails, show a message
-      if (!mounted) return;
-      CustomSnackbar.show(
-        context,
-        message: 'Please open Settings manually from your device',
-        type: SnackbarType.info,
-      );
-    }
   }
 
   String _formatLastBackupTime(DateTime time) {
@@ -302,7 +374,7 @@ class _AutoBackupSettingsScreenState extends State<AutoBackupSettingsScreen> {
           onPressed: () => Navigator.of(context).pop(),
         ),
         title: Text(
-          'Automatic Backup',
+          BackupUIStrings.backupFeatureName,
           style: AppTheme.headlineMedium(theme.colorScheme.onSurface),
         ),
         backgroundColor: theme.colorScheme.surface,
@@ -313,7 +385,6 @@ class _AutoBackupSettingsScreenState extends State<AutoBackupSettingsScreen> {
           : ListView(
               padding: const EdgeInsets.all(16),
               children: [
-                // Enable/Disable Toggle
                 Card(
                   color: theme.colorScheme.surface,
                   elevation: 0,
@@ -335,7 +406,7 @@ class _AutoBackupSettingsScreenState extends State<AutoBackupSettingsScreen> {
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Icon(
-                            _isBackupEnabled ? Icons.cloud_done : Icons.cloud_off,
+                            _isBackupEnabled ? Icons.backup : Icons.backup_outlined,
                             color: theme.colorScheme.primary,
                             size: 20,
                           ),
@@ -346,7 +417,7 @@ class _AutoBackupSettingsScreenState extends State<AutoBackupSettingsScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'Automatic Backup',
+                                BackupUIStrings.backupFeatureName,
                                 style: AppTheme.bodyLarge(theme.colorScheme.onSurface).copyWith(
                                   fontWeight: FontWeight.w600,
                                 ),
@@ -362,7 +433,6 @@ class _AutoBackupSettingsScreenState extends State<AutoBackupSettingsScreen> {
                         Switch(
                           value: _isBackupEnabled,
                           onChanged: _toggleBackup,
-                          activeColor: Colors.white,
                           activeTrackColor: theme.colorScheme.primary,
                         ),
                       ],
@@ -373,48 +443,6 @@ class _AutoBackupSettingsScreenState extends State<AutoBackupSettingsScreen> {
                 if (_isBackupEnabled) ...[
                   const SizedBox(height: 24),
 
-                  // Backup Account Info
-                  Text(
-                    'BACKUP ACCOUNT',
-                    style: AppTheme.caption(theme.colorScheme.onSurface).copyWith(
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 1.2,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Card(
-                    color: theme.colorScheme.surface,
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                      side: BorderSide(
-                        color: theme.colorScheme.onSurface.withValues(alpha: 0.1),
-                      ),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.account_circle,
-                            color: theme.colorScheme.primary,
-                            size: 24,
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Text(
-                              _backupAccountId ?? 'Unknown',
-                              style: AppTheme.bodyMedium(theme.colorScheme.onSurface),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-
-                  const SizedBox(height: 24),
-
-                  // Last Backup Time
                   Text(
                     'LAST BACKUP',
                     style: AppTheme.caption(theme.colorScheme.onSurface).copyWith(
@@ -458,7 +486,75 @@ class _AutoBackupSettingsScreenState extends State<AutoBackupSettingsScreen> {
 
                 const SizedBox(height: 24),
 
-                // Info Section
+                Text(
+                  'RESTORE',
+                  style: AppTheme.caption(theme.colorScheme.onSurface).copyWith(
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 1.2,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Card(
+                  color: theme.colorScheme.surface,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    side: BorderSide(
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.1),
+                    ),
+                  ),
+                  child: InkWell(
+                    onTap: _restoreBackup,
+                    borderRadius: BorderRadius.circular(16),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 40,
+                            height: 40,
+                            decoration: BoxDecoration(
+                              color: theme.colorScheme.primary.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Icon(
+                              Icons.restore,
+                              color: theme.colorScheme.primary,
+                              size: 20,
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Restore from Local Backup',
+                                  style: AppTheme.bodyLarge(theme.colorScheme.onSurface).copyWith(
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  'Restore your accounts from automatic backup',
+                                  style: AppTheme.caption(theme.colorScheme.onSurface),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Icon(
+                            Icons.arrow_forward_ios,
+                            size: 16,
+                            color: theme.colorScheme.onSurface.withValues(alpha: 0.3),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 24),
+
                 Text(
                   'HOW IT WORKS',
                   style: AppTheme.caption(theme.colorScheme.onSurface).copyWith(
@@ -484,29 +580,29 @@ class _AutoBackupSettingsScreenState extends State<AutoBackupSettingsScreen> {
                         _buildInfoRow(
                           context,
                           Icons.lock_outline,
-                          'Account-Bound Encryption',
-                          'Backups are encrypted with your Google/Apple account',
+                          'Password Encryption',
+                          'Backups are encrypted with your password',
                         ),
                         const SizedBox(height: 16),
                         _buildInfoRow(
                           context,
-                          Icons.devices,
-                          'Multi-Device Sync',
-                          'Same account works across all your devices',
+                          Icons.phone_android,
+                          'Local Storage',
+                          'Stored securely on this device only',
                         ),
                         const SizedBox(height: 16),
                         _buildInfoRow(
                           context,
                           Icons.cloud_upload,
                           'Automatic Backup',
-                          'Changes are backed up automatically every 5 seconds',
+                          'Updates automatically when accounts change',
                         ),
                         const SizedBox(height: 16),
                         _buildInfoRow(
                           context,
                           Icons.restore,
-                          'Automatic Restore',
-                          'Accounts restore automatically on new devices',
+                          'Easy Restore',
+                          'Restore accounts anytime with your password',
                         ),
                       ],
                     ),

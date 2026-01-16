@@ -12,7 +12,7 @@ import 'services/migration_service.dart';
 import 'services/encryption_service.dart';
 import 'services/security_service.dart';
 import 'services/integrity_service.dart';
-import 'services/auto_backup_service.dart';
+import 'services/local_backup_service.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -101,12 +101,11 @@ class _SplashAppState extends State<SplashApp> {
   /// Check if backup is available for restore
   Future<bool> _checkBackupAvailable(AccountService accountService) async {
     try {
-      final autoBackupService = AutoBackupService(
+      final localBackupService = LocalBackupService(
         accountService: accountService,
       );
       
-      // Check if backup file exists
-      final hasBackup = await autoBackupService.hasBackup();
+      final hasBackup = await localBackupService.hasBackup();
       
       if (hasBackup && kDebugMode) {
         debugPrint('✓ Backup file detected - will prompt user to restore');
@@ -162,7 +161,6 @@ class _SplashAppState extends State<SplashApp> {
 
   @override
   Widget build(BuildContext context) {
-    // Show authenticating screen while initializing - no blank loading spinner
     if (!_isInitialized) {
       return MaterialApp(
         key: const ValueKey('loading'),

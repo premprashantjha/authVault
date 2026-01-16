@@ -49,15 +49,13 @@ class _OTPCardState extends State<OTPCard> {
   @override
   void didUpdateWidget(OTPCard oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // Sync with actual TOTP time when OTP regenerates
     if (oldWidget.account.otp != widget.account.otp) {
       _displaySecondsRemaining = _calculateSecondsRemaining();
       _displayProgress = _displaySecondsRemaining / 30.0;
     }
   }
 
-  /// Calculate seconds remaining based on actual TOTP time window
-  /// This ensures all timers are synchronized to the same 30-second window
+  /// Calculate seconds remaining in current TOTP time window
   int _calculateSecondsRemaining() {
     final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
     final timeStep = now ~/ 30;
@@ -70,7 +68,6 @@ class _OTPCardState extends State<OTPCard> {
     _displayTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (mounted) {
         setState(() {
-          // Recalculate from actual time to stay synchronized
           _displaySecondsRemaining = _calculateSecondsRemaining();
           _displayProgress = _displaySecondsRemaining / 30.0;
         });
@@ -105,14 +102,13 @@ class _OTPCardState extends State<OTPCard> {
         onLongPress: widget.onLongPress,
         borderRadius: BorderRadius.circular(AppConstants.getResponsiveRadius(context)),
         child: Container(
-          // REMOVED FIXED HEIGHT - Let content determine height naturally
           constraints: BoxConstraints(
-            minHeight: AppConstants.getResponsiveOTPCardMinHeight(context), // Minimum height only
+            minHeight: AppConstants.getResponsiveOTPCardMinHeight(context),
           ),
           padding: EdgeInsets.all(AppConstants.getResponsiveOTPCardPadding(context)),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min, // CRITICAL: Let column size itself to content
+            mainAxisSize: MainAxisSize.min,
             children: [
               // Header with issuer and menu
               Row(
@@ -134,7 +130,7 @@ class _OTPCardState extends State<OTPCard> {
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min, // CRITICAL: Let column size itself
+                      mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
                           widget.account.account.issuer,
@@ -195,7 +191,7 @@ class _OTPCardState extends State<OTPCard> {
                       onTap: () => _copyToClipboard(context, widget.account.otp),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min, // CRITICAL: Size to content
+                        mainAxisSize: MainAxisSize.min,
                         children: [
                           Row(
                             children: [
@@ -233,9 +229,8 @@ class _OTPCardState extends State<OTPCard> {
                       ),
                     ),
                   ),
-                  // Timer
                   Column(
-                    mainAxisSize: MainAxisSize.min, // CRITICAL: Size to content
+                    mainAxisSize: MainAxisSize.min,
                     children: [
                       SizedBox(
                         width: AppConstants.otpTimerSize,
@@ -278,7 +273,6 @@ class _OTPCardState extends State<OTPCard> {
                 ],
               ),
               SizedBox(height: AppConstants.spaceXs + 2),
-              // Progress bar
               LinearProgressIndicator(
                 value: _displayProgress,
                 backgroundColor: theme.colorScheme.onSurface.withValues(alpha: 0.1),
@@ -297,7 +291,6 @@ class _OTPCardState extends State<OTPCard> {
   }
 
   String _formatOTP(String otp) {
-    // Format as XXX XXX for better readability
     if (otp.length == 6) {
       return '${otp.substring(0, 3)} ${otp.substring(3)}';
     }
@@ -308,19 +301,12 @@ class _OTPCardState extends State<OTPCard> {
     Clipboard.setData(ClipboardData(text: otp));
     HapticFeedback.lightImpact();
 
-    setState(() {
-      _copied = true;
-    });
+    setState(() => _copied = true);
     _copyResetTimer?.cancel();
     _copyResetTimer = Timer(const Duration(seconds: 2), () {
-      if (mounted) {
-        setState(() {
-          _copied = false;
-        });
-      }
+      if (mounted) setState(() => _copied = false);
     });
 
-    // Auto-clear clipboard after 30 seconds for security
     Future.delayed(AppConstants.clipboardClearDuration, () {
       Clipboard.setData(const ClipboardData(text: ''));
     });

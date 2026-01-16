@@ -5,12 +5,10 @@ import '../../models/account.dart';
 
 typedef StaggeredItemBuilder<T> = Widget Function(BuildContext context, int index, T item, Animation<double> animation);
 
-/// Controller for programmatic operations on a [StaggeredList].
+/// Controller for programmatic operations on a StaggeredList
 class StaggeredListController<T> {
   _StaggeredListState<T>? _state;
 
-  /// Remove the item at [index] with the provided [removedItemBuilder] visual.
-  /// The Future completes after the removal animation duration.
   Future<void> removeAt(int index, Widget Function(T item, Animation<double> animation) removedItemBuilder) async {
     if (_state == null) return;
     await _state!._removeAt(index, removedItemBuilder);
@@ -52,24 +50,19 @@ class _StaggeredListState<T> extends State<StaggeredList<T>> {
     super.initState();
     _items = [];
     widget.controller?._state = this;
-    // Stagger insert items after first frame
     WidgetsBinding.instance.addPostFrameCallback((_) => _insertItems());
   }
 
   @override
   void didUpdateWidget(covariant StaggeredList<T> oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // If incoming items list has changed since last build, reconcile differences.
-    // Handle the common cases: new items appended or items removed.
     final newItems = widget.items;
 
-    // If we currently have no items but newItems has entries, insert them.
     if (_items.isEmpty && newItems.isNotEmpty) {
       WidgetsBinding.instance.addPostFrameCallback((_) => _insertItems());
       return;
     }
 
-    // If items length increased, insert new trailing items.
     if (newItems.length > _items.length) {
       final start = _items.length;
       for (var i = start; i < newItems.length; i++) {
@@ -80,7 +73,6 @@ class _StaggeredListState<T> extends State<StaggeredList<T>> {
       return;
     }
 
-    // If items length decreased, remove trailing items.
     if (newItems.length < _items.length) {
       for (var i = _items.length - 1; i >= newItems.length; i--) {
         final removed = _items.removeAt(i);
@@ -100,10 +92,8 @@ class _StaggeredListState<T> extends State<StaggeredList<T>> {
       return;
     }
 
-    // If counts are equal, perform a best-effort diff: replace items that differ in identity.
     for (var i = 0; i < newItems.length; i++) {
       if (!StaggeredList._itemsEqual(newItems[i], _items[i])) {
-        // Replace item at i by removing and inserting at same index.
         final removed = _items.removeAt(i);
         _listKey.currentState?.removeItem(
           i,
@@ -116,12 +106,9 @@ class _StaggeredListState<T> extends State<StaggeredList<T>> {
           ),
           duration: widget.staggerDuration,
         );
-        // insert the new item
         _items.insert(i, newItems[i]);
         _listKey.currentState?.insertItem(i, duration: widget.staggerDuration);
       } else {
-        // Items are equal by ID, just update the reference in _items
-        // without triggering animation
         _items[i] = newItems[i];
       }
     }

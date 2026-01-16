@@ -1,14 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:provider/provider.dart';
 import '../app/theme.dart';
 import '../services/backup_service.dart';
+import '../services/local_backup_service.dart';
 import '../view_models/account_view_model.dart';
 import '../widgets/backup_password_dialog.dart';
+import '../widgets/backup_password_setup_dialog.dart';
 import '../widgets/custom_snackbar.dart';
-import '../widgets/animated_button.dart';
 
 class BackupScreen extends StatefulWidget {
   final BackupService backupService;
@@ -25,11 +27,404 @@ class BackupScreen extends StatefulWidget {
 class _BackupScreenState extends State<BackupScreen> {
   List<BackupInfo> _backupFiles = [];
   bool _isLoading = false;
+  bool _isLocalBackupEnabled = false;
+  DateTime? _lastLocalBackupTime;
+  late LocalBackupService _localBackupService;
 
   @override
   void initState() {
     super.initState();
+    _initializeServices();
     _loadBackupFiles();
+    _loadLocalBackupStatus();
+  }
+
+  void _initializeServices() {
+    final accountViewModel = Provider.of<AccountViewModel>(context, listen: false);
+    _localBackupService = LocalBackupService(
+      accountService: accountViewModel.accountService,
+    );
+  }
+
+  Future<void> _loadLocalBackupStatus() async {
+    try {
+      final isEnabled = await _localBackupService.isBackupEnabled();
+      final lastBackup = await _localBackupService.getLastBackupTime();
+      
+      if (mounted) {
+        setState(() {
+          _isLocalBackupEnabled = isEnabled;
+          _lastLocalBackupTime = lastBackup;
+        });
+      }
+    } catch (e) {
+      // Ignore errors
+    }
+  }
+
+  Future<void> _toggleLocalBackup(bool value) async {
+    if (value) {
+      await _enableLocalBackup();
+    } else {
+      await _disableLocalBackup();
+    }
+  }
+
+  Future<void> _enableLocalBackup() async {
+    try {
+      if (!mounted) return;
+      final password = await showDialog<String>(
+        context: context,
+        builder: (context) => const BackupPasswordSetupDialog(
+          title: 'Enable Local Encrypted Backup',
+          description: 'Set a password to protect your automatic backup',
+        ),
+      );
+
+      if (password == null) return;
+
+      const accountId = 'local_device';
+      await _localBackupService.enableBackup(accountId, password);
+      
+      await _loadLocalBackupStatus();
+      
+      if (!mounted) return;
+      CustomSnackbar.show(
+        context,
+        title: 'Backup Enabled',
+        message: 'Your accounts will be backed up automatically',
+        type: SnackbarType.success,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      CustomSnackbar.show(
+        context,
+        title: 'Failed',
+        message: 'Could not enable backup: $e',
+        type: SnackbarType.error,
+      );
+    }
+  }
+
+  Future<void> _disableLocalBackup() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Disable Local Backup?'),
+        content: const Text(
+          'Your existing backup will remain, but new changes won\'t be backed up automatically.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.warningColor,
+            ),
+            child: const Text('Disable'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      try {
+        await _localBackupService.disableBackup();
+        await _loadLocalBackupStatus();
+        
+        if (!mounted) return;
+        CustomSnackbar.show(
+          context,
+          title: 'Backup Disabled',
+          message: 'Automatic backup has been disabled',
+          type: SnackbarType.info,
+        );
+      } catch (e) {
+        if (!mounted) return;
+        CustomSnackbar.show(
+          context,
+          title: 'Failed',
+          message: 'Could not disable backup: $e',
+          type: SnackbarType.error,
+        );
+      }
+    }
+  }
+
+  Future<void> _restoreLocalBackup() async {
+    try {
+      final hasBackup = await _localBackupService.hasBackup();
+      
+      if (!hasBackup) {
+        if (!mounted) return;
+        CustomSnackbar.show(
+          context,
+          title: 'No Backup Found',
+          message: 'Enable backup and add accounts first',
+          type: SnackbarType.info,
+        );
+        return;
+      }
+
+      if (!mounted) return;
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Restore Local Backup?'),
+          content: const Text(
+            'This will restore your accounts from the automatic backup.\n\n'
+            'Existing accounts will be kept, and duplicates will be skipped.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Restore'),
+            ),
+          ],
+        ),
+      );
+
+      if (confirmed != true) return;
+
+      if (!mounted) return;
+      final password = await showDialog<String>(
+        context: context,
+        builder: (context) => const BackupPasswordDialog(
+          title: 'Restore Backup',
+          description: 'Enter your backup password',
+          isCreating: false,
+        ),
+      );
+
+      if (password == null) return;
+
+      if (!mounted) return;
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+
+      final success = await _localBackupService.restoreAutoBackup(password);
+
+      if (!mounted) return;
+      Navigator.pop(context);
+
+      if (success) {
+        final viewModel = Provider.of<AccountViewModel>(context, listen: false);
+        await viewModel.reloadAfterUnlock();
+
+        if (!mounted) return;
+        CustomSnackbar.show(
+          context,
+          title: 'Restored',
+          message: 'Accounts restored successfully',
+          type: SnackbarType.success,
+        );
+      } else {
+        if (!mounted) return;
+        CustomSnackbar.show(
+          context,
+          title: 'Failed',
+          message: 'Restore failed. Please try again.',
+          type: SnackbarType.error,
+        );
+      }
+    } catch (e) {
+      if (mounted && Navigator.canPop(context)) {
+        Navigator.pop(context);
+      }
+
+      if (!mounted) return;
+      
+      final errorMessage = e.toString();
+      if (errorMessage.contains('password') || 
+          errorMessage.contains('Authentication failed') ||
+          errorMessage.contains('decryption')) {
+        CustomSnackbar.show(
+          context,
+          title: 'Wrong Password',
+          message: 'Incorrect password. Please try again.',
+          type: SnackbarType.error,
+        );
+      } else {
+        CustomSnackbar.show(
+          context,
+          title: 'Failed',
+          message: 'Restore failed: ${e.toString()}',
+          type: SnackbarType.error,
+        );
+      }
+    }
+  }
+
+  void _showBackupExplanation() {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.7,
+        ),
+        decoration: BoxDecoration(
+          color: colorScheme.surface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Handle
+            Container(
+              margin: const EdgeInsets.only(top: 12, bottom: 8),
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: colorScheme.onSurface.withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            // Header
+            Padding(
+              padding: const EdgeInsets.all(20),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: colorScheme.primaryContainer,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(
+                      Icons.info_outline,
+                      color: colorScheme.primary,
+                      size: 24,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'How Local Backup Works',
+                      style: AppTheme.headlineMedium(colorScheme.onSurface).copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            // Content
+            Flexible(
+              child: ListView(
+                shrinkWrap: true,
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+                children: [
+                  _buildInfoSection(
+                    colorScheme,
+                    'What is it?',
+                    Icons.help_outline,
+                    'Automatically saves your accounts to an encrypted file on your device. Your accounts are protected with a password and stored safely.',
+                  ),
+                  const SizedBox(height: 16),
+                  _buildInfoSection(
+                    colorScheme,
+                    'How to restore',
+                    Icons.restore,
+                    'Tap the "Restore" button above, enter your backup password, and all your accounts will be restored instantly.',
+                  ),
+                  const SizedBox(height: 24),
+                  Text(
+                    'IMPORTANT NOTES',
+                    style: AppTheme.caption(colorScheme.onSurface).copyWith(
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 1.2,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  ..._backupNotes.map((note) => Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: Colors.orange.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: Colors.orange.withValues(alpha: 0.25),
+                        ),
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Icon(
+                            Icons.warning_amber_rounded,
+                            color: Colors.orange,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              note,
+                              style: AppTheme.bodyMedium(colorScheme.onSurface),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  )),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInfoSection(ColorScheme colorScheme, String title, IconData icon, String description) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: colorScheme.primaryContainer.withValues(alpha: 0.2),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: colorScheme.primary.withValues(alpha: 0.2),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, color: colorScheme.primary, size: 20),
+              const SizedBox(width: 8),
+              Text(
+                title,
+                style: AppTheme.bodyLarge(colorScheme.onSurface).copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            description,
+            style: AppTheme.bodyMedium(colorScheme.onSurface),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _loadBackupFiles() async {
@@ -43,7 +438,10 @@ class _BackupScreenState extends State<BackupScreen> {
           final info = await widget.backupService.getBackupInfo(filePath);
           infos.add(info);
         } catch (e) {
-          // Skip corrupted files
+          // Skip corrupted or old format files
+          if (kDebugMode) {
+            debugPrint('Skipping invalid backup file: $filePath - $e');
+          }
         }
       }
       
@@ -56,6 +454,9 @@ class _BackupScreenState extends State<BackupScreen> {
     } catch (e) {
       if (mounted) {
         setState(() => _isLoading = false);
+      }
+      if (kDebugMode) {
+        debugPrint('Error loading backup files: $e');
       }
     }
   }
@@ -499,9 +900,118 @@ class _BackupScreenState extends State<BackupScreen> {
               child: ListView(
                 padding: const EdgeInsets.all(16),
                 children: [
-                  // Backup Files Section
+                  // Local Auto Backup Section Header
                   Text(
-                    'MANUAL BACKUPS',
+                    'LOCAL AUTO BACKUP',
+                    style: AppTheme.caption(colorScheme.onSurface).copyWith(
+                      fontWeight: AppTheme.weightSemiBold,
+                      letterSpacing: 1.2,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  
+                  // Local Auto Backup Card
+                  Card(
+                    color: colorScheme.surface,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      side: BorderSide(
+                        color: colorScheme.onSurface.withValues(alpha: 0.1),
+                      ),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                width: 40,
+                                height: 40,
+                                decoration: BoxDecoration(
+                                  color: colorScheme.primary.withValues(alpha: 0.1),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Icon(
+                                  _isLocalBackupEnabled ? Icons.backup : Icons.backup_outlined,
+                                  color: colorScheme.primary,
+                                  size: 20,
+                                ),
+                              ),
+                              const SizedBox(width: 16),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Automatic Backup',
+                                      style: AppTheme.bodyLarge(colorScheme.onSurface).copyWith(
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      _isLocalBackupEnabled ? 'Enabled' : 'Disabled',
+                                      style: AppTheme.caption(colorScheme.onSurface),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Switch(
+                                value: _isLocalBackupEnabled,
+                                onChanged: _toggleLocalBackup,
+                                activeTrackColor: colorScheme.primary,
+                              ),
+                            ],
+                          ),
+                          if (_isLocalBackupEnabled) ...[
+                            const SizedBox(height: 16),
+                            const Divider(height: 1),
+                            const SizedBox(height: 16),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: OutlinedButton.icon(
+                                    onPressed: _restoreLocalBackup,
+                                    icon: const Icon(Icons.restore, size: 18),
+                                    label: const Text('Restore'),
+                                    style: OutlinedButton.styleFrom(
+                                      padding: const EdgeInsets.symmetric(vertical: 12),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: OutlinedButton.icon(
+                                    onPressed: _showBackupExplanation,
+                                    icon: const Icon(Icons.info_outline, size: 18),
+                                    label: const Text('How it works'),
+                                    style: OutlinedButton.styleFrom(
+                                      padding: const EdgeInsets.symmetric(vertical: 12),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            if (_lastLocalBackupTime != null) ...[
+                              const SizedBox(height: 12),
+                              Text(
+                                'Last backup: ${_formatLastBackupTime(_lastLocalBackupTime!)}',
+                                style: AppTheme.caption(colorScheme.onSurface.withValues(alpha: 0.6)),
+                              ),
+                            ],
+                          ],
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 32),
+                  
+                  // Manual Backup Section Header
+                  Text(
+                    'MANUAL BACKUP',
                     style: AppTheme.caption(colorScheme.onSurface).copyWith(
                       fontWeight: AppTheme.weightSemiBold,
                       letterSpacing: 1.2,
@@ -723,6 +1233,26 @@ class _BackupScreenState extends State<BackupScreen> {
     }
   }
   
+  /// Format last backup time
+  String _formatLastBackupTime(DateTime time) {
+    final now = DateTime.now();
+    final difference = now.difference(time);
+
+    if (difference.inMinutes < 1) {
+      return 'Just now';
+    } else if (difference.inMinutes < 60) {
+      return '${difference.inMinutes} minutes ago';
+    } else if (difference.inHours < 24) {
+      return '${difference.inHours} hours ago';
+    } else if (difference.inDays == 1) {
+      return 'Yesterday';
+    } else if (difference.inDays < 7) {
+      return '${difference.inDays} days ago';
+    } else {
+      return '${time.day}/${time.month}/${time.year}';
+    }
+  }
+  
   /// Export latest backup file
   Future<void> _exportLatestBackup() async {
     if (_backupFiles.isEmpty) {
@@ -836,193 +1366,9 @@ class _MergeStrategyOption extends StatelessWidget {
   }
 }
 
-class _BackupFileCard extends StatelessWidget {
-  final BackupInfo info;
-  final VoidCallback onRestore;
-  final VoidCallback onDelete;
-  final VoidCallback onShare;
-
-  const _BackupFileCard({
-    required this.info,
-    required this.onRestore,
-    required this.onDelete,
-    required this.onShare,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    
-    return Container(
-      decoration: BoxDecoration(
-        color: colorScheme.surface,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: colorScheme.outlineVariant.withValues(alpha: 0.5),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  width: 48,
-                  height: 48,
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        colorScheme.primaryContainer,
-                        colorScheme.primaryContainer.withValues(alpha: 0.7),
-                      ],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  child: Icon(
-                    Icons.folder_zip_rounded,
-                    color: colorScheme.primary,
-                    size: 24,
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        _formatDate(info.createdAt),
-                        style: AppTheme.title(colorScheme.onSurface).copyWith(
-                          fontWeight: AppTheme.weightSemiBold,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Row(
-                        children: [
-                          Icon(
-                            Icons.storage_rounded,
-                            size: 14,
-                            color: colorScheme.onSurface.withValues(alpha: 0.5),
-                          ),
-                          const SizedBox(width: 6),
-                          Text(
-                            info.fileSizeFormatted,
-                            style: AppTheme.caption(colorScheme.onSurface.withValues(alpha: 0.6)),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: colorScheme.surfaceVariant.withValues(alpha: 0.4),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.info_outline_rounded,
-                    size: 16,
-                    color: colorScheme.primary,
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'Encrypted backup file',
-                      style: AppTheme.caption(colorScheme.onSurface.withValues(alpha: 0.7)),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  flex: 2,
-                  child: ElevatedButton.icon(
-                    onPressed: onRestore,
-                    icon: const Icon(Icons.restore_rounded, size: 20),
-                    label: const Text('Restore'),
-                    style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Container(
-                  decoration: BoxDecoration(
-                    color: colorScheme.surfaceVariant.withValues(alpha: 0.5),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: IconButton(
-                    onPressed: onShare,
-                    icon: Icon(
-                      Icons.share_rounded,
-                      size: 20,
-                      color: colorScheme.primary,
-                    ),
-                    tooltip: 'Share',
-                  ),
-                ),
-                const SizedBox(width: 4),
-                Container(
-                  decoration: BoxDecoration(
-                    color: colorScheme.errorContainer.withValues(alpha: 0.3),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: IconButton(
-                    onPressed: onDelete,
-                    icon: Icon(
-                      Icons.delete_outline_rounded,
-                      size: 20,
-                      color: colorScheme.error,
-                    ),
-                    tooltip: 'Delete',
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  String _formatDate(DateTime date) {
-    final now = DateTime.now();
-    final diff = now.difference(date);
-    
-    if (diff.inDays == 0) {
-      final hour = date.hour > 12 ? date.hour - 12 : (date.hour == 0 ? 12 : date.hour);
-      final period = date.hour >= 12 ? 'PM' : 'AM';
-      return 'Today at $hour:${date.minute.toString().padLeft(2, '0')} $period';
-    } else if (diff.inDays == 1) {
-      return 'Yesterday';
-    } else if (diff.inDays < 7) {
-      return '${diff.inDays} days ago';
-    } else {
-      final months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-      return '${months[date.month - 1]} ${date.day}, ${date.year}';
-    }
-  }
-}
+// Backup important notes
+final _backupNotes = [
+  'Remember your password - it cannot be recovered if lost',
+  'Backup stays on this device only (not synced to cloud)',
+  'For moving to a new device, use the backup files below',
+];

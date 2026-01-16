@@ -107,15 +107,11 @@ class _AuthWrapperState extends State<AuthWrapper> with WidgetsBindingObserver {
           _showLockedScreen = false;
         });
       } else if (mounted && !authenticated) {
-        // ❌ Authentication failed or cancelled
-        // Show locked screen instead of infinite retry
         setState(() {
           _showLockedScreen = true;
         });
       }
     } catch (e) {
-      // ❌ Error occurred (including user cancel)
-      // Show locked screen instead of infinite retry
       if (mounted) {
         setState(() {
           _showLockedScreen = true;
@@ -143,7 +139,6 @@ class _AuthWrapperState extends State<AuthWrapper> with WidgetsBindingObserver {
     final theme = Theme.of(context);
     
     if (!_isAuthenticated) {
-      // Show locked screen if user cancelled, otherwise show loading
       return _showLockedScreen 
           ? _buildLockedScreen(theme)
           : _buildAuthenticationScreen(theme);

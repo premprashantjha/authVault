@@ -5,7 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/account.dart';
 import '../services/account_service.dart';
 import '../services/totp_service.dart';
-import '../services/auto_backup_service.dart';
+import '../services/local_backup_service.dart';
 
 class AccountViewModel with ChangeNotifier {
   static const _favoriteAccountsKey = 'favorite_account_ids';
@@ -178,20 +178,16 @@ class AccountViewModel with ChangeNotifier {
       final currentTimeStep = (DateTime.now().millisecondsSinceEpoch / 1000).floor() ~/ 30;
       final secondsRemaining = totpService.getRemainingSeconds();
       
-      // Only regenerate OTPs and notify when time step changes (every 30 seconds)
       if (currentTimeStep != lastTimeStep) {
         lastTimeStep = currentTimeStep;
         _generateOTPs();
       } else {
-        // Just update the seconds remaining WITHOUT notifying listeners
-        // The OTPCard widgets will update themselves via their own timers
         _accountsWithOTP = _accountsWithOTP
             .map((accountWithOTP) => accountWithOTP.copyWith(secondsRemaining: secondsRemaining))
             .toList();
         _filteredAccounts = _filteredAccounts
             .map((accountWithOTP) => accountWithOTP.copyWith(secondsRemaining: secondsRemaining))
             .toList();
-        // NO notifyListeners() here - this prevents the rebuild storm!
       }
     });
   }
@@ -217,7 +213,6 @@ class AccountViewModel with ChangeNotifier {
   }
 
   void _updateSecondsRemaining(int secondsRemaining) {
-    // Update only the seconds remaining without regenerating OTPs
     _accountsWithOTP = _accountsWithOTP
         .map((accountWithOTP) => accountWithOTP.copyWith(secondsRemaining: secondsRemaining))
         .toList();
@@ -390,12 +385,11 @@ class AccountViewModel with ChangeNotifier {
           debugPrint('=== Auto Backup Timer Fired ===');
         }
         
-        final autoBackupService = AutoBackupService(
+        final localBackupService = LocalBackupService(
           accountService: accountService,
         );
         
-        // Only backup if enabled
-        final isEnabled = await autoBackupService.isBackupEnabled();
+        final isEnabled = await localBackupService.isBackupEnabled();
         if (!isEnabled) {
           if (kDebugMode) {
             debugPrint('Auto backup skipped: not enabled');
@@ -403,9 +397,9 @@ class AccountViewModel with ChangeNotifier {
           return;
         }
 
-        await autoBackupService.createAutoBackup();
+        await localBackupService.createAutoBackup();
         if (kDebugMode) {
-          debugPrint('Auto backup created successfully');
+          debugPrint('Local backup created successfully');
         }
       } catch (e) {
         if (kDebugMode) {

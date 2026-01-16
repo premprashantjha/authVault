@@ -8,7 +8,7 @@ import '../app/theme.dart';
 // Models
 import '../models/account.dart';
 import '../services/account_service.dart';
-import '../services/auto_backup_service.dart';
+import '../services/local_backup_service.dart';
 import '../services/database_service.dart';
 import '../services/encryption_service.dart';
 import '../services/integrity_service.dart';
@@ -68,7 +68,7 @@ class _HomeScreenState extends State<HomeScreen>
         integrityService: integrityService,
       );
       final accountService = AccountService(databaseService: databaseService);
-      final backupService = AutoBackupService(accountService: accountService);
+      final backupService = LocalBackupService(accountService: accountService);
 
       final isEnabled = await backupService.isBackupEnabled();
       final lastBackup = await backupService.getLastBackupTime();
@@ -477,7 +477,6 @@ class _HomeScreenState extends State<HomeScreen>
 
     if (selectedAccounts.isEmpty) return;
 
-    // Navigate to QR display screen WITHOUT clearing selection first
     if (!mounted) return;
     await Navigator.of(context).push(
       MaterialPageRoute(
@@ -485,7 +484,6 @@ class _HomeScreenState extends State<HomeScreen>
       ),
     );
 
-    // Clear selection AFTER returning from QR screen
     if (mounted) {
       _exitSelectionMode();
     }

@@ -29,7 +29,6 @@ class _AnimatedAccountListState extends State<AnimatedAccountList> {
   void didUpdateWidget(AnimatedAccountList oldWidget) {
     super.didUpdateWidget(oldWidget);
     
-    // Always sync with widget items when they change
     if (!_areListsEqual(_displayedItems, widget.items)) {
       setState(() {
         _displayedItems = List.from(widget.items);
@@ -40,7 +39,6 @@ class _AnimatedAccountListState extends State<AnimatedAccountList> {
   bool _areListsEqual(List<AccountWithOTP> a, List<AccountWithOTP> b) {
     if (a.length != b.length) return false;
     for (int i = 0; i < a.length; i++) {
-      // Check if account ID OR favorite status changed
       if (a[i].account.id != b[i].account.id || 
           a[i].isFavorite != b[i].isFavorite ||
           a[i].otp != b[i].otp) {

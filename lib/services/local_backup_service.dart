@@ -6,45 +6,35 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/account.dart';
 import 'account_service.dart';
 import 'encryption_service.dart';
-import 'platform_account_service.dart';
 import 'backup_preferences_service.dart';
 
-/// Service for automatic backup using platform-native backup systems
-/// 
-/// Android: Auto Backup to Google Drive
-/// iOS: iCloud Backup
+/// Service for automatic local encrypted backup
 /// 
 /// Features:
-/// - Password-based encryption for cross-device recovery
+/// - Password-based encryption
 /// - Automatic backup on account changes
+/// - Stored locally on device
 /// - Zero-knowledge architecture
-/// - Seamless restore on new device
-class AutoBackupService {
+class LocalBackupService {
   final AccountService _accountService;
   final EncryptionService _encryptionService;
-  final PlatformAccountService _platformAccountService;
   final BackupPreferencesService _preferencesService;
   
   static const String _backupFileName = 'encrypted_backup.cdac';
   static const String _favoriteAccountsKey = 'favorite_account_ids';
-  static const String _autoBackupPasswordKey = 'auto_backup_password_secure';
+  static const String _backupPasswordKey = 'local_backup_password_secure';
 
-  AutoBackupService({
+  LocalBackupService({
     required AccountService accountService,
     EncryptionService? encryptionService,
-    PlatformAccountService? platformAccountService,
     BackupPreferencesService? preferencesService,
   })  : _accountService = accountService,
         _encryptionService = encryptionService ?? EncryptionService(),
-        _platformAccountService = platformAccountService ?? PlatformAccountService(),
         _preferencesService = preferencesService ?? BackupPreferencesService();
 
   /// Create automatic backup (called on account changes)
-  /// 
-  /// Uses stored password to encrypt backup automatically
   Future<void> createAutoBackup() async {
     try {
-      // Check if backup is enabled
       final isEnabled = await _preferencesService.isBackupEnabled();
       if (!isEnabled) {
         if (kDebugMode) {
@@ -53,9 +43,8 @@ class AutoBackupService {
         return;
       }
 
-      // Get stored password from secure storage
       final prefs = await SharedPreferences.getInstance();
-      final password = prefs.getString(_autoBackupPasswordKey);
+      final password = prefs.getString(_backupPasswordKey);
       if (password == null) {
         if (kDebugMode) {
           debugPrint('Auto backup skipped: no password stored');
@@ -63,7 +52,6 @@ class AutoBackupService {
         return;
       }
 
-      // Get stored account ID
       final accountId = await _preferencesService.getBackupAccountId();
       if (accountId == null) {
         if (kDebugMode) {
@@ -72,15 +60,13 @@ class AutoBackupService {
         return;
       }
       
-      // Gather data to backup
       final accounts = await _accountService.getAllAccounts();
       
       if (kDebugMode) {
-        debugPrint('=== Creating Auto Backup ===');
+        debugPrint('=== Creating Local Backup ===');
         debugPrint('Number of accounts to backup: ${accounts.length}');
       }
       
-      // Safety check: Don't create empty backups
       if (accounts.isEmpty) {
         if (kDebugMode) {
           debugPrint('⚠️ Skipping backup creation: No accounts to backup');
@@ -90,7 +76,6 @@ class AutoBackupService {
       
       final favoriteIds = prefs.getStringList(_favoriteAccountsKey) ?? [];
       
-      // Create backup payload
       final backupData = {
         'app_version': '1.0.0',
         'backup_timestamp': DateTime.now().millisecondsSinceEpoch,
@@ -103,57 +88,42 @@ class AutoBackupService {
       };
       
       final jsonData = json.encode(backupData);
-      
-      // ✅ Encrypt with PASSWORD (cross-device compatible)
       final encryptedData = await _encryptionService.encryptWithPassword(jsonData, password);
       
-      // Save to platform backup location
       await _saveToBackupLocation(encryptedData);
-      
-      // Update last backup timestamp
       await _preferencesService.updateLastBackupTime(DateTime.now());
       
       if (kDebugMode) {
-        debugPrint('✅ Password-based auto backup created: ${accounts.length} accounts');
+        debugPrint('✅ Local backup created: ${accounts.length} accounts');
       }
     } catch (e) {
       if (kDebugMode) {
-        debugPrint('Auto backup failed: $e');
+        debugPrint('Local backup failed: $e');
       }
-      // Don't throw - backup failure shouldn't break app
     }
   }
 
-  /// Create automatic backup with password (for initial setup)
-  /// 
-  /// Called when user first enables backup with password
+  /// Create backup with password (for initial setup)
   Future<void> createAutoBackupWithPassword(String password) async {
     try {
-      // Store password securely for future automatic backups
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(_autoBackupPasswordKey, password);
-      
-      // Create the backup
+      await prefs.setString(_backupPasswordKey, password);
       await createAutoBackup();
       
       if (kDebugMode) {
-        debugPrint('Auto backup with password created successfully');
+        debugPrint('Local backup with password created successfully');
       }
     } catch (e) {
       if (kDebugMode) {
-        debugPrint('Auto backup with password failed: $e');
+        debugPrint('Local backup with password failed: $e');
       }
       rethrow;
     }
   }
 
-  /// Restore from automatic backup
-  /// 
-  /// Called when user wants to restore from automatic backup
-  /// Requires password to decrypt
+  /// Restore from local backup
   Future<bool> restoreAutoBackup(String password) async {
     try {
-      // Check if backup file exists
       final backupFile = await _getBackupFile();
       if (!await backupFile.exists()) {
         if (kDebugMode) {
@@ -162,24 +132,20 @@ class AutoBackupService {
         return false;
       }
       
-      // Read encrypted backup
       final encryptedData = await backupFile.readAsString();
       
-      // ✅ Decrypt with PASSWORD (cross-device compatible)
       String jsonData;
       try {
         jsonData = await _encryptionService.decryptWithPassword(encryptedData, password);
       } catch (e) {
-        // Decryption failed - wrong password or corrupted backup
         if (kDebugMode) {
           debugPrint('Backup decryption failed: $e');
         }
-        rethrow; // Let caller handle the error
+        rethrow;
       }
       
       final backupData = json.decode(jsonData) as Map<String, dynamic>;
       
-      // Verify account ID for access control (optional - backup already encrypted)
       if (backupData.containsKey('backup_account_id')) {
         final backupAccountId = backupData['backup_account_id'] as String?;
         if (kDebugMode) {
@@ -187,12 +153,10 @@ class AutoBackupService {
         }
       }
       
-      // Extract data
       final accountMaps = (backupData['accounts'] as List).cast<Map<String, dynamic>>();
       final accounts = accountMaps.map((map) => Account.fromMap(map)).toList();
       final favoriteIds = (backupData['favorites'] as List).cast<String>();
       
-      // Restore accounts
       for (final account in accounts) {
         final exists = await _accountService.accountExists(account);
         if (!exists) {
@@ -200,11 +164,9 @@ class AutoBackupService {
         }
       }
       
-      // Restore favorites
       final prefs = await SharedPreferences.getInstance();
       await prefs.setStringList(_favoriteAccountsKey, favoriteIds);
       
-      // Restore settings
       if (backupData.containsKey('settings')) {
         final settings = backupData['settings'] as Map<String, dynamic>;
         if (settings.containsKey('theme')) {
@@ -212,19 +174,18 @@ class AutoBackupService {
         }
       }
       
-      // Store password for future automatic backups
-      await prefs.setString(_autoBackupPasswordKey, password);
+      await prefs.setString(_backupPasswordKey, password);
       
       if (kDebugMode) {
-        debugPrint('✅ Password-based auto backup restored: ${accounts.length} accounts');
+        debugPrint('✅ Local backup restored: ${accounts.length} accounts');
       }
       
       return true;
     } catch (e) {
       if (kDebugMode) {
-        debugPrint('Auto backup restore failed: $e');
+        debugPrint('Local backup restore failed: $e');
       }
-      rethrow; // Let caller handle the error
+      rethrow;
     }
   }
 
@@ -238,10 +199,9 @@ class AutoBackupService {
     }
   }
 
-  /// Get backup metadata (account count, timestamp) without full restore
+  /// Get backup metadata without full restore
   /// 
-  /// IMPORTANT: This method NEVER deletes the backup file, even if decryption fails.
-  /// Deletion only happens during explicit restore attempts.
+  /// Note: Cannot decrypt without password, so returns basic file info only
   Future<Map<String, dynamic>?> getBackupMetadata() async {
     if (kDebugMode) {
       debugPrint('=== GET BACKUP METADATA ===');
@@ -264,52 +224,22 @@ class AutoBackupService {
         debugPrint('✓ Backup file exists');
       }
       
-      // Read and decrypt backup
-      final encryptedData = await backupFile.readAsString();
+      final stat = await backupFile.stat();
+      final lastModified = stat.modified;
+      
       if (kDebugMode) {
-        debugPrint('Encrypted data length: ${encryptedData.length} bytes');
+        debugPrint('File size: ${stat.size} bytes');
+        debugPrint('Last modified: $lastModified');
       }
       
-      // Try to decrypt - if it fails, return null but DON'T delete
-      try {
-        if (kDebugMode) {
-          debugPrint('Attempting to decrypt backup...');
-        }
-        final jsonData = await _encryptionService.decrypt(encryptedData);
-        if (kDebugMode) {
-          debugPrint('✓ Decryption successful');
-        }
-        
-        final backupData = json.decode(jsonData) as Map<String, dynamic>;
-        if (kDebugMode) {
-          debugPrint('✓ JSON parsed successfully');
-        }
-        
-        // Extract metadata
-        final accountMaps = (backupData['accounts'] as List).cast<Map<String, dynamic>>();
-        final timestamp = backupData['backup_timestamp'] as int?;
-        
-        if (kDebugMode) {
-          debugPrint('Account count in backup: ${accountMaps.length}');
-          debugPrint('Backup timestamp: $timestamp');
-        }
-        
-        return {
-          'account_count': accountMaps.length,
-          'timestamp': timestamp != null ? DateTime.fromMillisecondsSinceEpoch(timestamp) : null,
-          'app_version': backupData['app_version'],
-        };
-      } catch (e) {
-        // Decryption failed - backup is unreadable
-        // ✓ DO NOT delete backup here - just return null
-        // Deletion only happens during explicit restore attempts
-        if (kDebugMode) {
-          debugPrint('❌ Backup decryption failed: $e');
-          debugPrint('Backup file preserved - deletion only during restore');
-        }
-        
-        return null;
-      }
+      // Return basic metadata without decryption
+      // Account count will be shown after successful restore
+      return {
+        'file_exists': true,
+        'file_size': stat.size,
+        'last_modified': lastModified,
+        'account_count': null, // Cannot know without password
+      };
     } catch (e) {
       if (kDebugMode) {
         debugPrint('❌ Failed to get backup metadata: $e');
@@ -318,49 +248,33 @@ class AutoBackupService {
     }
   }
 
-  /// Get last backup timestamp
   Future<DateTime?> getLastBackupTime() async {
     return await _preferencesService.getLastBackupTime();
   }
 
-  /// Check if backup is enabled
   Future<bool> isBackupEnabled() async {
     return await _preferencesService.isBackupEnabled();
   }
 
-  /// Enable automatic backup with account verification
-  Future<void> enableBackup(String password) async {
-    // Get and verify platform account
-    final accountId = await _platformAccountService.getAccountId();
-    
-    // Enable backup with this account
-    await enableBackupWithAccount(accountId, password);
-  }
-
-  /// Enable automatic backup with pre-selected account (avoids showing picker again)
-  Future<void> enableBackupWithAccount(String accountId, String password) async {
-    // Enable backup with this account
+  /// Enable automatic local backup
+  Future<void> enableBackup(String accountId, String password) async {
     await _preferencesService.enableBackup(accountId);
     
-    // Check if accounts exist
     final accounts = await _accountService.getAllAccounts();
     
     if (kDebugMode) {
-      debugPrint('Automatic backup enabled for account: $accountId');
+      debugPrint('Local backup enabled for account: $accountId');
       debugPrint('Found ${accounts.length} existing accounts');
     }
     
     if (accounts.isNotEmpty) {
-      // Create initial backup if accounts already exist
-      // This handles the case where user adds accounts BEFORE enabling backup
       if (kDebugMode) {
         debugPrint('Creating initial backup with ${accounts.length} accounts');
       }
       await createAutoBackupWithPassword(password);
     } else {
-      // No accounts yet, but store password for when accounts are added
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(_autoBackupPasswordKey, password);
+      await prefs.setString(_backupPasswordKey, password);
       
       if (kDebugMode) {
         debugPrint('No accounts yet, password stored for future backups');
@@ -368,21 +282,16 @@ class AutoBackupService {
     }
   }
 
-  /// Disable automatic backup
   Future<void> disableBackup() async {
-    // Clear stored password
     final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_autoBackupPasswordKey);
-    
+    await prefs.remove(_backupPasswordKey);
     await _preferencesService.disableBackup();
   }
 
-  /// Get backup account info (email/ID)
   Future<String?> getBackupAccountId() async {
     return await _preferencesService.getBackupAccountId();
   }
 
-  /// Delete backup file
   Future<void> deleteBackup() async {
     try {
       final backupFile = await _getBackupFile();
@@ -393,7 +302,7 @@ class AutoBackupService {
       await _preferencesService.clearPreferences();
       
       if (kDebugMode) {
-        debugPrint('Auto backup deleted');
+        debugPrint('Local backup deleted');
       }
     } catch (e) {
       if (kDebugMode) {
@@ -402,27 +311,14 @@ class AutoBackupService {
     }
   }
 
-  /// Save encrypted data to platform backup location
   Future<void> _saveToBackupLocation(String encryptedData) async {
     final backupFile = await _getBackupFile();
     await backupFile.writeAsString(encryptedData);
   }
 
-  /// Get backup file location
-  /// 
-  /// Android: app's files directory (backed up by Auto Backup)
-  /// iOS: app's documents directory (backed up by iCloud)
+  /// Get backup file location (stored locally on device)
   Future<File> _getBackupFile() async {
-    if (Platform.isAndroid) {
-      // Android: Use getApplicationDocumentsDirectory (backed up automatically)
-      final directory = await getApplicationDocumentsDirectory();
-      return File('${directory.path}/$_backupFileName');
-    } else if (Platform.isIOS) {
-      // iOS: Use getApplicationDocumentsDirectory (backed up to iCloud)
-      final directory = await getApplicationDocumentsDirectory();
-      return File('${directory.path}/$_backupFileName');
-    } else {
-      throw UnsupportedError('Platform not supported');
-    }
+    final directory = await getApplicationDocumentsDirectory();
+    return File('${directory.path}/$_backupFileName');
   }
 }

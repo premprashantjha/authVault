@@ -86,9 +86,6 @@ class AccountService {
 
   Future<void> updateAccount(Account updatedAccount) async {
     try {
-      // If updatedAccount was created from a scanned QR it may have a new id.
-      // Resolve the existing record by issuer+accountName and use its id
-      // so the DB update targets the correct row.
       final existing = await databaseService.getAccountByIssuerAndName(
         updatedAccount.issuer,
         updatedAccount.accountName,
@@ -104,7 +101,6 @@ class AccountService {
         );
         await databaseService.updateAccount(accountToUpdate);
       } else {
-        // Fall back to updating by id (if provided) or adding as new
         await databaseService.updateAccount(updatedAccount);
       }
     } catch (e) {

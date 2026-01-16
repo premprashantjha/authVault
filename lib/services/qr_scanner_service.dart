@@ -31,41 +31,33 @@ class OTPAuthURI {
       throw FormatException('Invalid OTPAuth URI structure');
     }
 
-    final type = uriParts[0]; // totp or hotp
+    final type = uriParts[0];
     final label = Uri.decodeComponent(uriParts[1]);
     final params = Uri.parse(uri).queryParameters;
 
-    // 🎯 FIXED: Proper label parsing logic
     String issuer = '';
     String accountName = '';
 
     if (label.contains(':')) {
-      // Format: "Issuer:AccountName"
       final labelParts = label.split(':');
       issuer = labelParts[0].trim();
       accountName = labelParts[1].trim();
     } else {
-      // Format: Just account name
       accountName = label.trim();
     }
 
-    // 🎯 FIXED: Clean the account name - remove any query parameters
-    // This handles cases like "prem@example.com?secret=DFGDER"
     if (accountName.contains('?')) {
       accountName = accountName.split('?')[0].trim();
     }
 
-    // 🎯 FIXED: Always prefer issuer from parameters if available
     if (params['issuer'] != null && params['issuer']!.isNotEmpty) {
       issuer = params['issuer']!.trim();
     }
 
-    // If issuer is still empty, use a reasonable default
     if (issuer.isEmpty) {
       if (accountName.contains('@')) {
-        // Extract domain from email for issuer
-        issuer = accountName.split('@')[1].split('.')[0]; // Get domain without TLD
-        issuer = issuer[0].toUpperCase() + issuer.substring(1); // Capitalize
+        issuer = accountName.split('@')[1].split('.')[0];
+        issuer = issuer[0].toUpperCase() + issuer.substring(1);
       } else {
         issuer = 'Unknown Service';
       }
@@ -76,11 +68,8 @@ class OTPAuthURI {
       throw FormatException('Missing secret parameter');
     }
 
-    // Removed sensitive logging - don't log issuer/account details
     if (kDebugMode) {
-
       developer.log('QR Code parsed successfully', name: 'QRScanner');
-
     }
 
     return OTPAuthURI(

@@ -1,21 +1,19 @@
 import 'package:flutter/material.dart';
 
 /// Application-wide constants for consistent spacing, sizing, and timing
-/// Use these instead of magic numbers throughout the app
 class AppConstants {
-  // Prevent instantiation
   AppConstants._();
   
   /// Screen size breakpoints for responsive design
-  static const double smallScreenWidth = 360.0;  // Small phones
-  static const double mediumScreenWidth = 400.0; // Standard phones
-  static const double largeScreenWidth = 480.0;  // Large phones/small tablets
-  static const double tabletWidth = 600.0;       // Tablets
+  static const double smallScreenWidth = 360.0;
+  static const double mediumScreenWidth = 400.0;
+  static const double largeScreenWidth = 480.0;
+  static const double tabletWidth = 600.0;
   
   /// Screen height breakpoints
-  static const double shortScreenHeight = 640.0;  // iPhone SE
-  static const double mediumScreenHeight = 800.0; // Standard phones
-  static const double tallScreenHeight = 900.0;   // Tall phones
+  static const double shortScreenHeight = 640.0;
+  static const double mediumScreenHeight = 800.0;
+  static const double tallScreenHeight = 900.0;
   
   /// Get responsive spacing based on screen size
   static double getResponsiveSpacing(BuildContext context, {
@@ -55,7 +53,7 @@ class AppConstants {
     return EdgeInsets.all(padding);
   }
   
-  /// Static spacing values - use for fixed layouts
+  /// Static spacing values
   static const double spaceXs = 4.0;
   static const double spaceSm = 8.0;
   static const double spaceMd = 16.0;
@@ -84,13 +82,13 @@ class AppConstants {
   static const double radiusXl = 24.0;
   static const double radiusXxl = 28.0;
   
-  /// Animation durations - use for consistent timing
+  /// Animation durations
   static const Duration durationFast = Duration(milliseconds: 100);
   static const Duration durationNormal = Duration(milliseconds: 200);
   static const Duration durationSlow = Duration(milliseconds: 300);
   static const Duration durationVerySlow = Duration(milliseconds: 500);
   
-  /// Elevation values - use for shadows and depth
+  /// Elevation values
   static const double elevationLow = 1.0;
   static const double elevationMedium = 2.0;
   static const double elevationHigh = 4.0;
@@ -145,21 +143,18 @@ class AppConstants {
   static const double appBarHeight = 56.0;
   static const double fabSize = 56.0;
   
-  /// Responsive OTP Card dimensions - MINIMUM HEIGHT ONLY (Industry Best Practice)
+  /// Responsive OTP Card minimum height
   static double getResponsiveOTPCardMinHeight(context) {
     final screenWidth = MediaQuery.of(context).size.width;
     final screenHeight = MediaQuery.of(context).size.height;
     
-    // Minimum height only - content can expand naturally
-    if (screenHeight < shortScreenHeight) return 70.0; // Compact for small screens
+    if (screenHeight < shortScreenHeight) return 70.0;
     if (screenWidth < smallScreenWidth) return 76.0;
     if (screenWidth < largeScreenWidth) return 80.0;
-    return 84.0; // Minimum for large screens
+    return 84.0;
   }
   
-  /// DEPRECATED: Use getResponsiveOTPCardMinHeight instead
-  /// This method enforces fixed height which causes overflow
-  @Deprecated("Use getResponsiveOTPCardMinHeight instead - fixed heights cause overflow")
+  @Deprecated("Use getResponsiveOTPCardMinHeight instead")
   static double getResponsiveOTPCardHeight(BuildContext context) {
     return getResponsiveOTPCardMinHeight(context);
   }
@@ -186,17 +181,16 @@ class AppConstants {
   static const double otpTimerSize = 40.0;
   static const double otpFontSize = 24.0;
   
-  /// Responsive dialog dimensions - PROPER FLEXIBLE APPROACH
+  /// Responsive dialog maximum width
   static double getResponsiveDialogMaxWidth(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
-    if (screenWidth < smallScreenWidth) return screenWidth * 0.95; // Almost full width on small screens
+    if (screenWidth < smallScreenWidth) return screenWidth * 0.95;
     if (screenWidth < largeScreenWidth) return screenWidth * 0.9;
     if (screenWidth < tabletWidth) return screenWidth * 0.8;
-    return 480.0; // Max width for tablets, but can be smaller
+    return 480.0;
   }
   
-  /// DEPRECATED: Use getResponsiveDialogMaxWidth instead
-  @Deprecated("Use getResponsiveDialogMaxWidth instead - fixed widths cause layout issues")
+  @Deprecated("Use getResponsiveDialogMaxWidth instead")
   static double getResponsiveDialogWidth(BuildContext context) {
     return getResponsiveDialogMaxWidth(context);
   }

@@ -160,10 +160,40 @@ class BackupService {
       final encodedData = await file.readAsString();
       
       // Decode from base64
-      final decodedBytes = base64.decode(encodedData);
-      final encryptedData = utf8.decode(decodedBytes);
+      String encryptedData;
+      try {
+        final decodedBytes = base64.decode(encodedData);
+        encryptedData = utf8.decode(decodedBytes);
+      } catch (e) {
+        // If base64 decode fails, might be an old unencoded file
+        if (kDebugMode) {
+          debugPrint('Base64 decode failed, trying direct parse: $e');
+        }
+        encryptedData = encodedData;
+      }
       
-      final envelope = json.decode(encryptedData) as Map<String, dynamic>;
+      // Try to parse as encryption envelope
+      Map<String, dynamic>? envelope;
+      try {
+        envelope = json.decode(encryptedData) as Map<String, dynamic>;
+      } catch (e) {
+        if (kDebugMode) {
+          debugPrint('JSON parse failed: $e');
+          debugPrint('First 100 chars: ${encryptedData.substring(0, encryptedData.length > 100 ? 100 : encryptedData.length)}');
+        }
+        throw EncryptionException('Invalid backup file format');
+      }
+      
+      // Check if this is an encryption envelope or raw backup data
+      final isEncryptionEnvelope = envelope.containsKey('v') && envelope.containsKey('ct');
+      
+      if (!isEncryptionEnvelope) {
+        // This is an old-format backup (raw JSON, not encrypted)
+        if (kDebugMode) {
+          debugPrint('Warning: Old format backup detected (not encrypted)');
+        }
+        throw EncryptionException('This backup file uses an old format and cannot be read. Please create a new backup.');
+      }
       
       final fileSize = await file.length();
       final createdAt = await file.lastModified();
@@ -172,14 +202,15 @@ class BackupService {
         filePath: filePath,
         fileSize: fileSize,
         createdAt: createdAt,
-        version: envelope['v'] as int? ?? 1, // Use 'v' not 'version'
+        version: envelope['v'] as int? ?? 1,
         kdf: envelope['kdf'] as String? ?? 'argon2id',
-        cipher: envelope['alg'] as String? ?? 'XChaCha20-Poly1305', // Use 'alg' not 'cipher'
+        cipher: envelope['alg'] as String? ?? 'XChaCha20-Poly1305',
       );
     } catch (e) {
       if (kDebugMode) {
         debugPrint('Error reading backup info: $e');
       }
+      if (e is EncryptionException) rethrow;
       throw EncryptionException('Failed to read backup file: $e');
     }
   }
@@ -333,7 +364,16 @@ class BackupService {
       
       final files = await dir
           .list()
-          .where((entity) => entity is File && entity.path.endsWith(_backupFileExtension))
+          .where((entity) {
+            if (entity is! File) return false;
+            if (!entity.path.endsWith(_backupFileExtension)) return false;
+            
+            // Exclude local auto backup file (it's managed separately)
+            final fileName = entity.path.split('/').last;
+            if (fileName == 'encrypted_backup$_backupFileExtension') return false;
+            
+            return true;
+          })
           .map((entity) => entity.path)
           .toList();
       

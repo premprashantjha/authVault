@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../app/theme.dart';
 import '../app/app_constants.dart';
-import '../services/auto_backup_service.dart';
+import '../services/local_backup_service.dart';
 import '../view_models/account_view_model.dart';
 import '../widgets/restore_prompt_dialog.dart';
 import '../widgets/custom_snackbar.dart';
@@ -174,30 +174,25 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     try {
       // Get backup info to show in dialog
       final accountViewModel = context.read<AccountViewModel>();
-      final autoBackupService = AutoBackupService(
+      final localBackupService = LocalBackupService(
         accountService: accountViewModel.accountService,
       );
       
-      // Get account count from backup (if possible)
-      final accountCount = await _getBackupAccountCount(autoBackupService);
+      final accountCount = await _getBackupAccountCount(localBackupService);
       
-      // Show restore prompt dialog
       final shouldRestore = await showRestorePromptDialog(
         context,
         accountCount: accountCount,
       );
       
       if (shouldRestore == true) {
-        // User wants to restore
-        await _performRestore(autoBackupService);
+        await _performRestore(localBackupService);
       }
     } catch (e) {
-      // Silently fail
     }
   }
 
-  /// Get account count from backup
-  Future<int> _getBackupAccountCount(AutoBackupService backupService) async {
+  Future<int> _getBackupAccountCount(LocalBackupService backupService) async {
     try {
       final metadata = await backupService.getBackupMetadata();
       return metadata?['account_count'] ?? 0;
@@ -206,8 +201,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     }
   }
 
-  /// Perform backup restore
-  Future<void> _performRestore(AutoBackupService backupService) async {
+  Future<void> _performRestore(LocalBackupService backupService) async {
     if (!mounted) return;
     
     // Prompt for password
