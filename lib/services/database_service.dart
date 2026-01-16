@@ -144,8 +144,6 @@ class DatabaseService {
         debugPrint('❌ [DatabaseService] Error loading accounts: $e');
         debugPrint('Stack trace: ${StackTrace.current}');
       }
-      // Rethrow the error so the caller can handle it appropriately
-      // Don't silently return empty list - let the ViewModel decide what to do
       rethrow;
     }
   }

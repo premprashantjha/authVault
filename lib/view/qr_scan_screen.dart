@@ -1,17 +1,15 @@
-// no extra dart:async required
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:mobile_scanner/mobile_scanner.dart';
-import 'package:permission_handler/permission_handler.dart';
-import '../services/qr_scanner_service.dart';
 import 'package:provider/provider.dart';
 import '../app/theme.dart';
 import '../app/app_constants.dart';
+import '../services/qr_scanner_service.dart';
 import '../models/account.dart';
 import '../view_models/account_view_model.dart';
-import '../widgets/animated_button.dart';
+import '../widgets/qr_scanner_widget.dart';
 import '../widgets/custom_snackbar.dart';
 
+/// Screen for scanning QR codes to add accounts
 class QRScanScreen extends StatefulWidget {
   const QRScanScreen({super.key});
 
@@ -19,108 +17,8 @@ class QRScanScreen extends StatefulWidget {
   State<QRScanScreen> createState() => _QRScanScreenState();
 }
 
-class _QRScanScreenState extends State<QRScanScreen> with WidgetsBindingObserver, SingleTickerProviderStateMixin {
-  late final MobileScannerController _cameraController;
-  late final AnimationController _scanAnimation;
-  bool _hasError = false;
-  String _errorMessage = '';
-  bool _isProcessing = false;
-  bool _torchOn = false;
-  bool _permissionGranted = false;
-  bool _isInitializing = true;
-  CameraFacing _facing = CameraFacing.back;
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addObserver(this);
-    _scanAnimation = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 2000),
-    )..repeat();
-    
-    // Initialize camera with permission check
-    _initializeCamera();
-  }
-
-  Future<void> _initializeCamera() async {
-    try {
-      // Check and request camera permission
-      final permission = await Permission.camera.status;
-      
-      if (permission.isDenied) {
-        final result = await Permission.camera.request();
-        if (result.isDenied) {
-          _setError('Camera permission is required to scan QR codes. Please enable camera access in Settings.');
-          return;
-        }
-      }
-      
-      if (permission.isPermanentlyDenied) {
-        _setError('Camera permission is permanently denied. Please enable camera access in Settings.');
-        return;
-      }
-      
-      // Permission granted, initialize camera
-      _cameraController = MobileScannerController(
-        facing: _facing, 
-        torchEnabled: false,
-      );
-      
-      setState(() {
-        _permissionGranted = true;
-        _isInitializing = false;
-      });
-      
-    } catch (e) {
-      _setError('Failed to initialize camera: ${e.toString()}');
-    }
-  }
-
-  @override
-  void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
-    _scanAnimation.dispose();
-    if (_permissionGranted) {
-      _cameraController.dispose();
-    }
-    super.dispose();
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (!mounted || !_permissionGranted) return;
-    
-    // Prevent camera restart during navigation transitions
-    if (state == AppLifecycleState.inactive) {
-      _cameraController.stop();
-    } else if (state == AppLifecycleState.resumed) {
-      // Only restart camera if we're still on this screen
-      if (mounted && ModalRoute.of(context)?.isCurrent == true) {
-        _cameraController.start();
-      }
-    }
-  }
-
-  void _toggleTorch() async {
-    if (!_permissionGranted) return;
-    try {
-      await _cameraController.toggleTorch();
-      setState(() => _torchOn = !_torchOn);
-    } catch (e) {
-      // ignore
-    }
-  }
-
-  void _switchCamera() async {
-    if (!_permissionGranted) return;
-    try {
-      await _cameraController.switchCamera();
-      setState(() => _facing = _facing == CameraFacing.back ? CameraFacing.front : CameraFacing.back);
-    } catch (e) {
-      // ignore
-    }
-  }
+class _QRScanScreenState extends State<QRScanScreen> {
+  final GlobalKey<QRScannerWidgetState> _scannerKey = GlobalKey();
 
   void _processScannedData(String scannedData) {
     try {
@@ -129,10 +27,10 @@ class _QRScanScreenState extends State<QRScanScreen> with WidgetsBindingObserver
       if (otpAuth.isValid) {
         _addAccountFromQR(otpAuth);
       } else {
-        _setError('Invalid QR code format');
+        _showError('This QR code is not supported');
       }
     } catch (e) {
-      _setError('Failed to parse QR code: ${e.toString()}');
+      _showError('Failed to parse QR code: ${e.toString()}');
     }
   }
 
@@ -153,26 +51,28 @@ class _QRScanScreenState extends State<QRScanScreen> with WidgetsBindingObserver
         HapticFeedback.lightImpact();
 
         if (!mounted) return;
-        
+
         // Pop and return success
         Navigator.of(context).pop(true);
       } else if (mounted) {
-        _setError('Failed to add account. Please try again.');
+        _showError('Failed to add account. Please try again.');
       }
     }
   }
 
-  void _showDuplicateAccountDialog(Account account, AccountViewModel viewModel) {
+  void _showDuplicateAccountDialog(
+      Account account, AccountViewModel viewModel) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    
+
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (dialogContext) => AlertDialog(
         backgroundColor: colorScheme.surface,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppConstants.getResponsiveRadius(context, large: 20.0))
+          borderRadius: BorderRadius.circular(
+              AppConstants.getResponsiveRadius(context, large: 20.0)),
         ),
         title: Row(
           children: [
@@ -191,10 +91,9 @@ class _QRScanScreenState extends State<QRScanScreen> with WidgetsBindingObserver
             ),
             const SizedBox(width: 16),
             Expanded(
-              child: Text(
-                'Account Already Exists', 
-                style: AppTheme.responsiveHeadlineMedium(context, colorScheme.onSurface)
-              ),
+              child: Text('Account Already Exists',
+                  style: AppTheme.responsiveHeadlineMedium(
+                      context, colorScheme.onSurface)),
             ),
           ],
         ),
@@ -202,33 +101,25 @@ class _QRScanScreenState extends State<QRScanScreen> with WidgetsBindingObserver
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              '${account.issuer} - ${account.accountName}', 
-              style: AppTheme.responsiveBodyLarge(context, colorScheme.onSurface).copyWith(
-                fontWeight: FontWeight.w600
-              )
-            ),
+            Text('${account.issuer} - ${account.accountName}',
+                style: AppTheme.responsiveBodyLarge(context, colorScheme.onSurface)
+                    .copyWith(fontWeight: FontWeight.w600)),
             SizedBox(height: AppConstants.getResponsiveSpacing(context)),
-            Text(
-              'This account is already added to your authenticator.', 
-              style: AppTheme.responsiveBodyMedium(context, colorScheme.onSurface)
-            ),
+            Text('This account is already added to your authenticator.',
+                style: AppTheme.responsiveBodyMedium(
+                    context, colorScheme.onSurface)),
           ],
         ),
         actions: [
           TextButton(
-            onPressed: () async {
+            onPressed: () {
               Navigator.pop(dialogContext);
-              // Restart camera for scanning again
-              _isProcessing = false;
-              if (_permissionGranted) {
-                _cameraController.start();
-              }
+              // Restart scanning
+              _scannerKey.currentState?.restartScanning();
             },
-            child: Text(
-              'Cancel', 
-              style: AppTheme.responsiveBodyMedium(context, colorScheme.onSurface)
-            ),
+            child: Text('Cancel',
+                style: AppTheme.responsiveBodyMedium(
+                    context, colorScheme.onSurface)),
           ),
           ElevatedButton(
             onPressed: () async {
@@ -249,362 +140,35 @@ class _QRScanScreenState extends State<QRScanScreen> with WidgetsBindingObserver
             style: ElevatedButton.styleFrom(
               backgroundColor: colorScheme.primary,
             ),
-            child: Text('Update', style: AppTheme.bodyMedium(colorScheme.onPrimary)),
+            child: Text('Update',
+                style: AppTheme.bodyMedium(colorScheme.onPrimary)),
           ),
         ],
       ),
     );
   }
 
-  void _setError(String message) {
+  void _showError(String message) {
     if (mounted) {
-      setState(() {
-        _hasError = true;
-        _errorMessage = message;
-        _isProcessing = false;
-      });
+      CustomSnackbar.show(
+        context,
+        title: 'Scan Error',
+        message: message,
+        type: SnackbarType.error,
+      );
+      // Restart scanning
+      _scannerKey.currentState?.restartScanning();
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.black,
-      extendBodyBehindAppBar: true,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.close, color: Colors.white),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
-        actions: [
-          IconButton(
-            icon: Icon(_torchOn ? Icons.flash_on : Icons.flash_off, 
-                      color: _permissionGranted ? Colors.white : Colors.white38),
-            onPressed: _permissionGranted ? _toggleTorch : null,
-          ),
-          IconButton(
-            icon: Icon(Icons.flip_camera_ios, 
-                      color: _permissionGranted ? Colors.white : Colors.white38),
-            onPressed: _permissionGranted ? _switchCamera : null,
-          ),
-        ],
-      ),
-      body: _buildBody(),
+    return QRScannerWidget(
+      key: _scannerKey,
+      title: 'Scan QR Code',
+      scanHint: 'Position QR code within frame',
+      onQRCodeScanned: _processScannedData,
+      showGalleryButton: true,
     );
   }
-
-  Widget _buildBody() {
-    if (_isInitializing) {
-      return _buildLoadingState();
-    }
-    
-    if (_hasError) {
-      return _buildErrorState();
-    }
-    
-    if (!_permissionGranted) {
-      return _buildPermissionDeniedState();
-    }
-
-    return Stack(
-      children: [
-        MobileScanner(
-          controller: _cameraController,
-          fit: BoxFit.cover,
-          onDetect: (capture) {
-            if (_isProcessing) return;
-            final barcodes = capture.barcodes;
-            if (barcodes.isEmpty) return;
-            final raw = barcodes.first.rawValue;
-            if (raw == null || raw.isEmpty) return;
-            _isProcessing = true;
-            _cameraController.stop();
-            _processScannedData(raw);
-          },
-        ),
-        _buildScannerOverlay(),
-      ],
-    );
-  }
-
-  Widget _buildScannerOverlay() {
-    final theme = Theme.of(context);
-    final scanAreaSize = MediaQuery.of(context).size.width * 0.7;
-
-    return Center(
-      child: SizedBox(
-        width: scanAreaSize,
-        height: scanAreaSize,
-        child: Stack(
-          children: [
-            // Corner borders
-            CustomPaint(
-              size: Size(scanAreaSize, scanAreaSize),
-              painter: _CornerBorderPainter(
-                color: theme.colorScheme.primary,
-                cornerLength: 40,
-                borderWidth: 4,
-              ),
-            ),
-            // Scanning line animation
-            AnimatedBuilder(
-              animation: _scanAnimation,
-              builder: (context, child) {
-                return Positioned(
-                  top: scanAreaSize * _scanAnimation.value,
-                  left: 0,
-                  right: 0,
-                  child: Container(
-                    height: 2,
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [
-                          theme.colorScheme.primary.withOpacity(0),
-                          theme.colorScheme.primary,
-                          theme.colorScheme.primary.withOpacity(0),
-                        ],
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: theme.colorScheme.primary.withOpacity(0.5),
-                          blurRadius: 8,
-                          spreadRadius: 2,
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              },
-            ),
-            // Semi-transparent hint text
-            Positioned(
-              bottom: 16,
-              left: 0,
-              right: 0,
-              child: Text(
-                'Position QR code within frame',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: Colors.white.withOpacity(0.8),
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                  shadows: [
-                    Shadow(
-                      color: Colors.black.withOpacity(0.8),
-                      blurRadius: 8,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildLoadingState() {
-    return Container(
-      color: Colors.black,
-      child: const Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            CircularProgressIndicator(color: Colors.white),
-            SizedBox(height: 20),
-            Text(
-              'Initializing Camera...',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 16,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPermissionDeniedState() {
-    return Container(
-      color: Colors.black,
-      child: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(Icons.camera_alt_outlined, size: 64, color: Colors.white70),
-              const SizedBox(height: 20),
-              const Text(
-                'Camera Permission Required',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 12),
-              const Text(
-                'To scan QR codes, please allow camera access in your device settings.',
-                style: TextStyle(color: Colors.white70, fontSize: 14),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 30),
-              AnimatedButton(
-                onTap: () async {
-                  await openAppSettings();
-                },
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Text(
-                    'Open Settings',
-                    style: TextStyle(color: Colors.black, fontWeight: FontWeight.w600),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(),
-                child: const Text(
-                  'Cancel',
-                  style: TextStyle(color: Colors.white70),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildErrorState() {
-    return Container(
-      color: Colors.black,
-      child: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(Icons.error_outline, size: 64, color: Colors.white70),
-              const SizedBox(height: 20),
-              const Text(
-                'Camera Error',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                _errorMessage,
-                style: const TextStyle(color: Colors.white70, fontSize: 14),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 30),
-              AnimatedButton(
-                onTap: () async {
-                  setState(() {
-                    _hasError = false;
-                    _errorMessage = '';
-                    _isInitializing = true;
-                  });
-                  await _initializeCamera();
-                },
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Text(
-                    'Try Again',
-                    style: TextStyle(color: Colors.black, fontWeight: FontWeight.w600),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// Custom painter for corner borders
-class _CornerBorderPainter extends CustomPainter {
-  final Color color;
-  final double cornerLength;
-  final double borderWidth;
-
-  _CornerBorderPainter({
-    required this.color,
-    required this.cornerLength,
-    required this.borderWidth,
-  });
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = color
-      ..strokeWidth = borderWidth
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
-
-    final radius = 16.0;
-
-    // Top-left corner
-    canvas.drawPath(
-      Path()
-        ..moveTo(0, cornerLength)
-        ..lineTo(0, radius)
-        ..arcToPoint(Offset(radius, 0), radius: Radius.circular(radius))
-        ..lineTo(cornerLength, 0),
-      paint,
-    );
-
-    // Top-right corner
-    canvas.drawPath(
-      Path()
-        ..moveTo(size.width - cornerLength, 0)
-        ..lineTo(size.width - radius, 0)
-        ..arcToPoint(Offset(size.width, radius), radius: Radius.circular(radius))
-        ..lineTo(size.width, cornerLength),
-      paint,
-    );
-
-    // Bottom-left corner
-    canvas.drawPath(
-      Path()
-        ..moveTo(0, size.height - cornerLength)
-        ..lineTo(0, size.height - radius)
-        ..arcToPoint(Offset(radius, size.height), radius: Radius.circular(radius))
-        ..lineTo(cornerLength, size.height),
-      paint,
-    );
-
-    // Bottom-right corner
-    canvas.drawPath(
-      Path()
-        ..moveTo(size.width - cornerLength, size.height)
-        ..lineTo(size.width - radius, size.height)
-        ..arcToPoint(Offset(size.width, size.height - radius), radius: Radius.circular(radius))
-        ..lineTo(size.width, size.height - cornerLength),
-      paint,
-    );
-  }
-
-  @override
-  bool shouldRepaint(_CornerBorderPainter oldDelegate) =>
-      oldDelegate.color != color ||
-      oldDelegate.cornerLength != cornerLength ||
-      oldDelegate.borderWidth != borderWidth;
 }

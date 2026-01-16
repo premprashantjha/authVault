@@ -53,7 +53,6 @@ class AuthenticatorAppWithDialog extends StatefulWidget {
   final String securityMessage;
   final VoidCallback onSecurityWarningDismissed;
   final bool hasBackupAvailable;
-  final bool hasCloudBackup;
 
   const AuthenticatorAppWithDialog({
     super.key,
@@ -63,7 +62,6 @@ class AuthenticatorAppWithDialog extends StatefulWidget {
     required this.securityMessage,
     required this.onSecurityWarningDismissed,
     this.hasBackupAvailable = false,
-    this.hasCloudBackup = false,
   });
 
   @override
@@ -109,7 +107,6 @@ class _AuthenticatorAppWithDialogState extends State<AuthenticatorAppWithDialog>
                   onFinished: widget.onOnboardingFinished,
                   allowSkip: true,
                   hasBackupAvailable: widget.hasBackupAvailable,
-                  hasCloudBackup: widget.hasCloudBackup,
                 )
               : const AuthWrapper();
         },

@@ -12,6 +12,9 @@ class OTPCard extends StatefulWidget {
   final VoidCallback onDelete;
   final VoidCallback onTap;
   final VoidCallback onFavoriteToggle;
+  final bool isSelectionMode;
+  final VoidCallback? onLongPress;
+  final VoidCallback? onCardTap;
 
   const OTPCard({
     super.key,
@@ -19,6 +22,9 @@ class OTPCard extends StatefulWidget {
     required this.onDelete,
     required this.onTap,
     required this.onFavoriteToggle,
+    this.isSelectionMode = false,
+    this.onLongPress,
+    this.onCardTap,
   });
 
   @override
@@ -93,7 +99,10 @@ class _OTPCardState extends State<OTPCard> {
         borderRadius: BorderRadius.circular(AppConstants.getResponsiveRadius(context)),
       ),
       child: InkWell(
-        onTap: widget.onTap,
+        onTap: widget.isSelectionMode && widget.onCardTap != null 
+            ? widget.onCardTap 
+            : widget.onTap,
+        onLongPress: widget.onLongPress,
         borderRadius: BorderRadius.circular(AppConstants.getResponsiveRadius(context)),
         child: Container(
           // REMOVED FIXED HEIGHT - Let content determine height naturally
@@ -145,34 +154,36 @@ class _OTPCardState extends State<OTPCard> {
                       ],
                     ),
                   ),
-                  IconButton(
-                    icon: AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 300),
-                      transitionBuilder: (child, animation) {
-                        return ScaleTransition(
-                          scale: animation,
-                          child: child,
-                        );
-                      },
-                      child: Icon(
-                        widget.account.isFavorite ? Icons.star : Icons.star_border,
-                        key: ValueKey(widget.account.isFavorite),
-                        color: widget.account.isFavorite
-                            ? theme.colorScheme.primary
-                            : theme.colorScheme.onSurface.withValues(alpha: 0.5),
-                        size: AppConstants.getResponsiveIconSize(context, small: 20.0, medium: 22.0, large: 24.0),
+                  if (!widget.isSelectionMode) ...[
+                    IconButton(
+                      icon: AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 300),
+                        transitionBuilder: (child, animation) {
+                          return ScaleTransition(
+                            scale: animation,
+                            child: child,
+                          );
+                        },
+                        child: Icon(
+                          widget.account.isFavorite ? Icons.star : Icons.star_border,
+                          key: ValueKey(widget.account.isFavorite),
+                          color: widget.account.isFavorite
+                              ? theme.colorScheme.primary
+                              : theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                          size: AppConstants.getResponsiveIconSize(context, small: 20.0, medium: 22.0, large: 24.0),
+                        ),
                       ),
+                      tooltip: widget.account.isFavorite ? 'Remove from favorites' : 'Mark as favorite',
+                      onPressed: widget.onFavoriteToggle,
                     ),
-                    tooltip: widget.account.isFavorite ? 'Remove from favorites' : 'Mark as favorite',
-                    onPressed: widget.onFavoriteToggle,
-                  ),
-                  IconButton(
-                    icon: Icon(
-                      Icons.delete_outline,
-                      color: theme.colorScheme.onSurface.withValues(alpha:0.6),
+                    IconButton(
+                      icon: Icon(
+                        Icons.delete_outline,
+                        color: theme.colorScheme.onSurface.withValues(alpha:0.6),
+                      ),
+                      onPressed: () => _showDeleteConfirmationDialog(context),
                     ),
-                    onPressed: () => _showDeleteConfirmationDialog(context),
-                  ),
+                  ],
                 ],
               ),
               SizedBox(height: AppConstants.spaceMd),

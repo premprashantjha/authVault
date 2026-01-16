@@ -5,21 +5,17 @@ import 'package:share_plus/share_plus.dart';
 import 'package:provider/provider.dart';
 import '../app/theme.dart';
 import '../services/backup_service.dart';
-import '../services/cloud_sync_service.dart';
 import '../view_models/account_view_model.dart';
 import '../widgets/backup_password_dialog.dart';
-import '../widgets/backup_status_card.dart';
 import '../widgets/custom_snackbar.dart';
 import '../widgets/animated_button.dart';
 
 class BackupScreen extends StatefulWidget {
   final BackupService backupService;
-  final CloudSyncService cloudSyncService;
 
   const BackupScreen({
     super.key,
     required this.backupService,
-    required this.cloudSyncService,
   });
 
   @override
@@ -503,95 +499,9 @@ class _BackupScreenState extends State<BackupScreen> {
               child: ListView(
                 padding: const EdgeInsets.all(16),
                 children: [
-                  // Backup status card
-                  BackupStatusCard(
-                    cloudSyncService: widget.cloudSyncService,
-                    onStatusChanged: () {
-                      // Reload backup list when status changes
-                      _loadBackupFiles();
-                    },
-                  ),
-                  const SizedBox(height: 32),
-                  
-                  // Cloud Sync Options Section
-                  FutureBuilder<bool>(
-                    future: widget.cloudSyncService.hasCloudBackup().timeout(
-                      const Duration(seconds: 5),
-                      onTimeout: () => false,
-                    ),
-                    builder: (context, snapshot) {
-                      final hasBackup = snapshot.data == true;
-                      
-                      // Only show restore option if backup exists
-                      if (!hasBackup) {
-                        return const SizedBox.shrink();
-                      }
-                      
-                      return Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // Restore existing backup
-                          Container(
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              color: AppTheme.successColor.withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(
-                                color: AppTheme.successColor.withValues(alpha: 0.3),
-                              ),
-                            ),
-                            child: Row(
-                              children: [
-                                Icon(
-                                  Icons.cloud_download_rounded,
-                                  color: AppTheme.successColor,
-                                  size: 32,
-                                ),
-                                const SizedBox(width: 16),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        'Cloud Backup Found',
-                                        style: AppTheme.bodyLarge(colorScheme.onSurface).copyWith(
-                                          fontWeight: AppTheme.weightBold,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        'Restore your previous accounts',
-                                        style: AppTheme.caption(colorScheme.onSurface.withValues(alpha: 0.7)),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          ElevatedButton.icon(
-                            onPressed: _restoreFromCloud,
-                            icon: const Icon(Icons.restore, size: 20),
-                            label: const Text('Restore from Cloud'),
-                            style: ElevatedButton.styleFrom(
-                              minimumSize: const Size(double.infinity, 52),
-                              padding: const EdgeInsets.symmetric(vertical: 14),
-                              backgroundColor: AppTheme.successColor,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 32),
-                        ],
-                      );
-                    },
-                  ),
-                  
                   // Backup Files Section
                   Text(
-                    'BACKUP FILES',
+                    'MANUAL BACKUPS',
                     style: AppTheme.caption(colorScheme.onSurface).copyWith(
                       fontWeight: AppTheme.weightSemiBold,
                       letterSpacing: 1.2,
@@ -600,7 +510,7 @@ class _BackupScreenState extends State<BackupScreen> {
                   const SizedBox(height: 12),
                   
                   Text(
-                    'Create encrypted backup files that you can save anywhere. Import backups from other devices.',
+                    'Create encrypted backup files that you can save anywhere. Import backups from other devices or apps.',
                     style: AppTheme.caption(colorScheme.onSurface.withValues(alpha: 0.7)),
                   ),
                   const SizedBox(height: 16),
@@ -810,102 +720,6 @@ class _BackupScreenState extends State<BackupScreen> {
       return '${diff.inDays} days ago';
     } else {
       return '${date.day}/${date.month}/${date.year}';
-    }
-  }
-  
-  /// Restore from cloud backup
-  Future<void> _restoreFromCloud() async {
-    // Show password dialog
-    final password = await showDialog<String>(
-      context: context,
-      builder: (context) => const BackupPasswordDialog(
-        title: 'Restore from Cloud',
-        description: 'Enter your backup password',
-        isCreating: false,
-      ),
-    );
-    
-    if (password == null) return;
-    
-    // Show progress
-    if (!mounted) return;
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) {
-        final theme = Theme.of(context);
-        final colorScheme = theme.colorScheme;
-        return Dialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          child: Padding(
-            padding: const EdgeInsets.all(32),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                SizedBox(
-                  width: 60,
-                  height: 60,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 4,
-                    valueColor: AlwaysStoppedAnimation<Color>(colorScheme.primary),
-                  ),
-                ),
-                const SizedBox(height: 24),
-                Text(
-                  'Restoring from Cloud',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
-                    color: colorScheme.onSurface,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Decrypting your accounts...',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: colorScheme.onSurface.withValues(alpha: 0.7),
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-    
-    try {
-      // Restore from cloud
-      final accountsRestored = await widget.cloudSyncService.restoreFromCloud(password);
-      
-      if (!mounted) return;
-      Navigator.of(context).pop(); // Close progress dialog
-      
-      // Reload account list in parent
-      final accountViewModel = Provider.of<AccountViewModel>(context, listen: false);
-      await accountViewModel.reloadAfterUnlock();
-      
-      // Show success
-      CustomSnackbar.show(
-        context,
-        title: 'Restore Complete',
-        message: 'Successfully restored $accountsRestored accounts from cloud',
-        type: SnackbarType.success,
-      );
-      
-      // Reload backup list
-      await _loadBackupFiles();
-    } catch (e) {
-      if (!mounted) return;
-      Navigator.of(context).pop(); // Close progress dialog
-      
-      CustomSnackbar.show(
-        context,
-        title: 'Restore Failed',
-        message: e.toString().replaceFirst('CloudSyncException: ', ''),
-        type: SnackbarType.error,
-      );
     }
   }
   

@@ -6,14 +6,12 @@ import '../models/account.dart';
 import '../services/account_service.dart';
 import '../services/totp_service.dart';
 import '../services/auto_backup_service.dart';
-import '../services/cloud_sync_service.dart';
 
 class AccountViewModel with ChangeNotifier {
   static const _favoriteAccountsKey = 'favorite_account_ids';
 
   final AccountService accountService;
   final TOTPService totpService;
-  CloudSyncService? cloudSyncService;
   SharedPreferences? _prefs;
   
   List<Account> _accounts = [];
@@ -32,7 +30,6 @@ class AccountViewModel with ChangeNotifier {
   AccountViewModel({
     required this.accountService,
     required this.totpService,
-    this.cloudSyncService,
     bool autoInit = true,
   }) {
     // Don't auto-load accounts - wait for explicit reloadAfterUnlock() call
@@ -139,9 +136,6 @@ class AccountViewModel with ChangeNotifier {
       // Trigger automatic backup
       _triggerAutoBackup();
       
-      // Trigger cloud sync
-      await _triggerCloudSync();
-      
       return true;
     } catch (e) {
       if (kDebugMode) {
@@ -164,9 +158,6 @@ class AccountViewModel with ChangeNotifier {
       
       // Trigger automatic backup
       _triggerAutoBackup();
-      
-      // Trigger cloud sync
-      await _triggerCloudSync();
       
       return true;
     } catch (e) {
@@ -245,9 +236,6 @@ class AccountViewModel with ChangeNotifier {
     try {
       await accountService.updateAccount(account);
       await _loadAccounts();
-      
-      // Trigger cloud sync
-      await _triggerCloudSync();
       
       return true;
     } catch (e) {
@@ -425,19 +413,6 @@ class AccountViewModel with ChangeNotifier {
         }
       }
     });
-  }
-  
-  /// Trigger cloud sync on account change
-  Future<void> _triggerCloudSync() async {
-    if (cloudSyncService == null) return;
-    
-    try {
-      await cloudSyncService!.onAccountChanged();
-    } catch (e) {
-      if (kDebugMode) {
-        debugPrint('Cloud sync trigger failed: $e');
-      }
-    }
   }
 
   @override

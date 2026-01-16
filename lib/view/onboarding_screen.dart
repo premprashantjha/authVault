@@ -3,12 +3,10 @@ import 'package:provider/provider.dart';
 import '../app/theme.dart';
 import '../app/app_constants.dart';
 import '../services/auto_backup_service.dart';
-import '../services/cloud_sync_service.dart';
 import '../view_models/account_view_model.dart';
 import '../widgets/restore_prompt_dialog.dart';
 import '../widgets/custom_snackbar.dart';
 import '../widgets/backup_password_dialog.dart';
-import 'cloud_restore_screen.dart';
 
 class OnboardingSlide {
   final String title;
@@ -34,7 +32,6 @@ class OnboardingScreen extends StatefulWidget {
   final VoidCallback? onOpenDiagnostics;
   final VoidCallback? onEnablePassphrase;
   final bool hasBackupAvailable;
-  final bool hasCloudBackup;
 
   const OnboardingScreen({
     super.key,
@@ -47,7 +44,6 @@ class OnboardingScreen extends StatefulWidget {
     this.onOpenDiagnostics,
     this.onEnablePassphrase,
     this.hasBackupAvailable = false,
-    this.hasCloudBackup = false,
   });
 
   @override
@@ -66,7 +62,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       icon: Icons.security,
       tips: [
         'No cloud sync or data collection',
-        'Military-grade encryption protects your secrets',
+        'Strong encryption protects your secrets',
         'Only you have access to your data',
       ],
     ),
@@ -131,7 +127,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   void _goNext() async {
     if (_currentIndex == _slides.length - 1) {
       // On last page, check if backup is available
-      if ((widget.hasBackupAvailable || widget.hasCloudBackup) && !widget.isReviewMode) {
+      if (widget.hasBackupAvailable && !widget.isReviewMode) {
         await _handleRestorePrompt();
       } else {
         widget.onFinished();
@@ -158,10 +154,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     
     try {
       // Check which type of backup is available
-      if (widget.hasCloudBackup) {
-        // Cloud backup available - show cloud restore option
-        await _handleCloudRestore();
-      } else if (widget.hasBackupAvailable) {
+      if (widget.hasBackupAvailable) {
         // Local backup available - show local restore option
         await _handleLocalRestore();
       }
@@ -172,69 +165,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       // If anything fails, just continue to app
       widget.onFinished();
     }
-  }
-  
-  /// Handle cloud backup restore
-  Future<void> _handleCloudRestore() async {
-    if (!mounted) return;
-    
-    final cloudSyncService = context.read<CloudSyncService>();
-    
-    // Show dialog asking if user wants to restore
-    final shouldRestore = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) {
-        final theme = Theme.of(dialogContext);
-        return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.primary.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(
-                  Icons.cloud_download_rounded,
-                  color: theme.colorScheme.primary,
-                  size: 24,
-                ),
-              ),
-            const SizedBox(width: 12),
-            const Expanded(
-              child: Text('Cloud Backup Found'),
-            ),
-          ],
-        ),
-        content: const Text(
-          'We found your cloud backup. Would you like to restore your accounts now?',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Skip'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('Restore'),
-          ),
-        ],
-      );
-      },
-    );
-    
-    if (shouldRestore != true) return;
-    
-    // Navigate to cloud restore screen
-    if (!mounted) return;
-    await Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => CloudRestoreScreen(
-          cloudSyncService: cloudSyncService,
-        ),
-      ),
-    );
   }
   
   /// Handle local backup restore

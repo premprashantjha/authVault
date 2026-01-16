@@ -159,10 +159,10 @@ class EncryptionService {
     try {
       final envelope = json.decode(encryptedText) as Map<String, dynamic>;
       
-      // Validate envelope version
+      // Validate envelope version (strict v1 only during development)
       final version = envelope['v'] as int?;
-      if (version == null || version > _currentVersion) {
-        throw EncryptionException('Unsupported envelope version: $version');
+      if (version == null || version != _currentVersion) {
+        throw EncryptionException('Unsupported envelope version: $version (expected: $_currentVersion)');
       }
 
       // Validate algorithm

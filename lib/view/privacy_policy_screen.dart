@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../app/theme.dart';
 
 class PrivacyPolicyScreen extends StatelessWidget {
@@ -28,31 +29,6 @@ class PrivacyPolicyScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Last Updated
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: colorScheme.primaryContainer.withValues(alpha: 0.3),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: colorScheme.primary.withValues(alpha: 0.3),
-                ),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.info_outline, color: colorScheme.primary, size: 20),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      'Last Updated: December 1, 2025',
-                      style: AppTheme.bodyMedium(colorScheme.onSurface),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 24),
-
             // Introduction
             _buildSection(
               context,
@@ -122,19 +98,22 @@ class PrivacyPolicyScreen extends StatelessWidget {
               context,
               icon: Icons.camera_alt,
               title: 'Camera',
-              description: 'Used only to scan QR codes when adding new accounts. Never used for any other purpose.',
+              description:
+                  'Used only to scan QR codes when adding new accounts. Never used for any other purpose.',
             ),
             _buildPermissionItem(
               context,
               icon: Icons.fingerprint,
               title: 'Device Security',
-              description: 'Uses your device\'s built-in lock (PIN, pattern, or biometric) to protect app access.',
+              description:
+                  'Uses your device\'s built-in lock (PIN, pattern, or biometric) to protect app access.',
             ),
             _buildPermissionItem(
               context,
               icon: Icons.folder,
               title: 'Storage',
-              description: 'Used to save and restore encrypted backup files. All files remain on your device.',
+              description:
+                  'Used to save and restore encrypted backup files. All files remain on your device.',
             ),
 
             const SizedBox(height: 16),
@@ -143,7 +122,8 @@ class PrivacyPolicyScreen extends StatelessWidget {
             _buildSection(
               context,
               title: 'Data Security',
-              content: 'We implement multiple layers of security to protect your data:',
+              content:
+                  'We implement multiple layers of security to protect your data:',
             ),
 
             _buildBulletPoint(
@@ -251,7 +231,11 @@ class PrivacyPolicyScreen extends StatelessWidget {
                 children: [
                   Row(
                     children: [
-                      Icon(Icons.email_outlined, color: colorScheme.primary, size: 20),
+                      Icon(
+                        Icons.email_outlined,
+                        color: colorScheme.primary,
+                        size: 20,
+                      ),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Text(
@@ -264,12 +248,18 @@ class PrivacyPolicyScreen extends StatelessWidget {
                   const SizedBox(height: 12),
                   Row(
                     children: [
-                      Icon(Icons.business_outlined, color: colorScheme.onSurface.withValues(alpha: 0.7), size: 20),
+                      Icon(
+                        Icons.business_outlined,
+                        color: colorScheme.onSurface.withValues(alpha: 0.7),
+                        size: 20,
+                      ),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Text(
                           'Centre for Development of Advanced Computing (C-DAC)',
-                          style: AppTheme.bodyMedium(colorScheme.onSurface.withValues(alpha: 0.7)),
+                          style: AppTheme.bodyMedium(
+                            colorScheme.onSurface.withValues(alpha: 0.7),
+                          ),
                         ),
                       ),
                     ],
@@ -295,13 +285,17 @@ class PrivacyPolicyScreen extends StatelessWidget {
                 children: [
                   Row(
                     children: [
-                      Icon(Icons.verified_user, color: colorScheme.tertiary, size: 24),
+                      Icon(
+                        Icons.verified_user,
+                        color: colorScheme.tertiary,
+                        size: 24,
+                      ),
                       const SizedBox(width: 12),
                       Text(
                         'Privacy Summary',
-                        style: AppTheme.bodyLarge(colorScheme.onSurface).copyWith(
-                          fontWeight: AppTheme.weightBold,
-                        ),
+                        style: AppTheme.bodyLarge(
+                          colorScheme.onSurface,
+                        ).copyWith(fontWeight: AppTheme.weightBold),
                       ),
                     ],
                   ),
@@ -311,8 +305,21 @@ class PrivacyPolicyScreen extends StatelessWidget {
                   _buildSummaryItem(context, '✓ No third-party services'),
                   _buildSummaryItem(context, '✓ Strong encryption'),
                   _buildSummaryItem(context, '✓ Transparent & secure'),
-                  _buildSummaryItem(context, '✓ Your data stays on your device'),
+                  _buildSummaryItem(
+                    context,
+                    '✓ Your data stays on your device',
+                  ),
                 ],
+              ),
+            ),
+
+            // Last Updated
+            Center(
+              child: Text(
+                'Last Updated: January 2025',
+                style: AppTheme.caption(
+                  colorScheme.onSurface.withValues(alpha: 0.5),
+                ),
               ),
             ),
 
@@ -323,7 +330,11 @@ class PrivacyPolicyScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildSection(BuildContext context, {required String title, required String content}) {
+  Widget _buildSection(
+    BuildContext context, {
+    required String title,
+    required String content,
+  }) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
@@ -334,14 +345,16 @@ class PrivacyPolicyScreen extends StatelessWidget {
         children: [
           Text(
             title,
-            style: AppTheme.bodyLarge(colorScheme.onSurface).copyWith(
-              fontWeight: AppTheme.weightBold,
-            ),
+            style: AppTheme.bodyLarge(
+              colorScheme.onSurface,
+            ).copyWith(fontWeight: AppTheme.weightBold),
           ),
           const SizedBox(height: 8),
           Text(
             content,
-            style: AppTheme.bodyMedium(colorScheme.onSurface.withValues(alpha: 0.8)),
+            style: AppTheme.bodyMedium(
+              colorScheme.onSurface.withValues(alpha: 0.8),
+            ),
           ),
         ],
       ),
@@ -372,7 +385,9 @@ class PrivacyPolicyScreen extends StatelessWidget {
           Expanded(
             child: Text(
               text,
-              style: AppTheme.bodyMedium(colorScheme.onSurface.withValues(alpha: 0.8)),
+              style: AppTheme.bodyMedium(
+                colorScheme.onSurface.withValues(alpha: 0.8),
+              ),
             ),
           ),
         ],
@@ -416,14 +431,16 @@ class PrivacyPolicyScreen extends StatelessWidget {
                 children: [
                   Text(
                     title,
-                    style: AppTheme.bodyMedium(colorScheme.onSurface).copyWith(
-                      fontWeight: AppTheme.weightSemiBold,
-                    ),
+                    style: AppTheme.bodyMedium(
+                      colorScheme.onSurface,
+                    ).copyWith(fontWeight: AppTheme.weightSemiBold),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     description,
-                    style: AppTheme.caption(colorScheme.onSurface.withValues(alpha: 0.7)),
+                    style: AppTheme.caption(
+                      colorScheme.onSurface.withValues(alpha: 0.7),
+                    ),
                   ),
                 ],
               ),
@@ -442,7 +459,9 @@ class PrivacyPolicyScreen extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 6),
       child: Text(
         text,
-        style: AppTheme.bodyMedium(colorScheme.onSurface.withValues(alpha: 0.9)),
+        style: AppTheme.bodyMedium(
+          colorScheme.onSurface.withValues(alpha: 0.9),
+        ),
       ),
     );
   }

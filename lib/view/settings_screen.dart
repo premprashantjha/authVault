@@ -3,7 +3,6 @@ import 'package:provider/provider.dart';
 import '../app/theme.dart';
 import '../app/app_constants.dart';
 import '../services/backup_service.dart';
-import '../services/cloud_sync_service.dart';
 import '../services/platform_backup_service.dart';
 import '../services/auto_backup_service.dart';
 import '../services/platform_account_service.dart';
@@ -16,6 +15,8 @@ import 'onboarding_screen.dart';
 import 'backup_screen.dart';
 import 'auto_backup_settings_screen.dart';
 import 'privacy_policy_screen.dart';
+import 'qr_import_screen.dart';
+import 'export_accounts_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -82,7 +83,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void _navigateToBackup(BuildContext context) {
     // Get the existing AccountService from Provider (same instance used by home screen)
     final accountViewModel = Provider.of<AccountViewModel>(context, listen: false);
-    final cloudSyncService = Provider.of<CloudSyncService>(context, listen: false);
     final backupService = BackupService(
       accountService: accountViewModel.accountService,
     );
@@ -92,7 +92,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
       MaterialPageRoute(
         builder: (context) => BackupScreen(
           backupService: backupService,
-          cloudSyncService: cloudSyncService,
         ),
       ),
     );
@@ -103,6 +102,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
       context,
       MaterialPageRoute(
         builder: (context) => const PrivacyPolicyScreen(),
+      ),
+    );
+  }
+
+  void _navigateToImport(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const QrImportScreen(),
+      ),
+    );
+  }
+
+  void _navigateToExport(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const ExportAccountsScreen(),
       ),
     );
   }
@@ -675,63 +692,44 @@ class _SettingsScreenState extends State<SettingsScreen> {
           : ListView(
               padding: const EdgeInsets.all(16),
               children: [
+                // Transfer & Share Section
+                _buildSectionHeader('Transfer & Share', theme),
+                const SizedBox(height: 8),
+                _buildSettingCard(
+                  context,
+                  icon: Icons.qr_code_2,
+                  title: 'Export to QR Code',
+                  subtitle: 'Share accounts with another device',
+                  trailing: Icon(
+                    Icons.arrow_forward_ios,
+                    size: 16,
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.3),
+                  ),
+                  onTap: () => _navigateToExport(context),
+                ),
+                const SizedBox(height: 12),
+                _buildSettingCard(
+                  context,
+                  icon: Icons.download_rounded,
+                  title: 'Import from Other Apps',
+                  subtitle: 'Transfer from Google Authenticator, Authy, and more',
+                  trailing: Icon(
+                    Icons.arrow_forward_ios,
+                    size: 16,
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.3),
+                  ),
+                  onTap: () => _navigateToImport(context),
+                ),
+                const SizedBox(height: 24),
+
                 // Backup Section
                 _buildSectionHeader('Backup', theme),
                 const SizedBox(height: 8),
-                // Cloud Backup Status Indicator
-                Consumer<CloudSyncService>(
-                  builder: (context, cloudSyncService, _) {
-                    return StreamBuilder<CloudSyncStatus>(
-                      stream: cloudSyncService.syncStatusStream,
-                      builder: (context, snapshot) {
-                        final enabled = snapshot.data == CloudSyncStatus.enabled || 
-                                       snapshot.data == CloudSyncStatus.synced;
-                        
-                        if (enabled) {
-                          return Container(
-                            margin: const EdgeInsets.only(bottom: 12),
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: theme.colorScheme.primary.withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: theme.colorScheme.primary.withValues(alpha: 0.3)),
-                            ),
-                            child: Row(
-                              children: [
-                                Icon(Icons.cloud_done, color: theme.colorScheme.primary, size: 20),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        'Cloud Backup Available',
-                                        style: AppTheme.bodyMedium(theme.colorScheme.primary).copyWith(
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 2),
-                                      Text(
-                                        'Your accounts are synced to cloud',
-                                        style: AppTheme.caption(theme.colorScheme.primary.withValues(alpha: 0.7)),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                          );
-                        }
-                        return const SizedBox.shrink();
-                      },
-                    );
-                  },
-                ),
                 _buildSettingCard(
                   context,
                   icon: Icons.backup_rounded,
                   title: 'Backup & Restore',
-                  subtitle: 'Manage your account backups',
+                  subtitle: 'Create and manage encrypted backups',
                   trailing: Icon(
                     Icons.arrow_forward_ios,
                     size: 16,
