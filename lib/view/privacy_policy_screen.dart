@@ -161,28 +161,116 @@ class PrivacyPolicyScreen extends StatelessWidget {
                   'We do NOT share, sell, rent, or trade your data with anyone. Your data never leaves your device unless you explicitly export a backup file and share it yourself.',
             ),
 
-            // Your Rights
+            // Data Retention Policy
             _buildSection(
               context,
-              title: 'Your Rights',
-              content: 'You have complete control over your data:',
+              title: 'Data Retention Policy',
+              content:
+                  'Your data is retained locally on your device for as long as you keep the app installed:',
             ),
 
             _buildBulletPoint(
               context,
-              'Access: All your data is accessible within the app at any time.',
+              'Account Data: Stored indefinitely until you manually delete accounts or uninstall the app.',
             ),
             _buildBulletPoint(
               context,
-              'Export: You can create encrypted backups of your data at any time.',
+              'Backup Files: Retained until you manually delete them from your device storage.',
             ),
             _buildBulletPoint(
               context,
-              'Delete: You can delete individual accounts or uninstall the app to remove all data.',
+              'App Settings: Cleared when you uninstall the app.',
             ),
             _buildBulletPoint(
               context,
-              'Portability: Backup files can be restored on any device with the app installed.',
+              'No Server Storage: We do not store any data on external servers, so there is no server-side retention.',
+            ),
+
+            const SizedBox(height: 16),
+
+            // Your Rights (GDPR/CCPA)
+            _buildSection(
+              context,
+              title: 'Your Rights (GDPR/CCPA Compliance)',
+              content:
+                  'You have complete control over your data. Under GDPR and CCPA regulations, you have the following rights:',
+            ),
+
+            _buildBulletPoint(
+              context,
+              'Right to Access: All your data is accessible within the app at any time.',
+            ),
+            _buildBulletPoint(
+              context,
+              'Right to Portability: You can create encrypted backups and transfer your data to any device.',
+            ),
+            _buildBulletPoint(
+              context,
+              'Right to Deletion: You can delete individual accounts or uninstall the app to remove all data permanently.',
+            ),
+            _buildBulletPoint(
+              context,
+              'Right to Rectification: You can edit or update account information at any time.',
+            ),
+            _buildBulletPoint(
+              context,
+              'Right to Object: Since we don\'t collect or process personal data, this right is not applicable.',
+            ),
+            _buildBulletPoint(
+              context,
+              'Right to Restrict Processing: Not applicable as no data processing occurs beyond local storage.',
+            ),
+
+            const SizedBox(height: 16),
+
+            // Cookie Policy
+            _buildSection(
+              context,
+              title: 'Cookie Policy',
+              content:
+                  'This app does NOT use cookies, tracking pixels, or any similar technologies. We do not track your browsing activity or collect any information about your usage patterns.',
+            ),
+
+            // International Data Transfers
+            _buildSection(
+              context,
+              title: 'International Data Transfers',
+              content:
+                  'Not applicable. All data is stored locally on your device and is never transmitted to any servers, domestic or international. Your data never leaves your device unless you explicitly export a backup file.',
+            ),
+
+            // Legal Basis for Processing
+            _buildSection(
+              context,
+              title: 'Legal Basis for Processing',
+              content:
+                  'Under GDPR, the legal basis for processing your data is:',
+            ),
+
+            _buildBulletPoint(
+              context,
+              'Consent: By using the app, you consent to local storage of your authentication data.',
+            ),
+            _buildBulletPoint(
+              context,
+              'Legitimate Interest: Storing data locally is necessary for the app to function as an authenticator.',
+            ),
+            _buildBulletPoint(
+              context,
+              'Contractual Necessity: Local data storage is essential to provide the authentication service you requested.',
+            ),
+
+            const SizedBox(height: 8),
+            Padding(
+              padding: const EdgeInsets.only(left: 16),
+              child: Text(
+                'Note: Since all processing is local and we do not collect or transmit data, traditional data processing regulations have limited applicability.',
+                style: AppTheme.caption(
+                  Theme.of(
+                    context,
+                  ).colorScheme.onSurface.withValues(alpha: 0.7),
+                ),
+              ),
             ),
 
             const SizedBox(height: 16),
@@ -211,12 +299,12 @@ class PrivacyPolicyScreen extends StatelessWidget {
                   'We are committed to transparency in how we handle your data. The app\'s security features can be verified through code review.',
             ),
 
-            // Contact
+            // Data Protection Officer
             _buildSection(
               context,
-              title: 'Contact Us',
+              title: 'Data Protection Officer',
               content:
-                  'If you have any questions or concerns about this Privacy Policy or our data practices, please contact us at:',
+                  'For privacy-related inquiries, data protection concerns, or to exercise your rights under GDPR/CCPA, you may contact our Data Protection Officer:',
             ),
 
             const SizedBox(height: 8),
@@ -229,6 +317,25 @@ class PrivacyPolicyScreen extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.shield_outlined,
+                        color: colorScheme.primary,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          'Data Protection Officer',
+                          style: AppTheme.bodyMedium(
+                            colorScheme.onSurface,
+                          ).copyWith(fontWeight: AppTheme.weightSemiBold),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
                   Row(
                     children: [
                       Icon(
@@ -266,6 +373,16 @@ class PrivacyPolicyScreen extends StatelessWidget {
                   ),
                 ],
               ),
+            ),
+
+            const SizedBox(height: 16),
+
+            // Contact
+            _buildSection(
+              context,
+              title: 'Contact Us',
+              content:
+                  'If you have any questions or concerns about this Privacy Policy or our data practices, please contact us at support@cdac.in.',
             ),
 
             const SizedBox(height: 32),

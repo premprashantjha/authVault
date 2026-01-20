@@ -1,11 +1,12 @@
 import 'dart:async';
 import 'dart:developer' as developer;
+
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
 import '../models/account.dart';
 import '../services/account_service.dart';
 import '../services/totp_service.dart';
-import '../services/local_backup_service.dart';
 
 class AccountViewModel with ChangeNotifier {
   static const _favoriteAccountsKey = 'favorite_account_ids';
@@ -13,7 +14,7 @@ class AccountViewModel with ChangeNotifier {
   final AccountService accountService;
   final TOTPService totpService;
   SharedPreferences? _prefs;
-  
+
   List<Account> _accounts = [];
   List<AccountWithOTP> _accountsWithOTP = [];
   List<AccountWithOTP> _filteredAccounts = [];
@@ -39,7 +40,7 @@ class AccountViewModel with ChangeNotifier {
     }
     _loadFavorites();
   }
-  
+
   /// Initialize and load accounts (called after authentication)
   Future<void> initialize() async {
     await reloadAfterUnlock();
@@ -79,7 +80,7 @@ class AccountViewModel with ChangeNotifier {
 
     try {
       final loadedAccounts = await accountService.getAllAccounts();
-      
+
       // Only update accounts if we successfully loaded data
       // This prevents clearing accounts on temporary errors
       if (loadedAccounts.isNotEmpty || _accounts.isEmpty) {
@@ -89,7 +90,9 @@ class AccountViewModel with ChangeNotifier {
         // If load returned empty but we had accounts before, keep existing accounts
         // and just regenerate OTPs (this handles temporary database issues)
         if (kDebugMode) {
-          debugPrint('⚠️ [ViewModel] Loaded 0 accounts but had ${_accounts.length} before - keeping existing accounts');
+          debugPrint(
+            '⚠️ [ViewModel] Loaded 0 accounts but had ${_accounts.length} before - keeping existing accounts',
+          );
         }
         _generateOTPs();
       }
@@ -102,7 +105,9 @@ class AccountViewModel with ChangeNotifier {
       // This prevents the "0 accounts" bug when database has temporary issues
       if (_accounts.isNotEmpty) {
         if (kDebugMode) {
-          debugPrint('⚠️ [ViewModel] Keeping ${_accounts.length} existing accounts due to load error');
+          debugPrint(
+            '⚠️ [ViewModel] Keeping ${_accounts.length} existing accounts due to load error',
+          );
         }
         _generateOTPs();
       } else {
@@ -121,21 +126,20 @@ class AccountViewModel with ChangeNotifier {
     try {
       print('=== ADD ACCOUNT ===');
       print('ADD ACCOUNT → AccountService: ${accountService.hashCode}');
-      print('ADD ACCOUNT → DatabaseService: ${accountService.databaseService.hashCode}');
-      
+      print(
+        'ADD ACCOUNT → DatabaseService: ${accountService.databaseService.hashCode}',
+      );
+
       await accountService.addAccount(account);
-      
+
       // Ensure timer is running before loading accounts
       if (_timer == null) {
         _startOTPTimer();
       }
-      
+
       // Reload accounts from database (this calls _generateOTPs and notifyListeners internally)
       await _loadAccounts();
-      
-      // Trigger automatic backup
-      _triggerAutoBackup();
-      
+
       return true;
     } catch (e) {
       if (kDebugMode) {
@@ -148,17 +152,14 @@ class AccountViewModel with ChangeNotifier {
   Future<bool> deleteAccount(String accountId) async {
     try {
       await accountService.deleteAccount(accountId);
-      
+
       // Remove from local lists without full reload for smoother UX
       _accounts.removeWhere((account) => account.id == accountId);
       _accountsWithOTP.removeWhere((item) => item.account.id == accountId);
       _favoriteAccountIds.remove(accountId);
-      
+
       _applyFilters();
-      
-      // Trigger automatic backup
-      _triggerAutoBackup();
-      
+
       return true;
     } catch (e) {
       if (kDebugMode) {
@@ -173,20 +174,27 @@ class AccountViewModel with ChangeNotifier {
     // Only regenerate OTPs when time step changes (every 30 seconds)
     // Don't notify listeners for every second tick
     int lastTimeStep = -1;
-    
+
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      final currentTimeStep = (DateTime.now().millisecondsSinceEpoch / 1000).floor() ~/ 30;
+      final currentTimeStep =
+          (DateTime.now().millisecondsSinceEpoch / 1000).floor() ~/ 30;
       final secondsRemaining = totpService.getRemainingSeconds();
-      
+
       if (currentTimeStep != lastTimeStep) {
         lastTimeStep = currentTimeStep;
         _generateOTPs();
       } else {
         _accountsWithOTP = _accountsWithOTP
-            .map((accountWithOTP) => accountWithOTP.copyWith(secondsRemaining: secondsRemaining))
+            .map(
+              (accountWithOTP) =>
+                  accountWithOTP.copyWith(secondsRemaining: secondsRemaining),
+            )
             .toList();
         _filteredAccounts = _filteredAccounts
-            .map((accountWithOTP) => accountWithOTP.copyWith(secondsRemaining: secondsRemaining))
+            .map(
+              (accountWithOTP) =>
+                  accountWithOTP.copyWith(secondsRemaining: secondsRemaining),
+            )
             .toList();
       }
     });
@@ -194,7 +202,10 @@ class AccountViewModel with ChangeNotifier {
 
   void _generateOTPs() {
     if (kDebugMode) {
-      developer.log('Generating OTPs for ${_accounts.length} accounts', level: 800);
+      developer.log(
+        'Generating OTPs for ${_accounts.length} accounts',
+        level: 800,
+      );
     }
     _accountsWithOTP = _accounts.map((account) {
       final otp = totpService.generateTOTP(account.secretKey);
@@ -207,14 +218,20 @@ class AccountViewModel with ChangeNotifier {
       );
     }).toList();
     if (kDebugMode) {
-      developer.log('Generated ${_accountsWithOTP.length} OTPs, calling notifyListeners()', level: 800);
+      developer.log(
+        'Generated ${_accountsWithOTP.length} OTPs, calling notifyListeners()',
+        level: 800,
+      );
     }
     _applyFilters();
   }
 
   void _updateSecondsRemaining(int secondsRemaining) {
     _accountsWithOTP = _accountsWithOTP
-        .map((accountWithOTP) => accountWithOTP.copyWith(secondsRemaining: secondsRemaining))
+        .map(
+          (accountWithOTP) =>
+              accountWithOTP.copyWith(secondsRemaining: secondsRemaining),
+        )
         .toList();
     _applyFilters();
   }
@@ -231,7 +248,7 @@ class AccountViewModel with ChangeNotifier {
     try {
       await accountService.updateAccount(account);
       await _loadAccounts();
-      
+
       return true;
     } catch (e) {
       if (kDebugMode) {
@@ -246,7 +263,7 @@ class AccountViewModel with ChangeNotifier {
     if (_timer == null) {
       _startOTPTimer();
     }
-    
+
     // Load accounts from database
     await _loadAccounts();
   }
@@ -254,12 +271,12 @@ class AccountViewModel with ChangeNotifier {
   void purgeSensitiveData() {
     // Don't clear accounts list - just clear OTP codes
     // This prevents the empty state flicker when unlocking
-    _accountsWithOTP = _accountsWithOTP.map((item) => 
-      item.copyWith(otp: '------', secondsRemaining: 0)
-    ).toList();
-    _filteredAccounts = _filteredAccounts.map((item) => 
-      item.copyWith(otp: '------', secondsRemaining: 0)
-    ).toList();
+    _accountsWithOTP = _accountsWithOTP
+        .map((item) => item.copyWith(otp: '------', secondsRemaining: 0))
+        .toList();
+    _filteredAccounts = _filteredAccounts
+        .map((item) => item.copyWith(otp: '------', secondsRemaining: 0))
+        .toList();
     notifyListeners();
   }
 
@@ -308,8 +325,11 @@ class AccountViewModel with ChangeNotifier {
     } else {
       _favoriteAccountIds.add(accountId);
     }
-    await _prefs?.setStringList(_favoriteAccountsKey, _favoriteAccountIds.toList());
-    
+    await _prefs?.setStringList(
+      _favoriteAccountsKey,
+      _favoriteAccountIds.toList(),
+    );
+
     // Trigger reorder animation by applying filters with sort
     _applyFilters(skipSort: false);
   }
@@ -335,7 +355,11 @@ class AccountViewModel with ChangeNotifier {
 
   void _applyFilters({bool skipSort = false}) {
     List<AccountWithOTP> working = _accountsWithOTP
-        .map((item) => item.copyWith(isFavorite: _favoriteAccountIds.contains(item.account.id)))
+        .map(
+          (item) => item.copyWith(
+            isFavorite: _favoriteAccountIds.contains(item.account.id),
+          ),
+        )
         .toList();
 
     if (_searchQuery.isNotEmpty) {
@@ -348,7 +372,9 @@ class AccountViewModel with ChangeNotifier {
     }
 
     if (_selectedIssuers.isNotEmpty) {
-      working = working.where((item) => _selectedIssuers.contains(item.account.issuer)).toList();
+      working = working
+          .where((item) => _selectedIssuers.contains(item.account.issuer))
+          .toList();
     }
 
     if (_favoritesOnly) {
@@ -361,7 +387,9 @@ class AccountViewModel with ChangeNotifier {
         if (a.isFavorite != b.isFavorite) {
           return a.isFavorite ? -1 : 1;
         }
-        return a.account.issuer.toLowerCase().compareTo(b.account.issuer.toLowerCase());
+        return a.account.issuer.toLowerCase().compareTo(
+          b.account.issuer.toLowerCase(),
+        );
       });
     }
 
@@ -369,49 +397,8 @@ class AccountViewModel with ChangeNotifier {
     notifyListeners();
   }
 
-  /// Trigger automatic backup (debounced)
-  Timer? _backupDebounceTimer;
-  
-  void _triggerAutoBackup() {
-    if (kDebugMode) {
-      debugPrint('=== Triggering Auto Backup (5 second delay) ===');
-    }
-    
-    // Debounce: wait 5 seconds after last change before backing up
-    _backupDebounceTimer?.cancel();
-    _backupDebounceTimer = Timer(const Duration(seconds: 5), () async {
-      try {
-        if (kDebugMode) {
-          debugPrint('=== Auto Backup Timer Fired ===');
-        }
-        
-        final localBackupService = LocalBackupService(
-          accountService: accountService,
-        );
-        
-        final isEnabled = await localBackupService.isBackupEnabled();
-        if (!isEnabled) {
-          if (kDebugMode) {
-            debugPrint('Auto backup skipped: not enabled');
-          }
-          return;
-        }
-
-        await localBackupService.createAutoBackup();
-        if (kDebugMode) {
-          debugPrint('Local backup created successfully');
-        }
-      } catch (e) {
-        if (kDebugMode) {
-          debugPrint('Auto backup failed: $e');
-        }
-      }
-    });
-  }
-
   @override
   void dispose() {
-    _backupDebounceTimer?.cancel();
     _timer?.cancel();
     super.dispose();
   }

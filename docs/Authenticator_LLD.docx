@@ -1,0 +1,458 @@
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Low Level Design Document
+
+Project Name: Authenticator App
+Project Code:<Project Code>
+Release Date: 24/11/2025
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Centre for Development of Advanced Computing
+(A Scientific Society of the Ministry of Communications and Information Technology, Govt. of India)
+NOIDA Unit
+C-56/1, Institutional Area, Sector-62, Noida-201307 
+
+
+
+
+
+Document Release History
+
+Sl. No	Version No	Release Date	Prepared By	Reviewed By	Approved By	Reason for next Release
+1	1.0	24-11-2025	Prem Jha			Base lined template
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Contents
+DOCUMENT RELEASE HISTORY	2
+CONTENTS	2
+1.0 INTRODUCTION	3
+1.1 Purpose	3
+1.2 Scope	3
+1.3 Assumptions and Dependencies	4
+1.4 Intended audience	4
+1.5 References	4
+2.0 PROCEDURE	4
+2.1 Priority Level	4
+2.2 Design Consideration	4
+2.3 Task Name	4
+2.3.1  Entry Criteria	4
+2.3.2  User Interface	5
+2.3.3 Functions/ Objects / Scripts	6
+2.3.4 Data Model / Table Description	9
+2.3.5 Dependency	9
+2.3.6 Field Level Validation	9
+2.3.7 Event Description	9
+2.3.8 Triggers	9
+2.3.9  Business Rules	9
+2.3.10 Algorithm Used	9
+2.3.11 App Lock Logic / Secure Access Module	10
+2.3.12 Exception Handling and Error Codes	10
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+1.0 Introduction
+1.1 Purpose
+This LLD describes implementation-level details for the Authenticator mobile application (Flutter). It expands the HLD into concrete modules, classes, methods, data contracts, validations, events, triggers, and algorithms so developers can code and testers can derive cases with full traceability.
+1.2 Scope
+
+MVP scope: account setup (QR/manual), secure storage of secrets, offline TOTP generation (6 digits, 30s), OTP display with countdown, clipboard copy with 30s auto-clear, screen-capture protection, optional app lock, and error handling.
+
+1.3 Assumptions and Dependencies
+•	Device time is accurate; OS provides secure storage (Keychain/Keystore).
+•	Flutter SDK with packages: camera, google_mlkit_barcode_scanning, flutter_secure_storage, crypto, base32, permission_handler, provider.
+        1.4 Intended audience
+Developers, architects, QA, SEPG reviewers.
+          1.5 References
+	SRS Document.
+	High Level Design Document				
+2.0 Procedure
+      2.1 Priority Level	
+		High (MVP) unless stated otherwise.
+	
+       2.2 Design Consideration
+Reuse and Buy vs. Build Analysis:
+•	Reuse/Buy: QR scanning (camera + ML Kit), secure storage, base32/crypto.
+•	Build: TOTP engine glue code, URI parser, ViewModels, UI, clipboard auto-clear logic.
+      2.3 Task Name
+ Process Description
+Scan QR → parse otpauth URI → validate fields → persist encrypted account JSON in secure storage → refresh UI list.
+ 
+2.3.1  Entry Criteria
+•	Camera permission granted; camera available.
+•	Scanner screen active; ML Kit initialized.
+2.3.1.1	Work Flow/ Data Flow Diagram
+1) Open camera
+2) Frame capture
+3) ML Kit QR detect
+4) Extract URI
+5) Validate & parse
+6) Persist encrypted JSON in secure storage
+7) Notify ViewModel to refresh list.
+ 
+2.3.1.2	List of Sub Tasks
+Parse OTPAuth URI
+Process Description
+Extract scheme, label, and params: secret, issuer, accountName, algorithm (default SHA1), digits (default 6), period (default 30). Validate presence and format 
+2.3.2  User Interface 
+Screen: “Scan QR” with camera preview, overlay, Cancel. Error dialogs for invalid QR or permission denied.
+ 
+2.3.3 Functions/ Objects / Scripts
+
+class QRScanService {{ Future<String?> scanQRCode(); }}
+class OtpAuthParser {{ ParsedAccount parse(String uri); }}
+
+2.3.3.1	Method Signatures & Public APIs
+This subsection lists public method signatures for major classes, their parameters, return types, and brief behavior notes. Use Dart-style signatures to match implementation.
+
+## EncryptionService
+class EncryptionService {
+  Future<String> encrypt(String plainText, {String? associatedData});
+  Future<String> decrypt(String encryptedText, {String? associatedData});
+  Future<void> clearEncryptionKey();
+  Future<String> encryptWithPassword(String plainText, String password);
+  Future<String> decryptWithPassword(String encryptedText, String password);
+  String? validatePassword(String password);
+  String? getPasswordWarning(String password);
+  Future<Map<String, dynamic>> getStorageInfo();
+}
+
+Note: Uses XChaCha20-Poly1305 AEAD for encryption. Master key stored in flutter_secure_storage with automatic hardware backing. Password-based encryption uses Argon2id KDF (64MB, 3 iterations, 4 parallelism) for backups.
+
+---
+
+## SecureStorageService
+class SecureStorageService {
+  Future<void> saveSecret(String key, String value);
+  Future<String?> getSecret(String key);
+  Future<void> deleteSecret(String key);
+  Future<void> clearAllSecrets();
+}
+
+Note: Wrapper over flutter_secure_storage with platform-specific options (hardware-backed encryption on Android Keystore and iOS Keychain).
+
+---
+
+## DatabaseService
+class DatabaseService {
+  Future<List<Account>> getAllAccounts();
+  Future<void> addAccount(Account account);
+  Future<void> updateAccount(Account account);
+  Future<void> deleteAccount(String accountId);
+  Future<bool> accountExists(String issuer, String accountName);
+  Future<Account?> getAccountByIssuerAndName(String issuer, String accountName);
+  Future<void> close();
+  Future<void> clearAllAccounts();
+  Future<bool> verifyIntegrity();
+}
+
+Note: Stores accounts with secretKey encrypted via EncryptionService before writing to SQLite. Provides unique constraint handling, integrity verification, and migration hooks.
+
+---
+
+## AccountService
+class AccountService {
+  Future<List<Account>> getAllAccounts();
+  Future<void> addAccount(Account newAccount);
+  Future<void> deleteAccount(String accountId);
+  Future<bool> accountExists(Account account);
+  Future<void> updateAccount(Account updatedAccount);
+}
+
+Note: Higher-level account management using DatabaseService. Handles duplicate checks and error translation.
+
+---
+
+## TOTPService
+class TOTPService {
+  String generateTOTP(String secret);
+  String generateTOTPAtTime(String secret, int unixTimeSeconds);
+  bool validateTOTP(String secret, String code, {int timeSteps = 1});
+  int getRemainingSeconds();
+  bool validateSecret(String secret);
+}
+
+Note: Implements RFC6238 TOTP generation/validation (6-digit codes, 30s timestep) using base32 secrets and HMAC-SHA1.
+
+---
+
+## BackupService
+class BackupService {
+  Future<String> createBackup(String password);
+  Future<BackupRestoreResult> restoreBackup(String filePath, String password, {MergeStrategy strategy});
+  Future<BackupInfo> getBackupInfo(String filePath);
+  Future<List<String>> listBackupFiles();
+  Future<void> deleteBackup(String filePath);
+  Future<String> getBackupDirectory();
+}
+
+Note: Creates password-protected encrypted backups (.cdac files) using Argon2id + XChaCha20-Poly1305. Supports merge strategies (skip/replace/keepBoth) for duplicate handling.
+
+---
+
+## GoogleAuthImportService
+class GoogleAuthImportService {
+  static List<ImportedAccount> parseMigrationUri(String uri);
+}
+
+Note: Parses otpauth-migration:// URIs from Google Authenticator exports. Decodes base64 protobuf data and extracts multiple accounts with their secrets, issuers, and parameters.
+
+---
+
+## AppExportService
+class AppExportService {
+  static String generateMigrationUri(List<Account> accounts);
+  static bool isMigrationUri(String uri);
+  static String getAppDeepLink();
+}
+
+Note: Generates otpauth-migration:// URIs for exporting accounts to other authenticator apps. Encodes accounts in Google Authenticator protobuf format.
+
+---
+
+## SecurityService
+class SecurityService {
+  Future<SecurityCheckResult> performSecurityChecks();
+  Future<bool> isDeviceSecure();
+  Future<String> getSecurityWarning();
+  void clearCache();
+}
+
+Note: Performs device integrity checks (jailbreak/root, emulator, development mode, external storage) using safe_device package. Results are cached for performance.
+
+---
+
+## IntegrityService
+class IntegrityService {
+  Future<String?> calculateDatabaseChecksum();
+  Future<void> storeDatabaseChecksum();
+  Future<bool> verifyDatabaseIntegrity();
+  Future<void> updateDatabaseChecksum();
+  Future<void> storeAppVersion(String version);
+  Future<String?> getStoredAppVersion();
+  Future<void> clearIntegrityData();
+}
+
+Note: Calculates SHA256 checksums of database content to detect tampering. Updates checksums after legitimate changes.
+
+---
+
+## RecoveryCodesService
+class RecoveryCodesService {
+  Future<List<String>> generateRecoveryCodes();
+  Future<bool> verifyRecoveryCode(String code);
+  Future<bool> hasRecoveryCodes();
+  Future<int> getRemainingCodesCount();
+  Future<void> deleteRecoveryCodes();
+}
+
+Note: Generates 10 one-time recovery codes (8 characters, formatted as XXXX-XXXX). Codes are hashed with SHA256 before storage. Used for account recovery.
+
+---
+
+## IconService
+class IconService {
+  static IconData getIconForService(String issuer);
+  static Color getColorForService(String issuer);
+}
+
+Note: Provides brand-specific icons and colors for popular services (Google, GitHub, Microsoft, etc.) using font_awesome_flutter.
+
+---
+
+## ThemeService
+class ThemeService extends ChangeNotifier {
+  ThemeMode get themeMode;
+  bool get isDarkMode;
+  Future<void> toggleTheme();
+  Future<void> setTheme(ThemeMode mode);
+}
+
+Note: Manages persisted theme preference (light/dark/system) and notifies listeners.
+
+
+2.3.4 Data Model / Table Description 
+
+Secure Storage JSON (per account): id(UUID), issuer, accountName, secretKey, algorithm=SHA1, digits=6, period=30, createdAt(epoch).
+2.3.5 Dependency               
+mobile_scanner, permission_handler, flutter_secure_storage, cryptography, crypto, base32, bcrypt, sqflite, local_auth, safe_device, file_picker, share_plus, path_provider, font_awesome_flutter, qr_flutter, flutter_markdown, shared_preferences.
+2.3.6 Field Level Validation
+•	issuer not empty; accountName not empty.
+•	secret Base32 valid; digits in {{6,8}}; period > 0.
+•	Reject duplicate (issuer, accountName).
+2.3.7 Event Description   
+•	Scan starts camera.
+•	On QR detected: parse; show confirm.
+•	Save persists and navigates back.
+2.3.8 Triggers       
+•	Frame timer for periodic ML scanning (~1s).          
+2.3.9  Business Rules   
+•	Process QR to persist within ≤ 3 seconds.
+•	On failure: show error; offer manual entry.
+2.3.10 Algorithm Used  
+•	URI parser; default handling; sanitization.
+    
+
+function parseOtpauth(uri):
+  ensure uri.scheme == 'otpauth'
+  extract type = 'totp'
+  parse query parameters
+  validate secret is Base32
+  assign defaults (algorithm=SHA1, digits=6, period=30)
+  return ParsedAccount
+
+
+
+
+
+
+function generateTOTP(secret, time, digits, period, algorithm):
+    counter = floor(time / period)
+    key = decodeBase32(secret)
+    hmac = HMAC(algorithm, key, counter)
+    offset = lastNibble(hmac)
+    binary = (hmac[offset:offset+4] & 0x7FFFFFFF)
+    otp = binary mod (10^digits)
+    return otp padded to digits
+
+
+
+2.3.11 App Lock Logic / Secure Access Module
+
+Implements optional app lock using biometric authentication or fallback PIN to secure access to the Authenticator app.
+Uses local_auth for biometric APIs and stores hashed PIN securely in flutter_secure_storage.
+
+Workflow:
+1.	On app start/resume, check if lock is enabled.
+2.	If enabled, prompt biometric → if fails, fallback to PIN entry.
+3.	On success, navigate to dashboard; on failure after 3 attempts, exit app.
+Dependencies:
+
+local_auth, flutter_secure_storage, provider.
+
+Pseudocode:
+
+onAppLaunch():
+    if lockEnabled:
+        success = authWithBiometric() or verifyPin()
+        if not success:
+            exitApp()
+
+2.3.12 Exception Handling and Error Codes
+
+
+AuthService
+- AUTH_PIN_INCORRECT — PIN verification failed (bcrypt mismatch) — UI: "Invalid PIN." show remaining attempts; Retry: allow retry until lockout.
+- AUTH_TOO_MANY_ATTEMPTS — Max failed PIN attempts reached and lockout applied — UI: "Account locked. Try again in X minutes." (show countdown); Retry: disallow PIN attempts until lockout ends.
+- AUTH_LOCKED — Attempt when locked (lockout still active) — UI: same as above; Retry: none until expiry.
+- AUTH_BIOMETRIC_NOT_AVAILABLE — Biometric not enrolled or device doesn't support it — UI: "Biometric not available. Use PIN."; Retry: none; offer fallback to PIN setup.
+- AUTH_BIOMETRIC_FAILED — Biometric auth rejected/cancelled/failed — UI: "Biometric failed or cancelled"; Retry: allow retry; recommend PIN fallback.
+- AUTH_INTERNAL_ERROR — Unexpected auth error (platform API exceptions) — UI: "Authentication error. Try again."; Retry: allow few retries; log telemetry.
+
+EncryptionService
+- ENC_ENCRYPTION_FAILED — Encryption pipeline error — UI: "Internal error while saving secret"; Retry: allow one retry; log details.
+- ENC_DECRYPTION_FAILED — Decryption failed (invalid format or key mismatch) — UI: "Unable to read secret"; Retry: none; mark account as unreadable.
+- ENC_INVALID_FORMAT — Stored value doesn't match expected envelope format — UI: "Corrupted data"; Retry: none; log and surface option to remove corrupted account.
+- ENC_KEY_ACCESS_FAILED — Failed to obtain encryption key from secure storage — UI: "Security error. Restart app."; Retry: retry once; if persistent, suggest device restart.
+- ENC_KEY_GENERATION_FAILED — Failed to generate new encryption key — UI: "Failed to initialize security"; Retry: none; critical error requiring app reinstall.
+- ENC_AUTHENTICATION_FAILED — AEAD authentication failed (data tampered) — UI: "Authentication failed - data may be tampered"; Retry: none; security critical.
+- ENC_INCORRECT_PASSWORD — Password-based decryption failed (wrong password) — UI: "Incorrect password or corrupted data"; Retry: allow multiple retries.
+
+Secure Storage
+- STORAGE_IO_ERROR — Read/write to secure storage failed (I/O or OS-level error) — UI: "Storage error"; Retry: retry a couple of times; ask user to restart app/device if persists; log with platform details.
+
+DatabaseService / AccountService
+- DB_CONFLICT_ACCOUNT_EXISTS — Unique constraint violation when adding account — UI: "Account already exists"; Retry: none (offer edit or choose different account name).
+- DB_WRITE_FAILED — Generic DB write failure — UI: "Failed to save"; Retry: retry once; if persists, instruct user to restart or export data.
+- DB_READ_FAILED — DB read error / corrupted DB — UI: "Failed to load accounts"; Retry: none or limited; log and offer recovery/drain option.
+- DB_INTEGRITY_FAILED — Database checksum mismatch (tampering detected) — UI: "Database integrity check failed"; Retry: none; log for security audit.
+
+BackupService
+- BACKUP_PASSWORD_WEAK — Password doesn't meet minimum requirements — UI: "Password must be at least 6 characters"; Retry: allow immediate retry with stronger password.
+- BACKUP_FILE_NOT_FOUND — Backup file doesn't exist at specified path — UI: "File not found. The backup file could not be found."; Retry: allow user to select different file.
+- BACKUP_INVALID_FORMAT — File is not a valid backup format — UI: "Invalid backup file. This file may be corrupted or not a valid backup."; Retry: none; suggest creating new backup.
+- BACKUP_DECRYPTION_FAILED — Failed to decrypt backup (wrong password or corrupted) — UI: "Incorrect password or corrupted data"; Retry: allow multiple password attempts.
+- BACKUP_CREATION_FAILED — Failed to create backup file — UI: "Failed to create backup"; Retry: retry once; check storage permissions and available space.
+
+GoogleAuthImportService / AppExportService
+- IMPORT_INVALID_URI — Not a valid otpauth-migration:// URI — UI: "Invalid QR code. Please scan a Google Authenticator export QR."; Retry: allow rescan.
+- IMPORT_PARSE_FAILED — Failed to parse protobuf data — UI: "Failed to parse migration data"; Retry: allow rescan; may be corrupted QR.
+- IMPORT_NO_ACCOUNTS — Migration URI contains no accounts — UI: "No accounts found in QR code"; Retry: allow rescan.
+- EXPORT_EMPTY_LIST — Attempted to export empty account list — UI: "No accounts selected for export"; Retry: none; prompt user to select accounts.
+
+SecurityService
+- SECURITY_CHECK_FAILED — Device security check encountered error — UI: none (graceful degradation); Log: error details for debugging.
+- SECURITY_DEVICE_ROOTED — Device is rooted/jailbroken — UI: "Warning: Device is rooted. Security may be compromised."; Retry: none; allow user to proceed or exit.
+- SECURITY_EMULATOR_DETECTED — Running on emulator — UI: "Warning: Running on emulator"; Retry: none; allow in debug mode only.
+- SECURITY_DEV_MODE — Developer mode enabled — UI: "Warning: Developer mode is enabled"; Retry: none; informational only.
+
+IntegrityService
+- INTEGRITY_CHECKSUM_MISMATCH — Database checksum doesn't match baseline — UI: "Database integrity check failed"; Retry: none; log for security audit; offer to recalculate baseline.
+- INTEGRITY_CALCULATION_FAILED — Failed to calculate checksum — UI: none (silent failure); Log: error details; continue operation.
+
+TOTP / QR parsing
+- TOTP_INVALID_SECRET — Provided secret cannot be decoded (bad base32) — UI: "Invalid secret"; Retry: allow user to re-enter or rescan QR.
+- QR_INVALID_URI — QR/scanned URI not an otpauth URI or missing mandatory params — UI: "Invalid QR code"; Retry: allow rescan and show hints on expected format.
+
+Migration
+- MIGRATE_LEGACY_KEY_PRESENT — Legacy raw AES key found during startup migration — Cause: app updated from older version — UI: none (migration background) ; Handling: attempt wrap+store, securely delete legacy key on success, log migration result.
+- MIGRATE_WRAP_FAILED — Wrapping legacy key failed — UI: "Failed to upgrade secure storage"; Handling: retry once and escalate to telemetry; do not delete legacy key until wrapped copy verified.
+
+

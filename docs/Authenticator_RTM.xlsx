@@ -1,0 +1,22 @@
+								
+S.No	User Requirements	Requirement Type (F,N)	SRS (Section#)	Design(HLD) (Section#)	Design(LLD) (Section#)	Code (Section#)	System test (Section#)	
+1	Add account using QR Scan (otpauth:// and otpauth-migration://)	Functional	REQ-001, 3.2.1	3.6.1 (QR Pipeline), 4.4.1	2.3.1, 2.3.3			
+2	Add account manually	Functional	REQ-002, 3.2.2	4.4.1 (Storage Flow)	2.3.3, 2.3.4			
+3	Generate and display 6-digit TOTP with countdown	Functional	REQ-003, 3.2.3, 3.2.4	3.6.3, 4.4.2 (TOTP Engine)	2.3.10, 2.3.3			
+4	Copy OTP to clipboard with auto-clear	Functional	REQ-004, 3.2.5	4.4.2 (Display Flow)	2.3.7, 2.3.3			
+5	Secure storage using hardware encryption (XChaCha20-Poly1305)	Non Functional	REQ-006, 3.2.6, 3.7.3	3.6.2 (Secure Storage)	2.3.4, 2.3.3			
+6	Fully offline operation with no data leakage	Non Functional	3.7.3	2.3 (Other Considerations)	2.3.9			
+7	App Lock—Option to enable PIN and Biometric authentication for secure app access	Non Functional	REQ-006, 3.7.3	4.1 (Major Functionalities)	2.3.11			
+8	Create password-protected encrypted backups (.cdac files)	Functional	REQ-007, 3.2.7	4.4.3 (Backup Flow)	2.3.3 (BackupService)			
+9	Restore from encrypted backups with merge strategies	Functional	REQ-008, 3.2.8	4.4.3 (Restore Flow)	2.3.3 (BackupService)			
+10	Export accounts via QR code (otpauth-migration://)	Functional	REQ-009, 3.2.9	4.4.4 (Export Flow)	2.3.3 (AppExportService)			
+11	Import accounts from Google Authenticator	Functional	REQ-010, 3.2.10	4.4.4 (Import Flow)	2.3.3 (GoogleAuthImportService)			
+12	Device security checks (root/jailbreak detection)	Non Functional	REQ-012, 3.2.11	4.4.5 (Security Check Flow)	2.3.3 (SecurityService)			
+13	Database integrity verification	Non Functional	3.2.12	4.4.6 (Integrity Flow)	2.3.3 (IntegrityService)			
+14	Search and filter accounts	Functional	3.2.13	4.1 (Major Functionalities)	2.3.3			
+15	Favorite accounts	Functional	3.2.14	4.1 (Major Functionalities)	2.3.3			
+16	Bulk operations (multi-select delete/export)	Functional	3.2.15	4.1 (Major Functionalities)	2.3.3			
+17	Recovery codes generation and verification	Functional	3.2.16	4.1 (Major Functionalities)	2.3.3 (RecoveryCodesService)			
+18	Brand icons for services	Non Functional	3.2.4	6.4.6 (UI Enhancement)	2.3.3 (IconService)			
+19	Dark/Light theme support	Non Functional	3.7.4	6.4.3 (Storage Interfaces)	2.3.3 (ThemeService)			
+20	Onboarding screen for first-time users	Functional	2.1 (Product Perspective)	4.1 (Major Functionalities)	2.3.2			

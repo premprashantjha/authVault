@@ -1,0 +1,490 @@
+
+
+
+
+
+
+
+
+
+
+
+System Requirement Specification 		<Authenticator>
+
+
+Version No.: 1.0
+Release Date: 24/11/2025
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Centre for Development of Advanced Computing
+(A Scientific Society of the Ministry of Communications and Information Technology, Govt. of India)
+NOIDA Unit
+C-56/1, Institutional Area, Sector-62, Noida-201307 
+
+
+
+Document Release History
+
+Sl. No	Version No	Release Date	Prepared By	Reviewed By	Approved By	Reason for next Release
+1.	1.0	24-Nov-2025	Prem Jha			Baseline
+	
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Content
+System Requirement Specification 	 <Authenticator>	1
+Document Release History	2
+Content	3
+1.0	Introduction	4
+Purpose	4
+Scope	4
+Definitions, Acronyms, and Abbreviations.	4
+References	5
+Overview	5
+2.0	The Overall Description	5
+Product Perspective	5
+System Interfaces	6
+User Interfaces	6
+Hardware Interfaces	7
+Software Interfaces	8
+Communications Interfaces	8
+Memory Constraints	8
+Operations	8
+Site Adaptation Requirements	8
+Product Functions	8
+User Characteristics	9
+Constraints	9
+Assumptions and Dependencies	9
+Apportioning of Requirements.	9
+3.0	Specific Requirements	10
+3.1	External Interfaces	10
+3.2	Functional Requirements	10
+3.3	Performance Requirements	11
+3.4	Logical Database Requirements	11
+3.5	Design Constraints	11
+3.6	Standards Compliance	11
+3.7	Software System Attributes	11
+3.7.1	Reliability	11
+3.7.2	Availability	11
+3.7.3	Security	11
+3.7.4	Maintainability	12
+3.7.5	Portability	12
+3.7.6	Additional Comments	12
+4.0	Supporting Information	12
+5.0	Risks	12
+
+
+
+
+
+
+
+
+
+
+1.0	Introduction  
+
+This document specifies the functional and non-functional requirements for the Authenticator mobile application, a secure offline Time-based One-Time Password (TOTP) generator designed for two-factor authentication without requiring internet connectivity.
+
+Purpose  
+
+This System Requirements Specification (SRS) document provides a complete description of all requirements for the Authenticator Application. The intended audience for this document includes project managers, software developers, testers, and quality assurance personnel involved in the design, development, and validation of the software product.
+Authenticator is a secure offline authenticator app designed to generate TOTP codes for multi-factor authentication without relying on internet access.
+
+Scope 
+
+This specification defines the requirements for a mobile Authenticator Application that generates Time-based One-Time Passwords (TOTP) for two-factor authentication. The software product will be developed as a cross-platform mobile application for iOS and Android devices.
+All operations are performed offline with zero server interaction, ensuring maximum privacy and protection from data breaches.
+
+The software product will:
+1.	Enable users to manage multiple authentication accounts with search, filter, and favorites
+2.	Generate TOTP codes compliant with RFC 6238
+3.	Provide secure storage of cryptographic secrets using XChaCha20-Poly1305 AEAD encryption
+4.	Support account registration via QR code scanning (otpauth:// and otpauth-migration://) and manual entry
+5.	Create password-protected encrypted backups for cross-device recovery
+6.	Import accounts from Google Authenticator and other compatible apps
+7.	Export accounts via QR codes for device-to-device transfers
+8.	Perform device security checks (root/jailbreak detection)
+9.	Verify database integrity to detect tampering
+10.	Support bulk operations (multi-select delete/export)
+11.	Provide recovery codes for account recovery
+12.	Display brand-specific icons for popular services
+13.	Support dark/light themes
+14.	Include onboarding for first-time users
+
+Definitions, Acronyms, and Abbreviations.  
+
+Term	Definition
+2FA	Two-Factor Authentication - A security process where users provide two different authentication factors
+TOTP	Time-based One-Time Password - A temporary passcode generated based on current time and a secret key
+HOTP	HMAC-based One-Time Password - A counter-based one-time password algorithm
+HMAC	Hash-based Message Authentication Code - A specific type of message authentication code
+OTP	One-Time Password - A password that is valid for only one login session or transaction
+QR Code	Quick Response Code - A type of matrix barcode used to store information
+AES	Advanced Encryption Standard - Symmetric encryption algorithm
+Keychain 	iOS secure storage system for sensitive
+Keystore	Android secure storage system with hardware-backed encryption
+
+
+References  
+
+Reference	Description
+RFC 6238	TOTP: Time-Based One-Time Password Algorithm
+RFC 4226	HOTP: An HMAC-Based One-Time Password Algorithm
+NIST SP 800-63B	Digital Identity Guidelines - Authentication and Lifecycle Management
+Flutter Framework Documentation	Cross-platform mobile development framework
+Google Authenticator PAM	otpauth URI format specification
+ 
+
+Overview  
+This document is organized into three main sections. 
+
+Section 1 (Introduction) provides the purpose, scope, and background information. 
+
+Section 2 (The Overall Description) describes the general factors that affect the product and its requirements from a user perspective. 
+
+Section 3 (Specific Requirements) contains detailed, technical requirements written for software developers and testers. The document concludes with supporting information and risk assessment.
+
+2.0	 The Overall Description  
+
+Product Perspective  
+
+The Authenticator Application is a self-contained mobile software component that operates within the broader context of two-factor authentication systems. It serves as a standalone token generator that works in conjunction with various online services that support TOTP-based 2FA. The application interfaces with the mobile device's operating system for secure storage, camera functionality, and user interaction, but requires no connection to proprietary backend systems for its core operation.
+
+The system context can be represented as:
+
+
+
+ 
+
+System Interfaces
+
+The application shall interface with the host mobile operating system (iOS/Android) for:
+1.	Secure storage services (Keychain/Keystore) for cryptographic key protection
+2.	Camera services for QR code capture and processing
+3.	Clipboard services for OTP transfer to other applications
+4.	Biometric authentication services for application access control
+User Interfaces
+
+The application has one main interface, which is called the Account List Screen.
+For new users, it shows an “Add Account” button for adding accounts via a QR code scan or manually using a bottom sheet.
+Upon the addition of an account, the same screen shows a list of all accounts with an Account Name, Issuer Name, 6-digit OTP, and a countdown timer updating every second.
+The OTP automatically refreshes every 30 seconds, while a floating “+” button stays available to add more accounts.
+The overall UI is minimal, secure, and operates wholly offline to guarantee data privacy.
+
+Figure 1 Initial Add Account Screen
+Figure 2 Account List with OTPs
+ 
+
+Hardware Interfaces
+ 
+•	Camera: The application shall utilize the device's rear-facing camera for QR code scanning with automatic focus and exposure capabilities.
+•	Secure Element: The application shall utilize hardware-backed secure storage (Android Keystore, iOS Secure Enclave) for cryptographic key protection.
+•	Biometric Sensors: The application may utilize fingerprint readers or facial recognition systems for application locking.
+
+Software Interfaces
+
+•	Cryptographic Libraries: The application shall use platform-agnostic cryptographic libraries for TOTP computation implementing HMAC-SHA1.
+•	Secure Storage APIs: The application shall interface with platform-specific secure storage APIs (Android Keystore, iOS Keychain).
+•	Camera APIs: The application shall use platform camera APIs for image capture and processing.
+•	Biometric APIs: The application shall use platform biometric authentication APIs when application locking is enabled.
+
+ 
+Communications Interfaces
+
+The application requires no network communication interfaces for its primary TOTP generation functionality. All operations are performed locally on the device.
+
+Memory Constraints
+
+The application targets modern mobile devices running iOS 12.0+ and Android 8.0+ (API level 26+), which typically have 2GB+ RAM and adequate storage capacity.
+Memory usage will be optimized during development following Flutter performance best practices, but no specific memory limits are defined as system requirements.
+
+Operations
+
+The application supports the following operational modes:
+•	Account Registration: Users can add new authentication accounts by scanning QR codes or manual entry.
+•	OTP Generation: Continuous background generation and display of time-based one-time passwords.
+•	Account Management: Users can view, organize, and remove authentication accounts.
+•	Application Security: Optional application locking using device passcode or biometric authentication
+
+
+Site Adaptation Requirements
+
+No specific site adaptation requirements are necessary. The application is designed for standard consumer mobile devices and requires no special installation or configuration at deployment sites.
+
+Product Functions 
+
+The major functions provided by the software are:
+1.	Account Registration
+o	Users can quickly add new authentication accounts by scanning QR codes (otpauth:// or otpauth-migration://) presented by online services
+o	Manual entry of account details including secret key, issuer, and account name
+o	Validation of input parameters and secret key format
+o	Bulk import from Google Authenticator exports
+2.	TOTP Generation
+o	Time-synchronized generation of 6-digit codes using HMAC-SHA1
+o	Automatic code updates every 30 seconds
+o	Support for multiple concurrent accounts
+o	Real-time countdown indicators
+3.	Secure Storage
+o	All secret keys are encrypted using XChaCha20-Poly1305 AEAD before storage
+o	Master encryption key stored in flutter_secure_storage with hardware-backed protection
+o	SQLite database for structured account data
+o	Database integrity verification using SHA256 checksums
+4.	Backup & Restore
+	o	Password-protected encrypted backups (.cdac files)
+	o	Argon2id KDF for password-based encryption (64MB, 3 iterations, 4 parallelism)
+	o	Backup includes accounts, favorites, and settings
+	o	Merge strategies for handling duplicates (skip/replace/keep both)
+	o	File sharing via system share sheet
+5.	Import & Export
+	o	Import from Google Authenticator via otpauth-migration:// QR codes
+	o	Export accounts as QR codes using Google Authenticator format
+	o	Device-to-device transfers without cloud
+	o	Bulk account operations
+6.	User Interface
+	o	Clear display of accounts with current OTP values and brand icons
+	o	Visual countdown indicators showing OTP validity period
+	o	Search and filter by issuer or account name
+	o	Favorites system for quick access
+	o	Bulk selection for delete/export operations
+	o	Swipe gestures for quick actions
+	o	Dark/light theme support
+	o	Onboarding for first-time users
+7.	Security Features
+o	Optional application locking mechanism (PIN/biometric)
+o	Device security checks (root/jailbreak, emulator detection)
+o	Secure clipboard handling for OTP transfer
+o	Protection against screen capture and logging of sensitive data
+o	Recovery codes for account recovery
+o	Database tampering detection
+
+ 
+
+User Characteristics 
+
+The intended users include anyone who needs to enable two-factor authentication for their online accounts, regardless of technical background or education level.
+
+The user interface is designed to be immediately intuitive - users simply scan a QR code from the service they're securing, and the app automatically begins generating time-based verification codes. No technical knowledge is required to operate the application successfully.
+
+Constraints  
+
+The app must work within these limits:
+1.	Follow Google and Apple's app store rules
+2.	Only work on phones that have a camera and secure storage
+3.	Work with the QR codes that websites provide for setting up 2FA
+4.	Keep all secret codes safe on users phone only
+
+Assumptions and Dependencies
+
+We're counting on these things being true:
+1.	User phone's clock shows the correct time
+2.	User phone keeps user data secure like it promises
+3.	Websites give us the right kind of QR codes to scan
+
+Apportioning of Requirements.
+
+First Version:
+
+QR code scanning to add accounts
+Manual account entry
+Device lock protection (PIN/pattern/biometric)
+Encrypted backup and restore
+Import from Google Authenticator
+Export via QR code
+Search and filter accounts
+Bulk delete operations
+Swipe gestures
+Light and dark themes
+
+3.0	Specific Requirements  
+
+3.1	External Interfaces
+All external interface requirements are testable and verifiable.
+Requirement ID	Interface Item	Purpose	Source/Destination	Data Format	Timing	
+REQ-001	QR Code Image	Capture account setup data	Device Camera	otpauth://totp/ URI string or otpauth-migration:// URI	Process within 3 seconds of capture	
+REQ-002	Manual Entry Form	Account setup without QR	User Input	Text fields: issuer, account, secret key	Real-time validation	
+REQ-003	OTP Display	Show generated codes	Device Screen	6-digit numeric string	Update every 30 seconds	
+REQ-004	Clipboard	Transfer OTP to other apps	System Clipboard	6-digit numeric string	Clear after 30 seconds	
+REQ-005	System Time	TOTP calculation 	Device OS	Unix timestamp	Access every second	
+REQ-006	App Lock Configuration (Settings UI)	Allow user to enable/disable App Lock 	UI → Local App	JSON: { "enabled": bool, "method": "biometric|pin" }	On app start/resume	
+REQ-007	Backup File	Export encrypted backup	File System	.cdac file (password-encrypted)	User-initiated	
+REQ-008	Backup Import	Restore from backup	File System	.cdac file	User-initiated	
+REQ-009	QR Export	Generate export QR code	Device Screen	otpauth-migration:// URI	User-initiated	
+REQ-010	QR Import	Import from other apps	Device Camera	otpauth-migration:// URI	User-initiated	
+REQ-011	File Sharing	Share backup files	System Share Sheet	.cdac file	User-initiated	
+REQ-012	Device Security	Check device integrity	Device OS	Security status flags	On app launch	
+
+3.2	Functional Requirements
+
+3.2.1 	Account Registration via QR Code
+Input : QR code with otpauth:// URI or otpauth-migration:// URI (Google Authenticator export)
+Process : Scan QR using mobile_scanner, parse URI, validate secret, encrypt secret, store account in database
+Output : New account(s) saved, show success message with count
+3.2.2 	Add Account Manually
+Input : Issuer, account name, secret key (Base32)
+Process : Validate Base32 secret, check duplicates, encrypt secret, store account in database
+Output : New account saved, show errors if invalid
+3.2.3 	Generate TOTP
+Input : Current time, encrypted secrets from database
+Process : Decrypt secrets, calculate time step, compute HMAC-SHA1, generate 6-digit code
+Output : OTP codes for all accounts, update every 30s
+3.2.4 	Display Accounts
+Input : Stored account data from database
+Process : Show account list with issuer, name, OTP, timer, brand icons
+Output : Scrollable account list with live updates, search, filter, favorites
+3.2.5 	Copy OTP
+Input : User tap on OTP
+Process : Copy code to clipboard, start 30s clear timer
+Output : OTP in clipboard, show copied message
+3.2.6 	Secure Storage
+Input : Account data with secrets
+Process : Encrypt secrets using XChaCha20-Poly1305, store in SQLite database
+Output : Encrypted data stored securely with hardware-backed key
+3.2.7 	Create Encrypted Backup
+Input : User password (6+ characters)
+Process : Collect all accounts, favorites, settings; derive key using Argon2id; encrypt with XChaCha20-Poly1305; save as .cdac file
+Output : Encrypted backup file with timestamp, shareable via system share sheet
+3.2.8 	Restore from Backup
+Input : .cdac backup file, user password, merge strategy (skip/replace/keep both)
+Process : Decrypt backup using Argon2id + XChaCha20-Poly1305; check for duplicates; apply merge strategy; import accounts
+Output : Accounts restored, show summary (imported/skipped/replaced counts)
+3.2.9 	Export Accounts via QR
+Input : Selected accounts (single or multiple)
+Process : Encode accounts in Google Authenticator protobuf format; generate otpauth-migration:// URI; create QR code
+Output : QR code displayed on screen for scanning by another device
+3.2.10 	Import from Google Authenticator
+Input : otpauth-migration:// QR code
+Process : Scan QR, decode base64 protobuf, parse accounts, check duplicates, import
+Output : Multiple accounts imported, show success count
+3.2.11 	Device Security Check
+Input : Device state
+Process : Check for jailbreak/root, emulator, development mode, external storage using safe_device
+Output : Security warning if device is insecure (in production mode)
+3.2.12 	Database Integrity Verification
+Input : Database content
+Process : Calculate SHA256 checksum, compare with baseline, update after legitimate changes
+Output : Integrity status (pass/fail), log tampering attempts
+3.2.13 	Search and Filter Accounts
+Input : Search query, filter criteria
+Process : Filter accounts by issuer or account name, show matching results
+Output : Filtered account list
+3.2.14 	Favorite Accounts
+Input : User tap on star icon or swipe gesture
+Process : Toggle favorite status, persist in shared preferences
+Output : Favorites shown at top of list
+3.2.15 	Bulk Operations
+Input : Long-press to enter selection mode
+Process : Multi-select accounts for delete or export
+Output : Selected accounts deleted or exported
+3.2.16 	Recovery Codes
+Input : User request
+Process : Generate 10 one-time recovery codes (8 chars, XXXX-XXXX format), hash with SHA256, store
+Output : Recovery codes displayed once for user to save
+
+3.3	Performance Requirements
+ 
+No specific performance limits have been defined. The application shall be optimized for responsive user experience with typical account usage patterns.
+
+3.4	Logical Database Requirements
+
+Store : issuer, account name, encrypted secret, algorithm, digits, period
+Constraints : Unique issuer+account names, valid Base32 secrets
+
+3.5	Design Constraints
+
+•	All crypto on device only
+•	No network transmission of secrets
+•	Works offline
+•	Follow platform UI guidelines
+
+3.6	Standards Compliance  
+
+•	RFC 6238 for TOTP
+•	otpauth URI scheme
+•	Platform security APIs
+
+3.7	Software System Attributes
+
+
+3.7.1	Reliability
+
+The system shall maintain data integrity with zero loss of account secrets. The application shall recover from crashes without data corruption.
+
+3.7.2	Availability
+
+The system shall be available for use whenever the mobile device is operational. Application restart after failure shall restore all account data and functionality immediately.
+
+3.7.3	Security
+
+•	Secrets are stored encrypted in SQLite database using XChaCha20-Poly1305 AEAD encryption.
+•	Master encryption key stored in flutter_secure_storage with automatic hardware-backed protection (Android Keystore / iOS Keychain).
+•	Password-based backups use Argon2id KDF (64MB memory, 3 iterations, 4 parallelism) + XChaCha20-Poly1305 for cross-device recovery.
+•	No data leaves the device (no cloud, no network communication).
+•	Secrets and OTPs are never logged or shared.
+•	Clipboard auto-clears after 30 seconds.
+•	Database integrity verification using SHA256 checksums to detect tampering.
+•	Device security checks on app launch (root/jailbreak, emulator, development mode detection).
+•	App Lock — The system shall provide an optional PIN (bcrypt-hashed) or biometric authentication layer to restrict unauthorized access to stored secrets and app UI.
+•	Recovery codes (10 one-time codes, SHA256-hashed) for account recovery.
+•	Screen capture prevention and privacy overlay on app switch.
+
+3.7.4	Maintainability
+
+The codebase shall be structured to allow modifications and feature additions by other developers.
+
+3.7.5	Portability
+
+The system shall maintain identical functionality across iOS and Android platforms from a single codebase.
+
+3.7.6	Additional Comments
+Functional requirements are organized by feature hierarchy. All requirements are testable and verifiable.
+
+
+4.0	Supporting Information
+
+This SRS includes a comprehensive table of contents for navigation.
+This section contains reference material, diagrams, and visual assets such as UI designs (see Figures 1, 2).
+ 
+
+5.0	Risks
+•	Time Synchronization Risk: TOTP generation requires accurate device time synchronization. Time drift may cause OTP validation failures.
+•	Data Loss Risk: Loss of the mobile device results in permanent loss of all authentication accounts if backup features are not implemented.
+•	Platform Dependency Risk: Changes in mobile OS security APIs or Flutter framework may require significant updates to maintain functionality.
+•	User Interface Risk: Incorrect QR scan UX may lead to account setup failures.’
+•	User Error Risk: Users might delete accounts without backup.
+•	Compatibility Risk: Older Android versions may not support secure hardware-backed storage.

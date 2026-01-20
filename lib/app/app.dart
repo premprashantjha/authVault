@@ -1,19 +1,18 @@
 import 'package:authenticator/view/auth_wrapper.dart';
 import 'package:authenticator/view/onboarding_screen.dart';
 import 'package:flutter/material.dart';
-import 'theme.dart';
+
 import 'app_constants.dart';
+import 'theme.dart';
 
 class AuthenticatorApp extends StatelessWidget {
   final bool showOnboarding;
   final VoidCallback onOnboardingFinished;
-  final bool hasBackupAvailable;
 
   const AuthenticatorApp({
     super.key,
     required this.showOnboarding,
     required this.onOnboardingFinished,
-    this.hasBackupAvailable = false,
   });
 
   @override
@@ -24,11 +23,7 @@ class AuthenticatorApp extends StatelessWidget {
       darkTheme: AppTheme.darkTheme,
       themeMode: ThemeMode.system,
       home: showOnboarding
-          ? OnboardingScreen(
-              onFinished: onOnboardingFinished,
-              allowSkip: true,
-              hasBackupAvailable: hasBackupAvailable,
-            )
+          ? OnboardingScreen(onFinished: onOnboardingFinished, allowSkip: true)
           : const AuthWrapper(),
       debugShowCheckedModeBanner: false,
       builder: (context, child) {
@@ -52,7 +47,6 @@ class AuthenticatorAppWithDialog extends StatefulWidget {
   final bool hasSecurityWarning;
   final String securityMessage;
   final VoidCallback onSecurityWarningDismissed;
-  final bool hasBackupAvailable;
 
   const AuthenticatorAppWithDialog({
     super.key,
@@ -61,14 +55,15 @@ class AuthenticatorAppWithDialog extends StatefulWidget {
     required this.hasSecurityWarning,
     required this.securityMessage,
     required this.onSecurityWarningDismissed,
-    this.hasBackupAvailable = false,
   });
 
   @override
-  State<AuthenticatorAppWithDialog> createState() => _AuthenticatorAppWithDialogState();
+  State<AuthenticatorAppWithDialog> createState() =>
+      _AuthenticatorAppWithDialogState();
 }
 
-class _AuthenticatorAppWithDialogState extends State<AuthenticatorAppWithDialog> {
+class _AuthenticatorAppWithDialogState
+    extends State<AuthenticatorAppWithDialog> {
   bool _dialogShown = false;
 
   @override
@@ -106,7 +101,6 @@ class _AuthenticatorAppWithDialogState extends State<AuthenticatorAppWithDialog>
               ? OnboardingScreen(
                   onFinished: widget.onOnboardingFinished,
                   allowSkip: true,
-                  hasBackupAvailable: widget.hasBackupAvailable,
                 )
               : const AuthWrapper();
         },

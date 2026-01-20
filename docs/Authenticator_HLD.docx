@@ -1,0 +1,433 @@
+
+
+
+
+
+High Level Design Document
+
+Project Name: Authenticator App
+Project Code:<Project Code>
+Release Date: 24/11/2025
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Centre for Development of Advanced Computing
+(A Scientific Society of the Ministry of Communications and Information Technology, Govt. of India)
+NOIDA Unit
+C-56/1, Institutional Area, Sector-62, Noida-201307 
+
+
+
+Document Release History
+
+Sl.No	Version No	Release date	Prepared By	Reviewed By	Approved By	Reason for Next Release 
+1	1.0	24/11/2025	Prem Jha			
+
+
+
+
+
+ 
+Contents
+DOCUMENT RELEASE HISTORY	2
+CONTENTS	3
+1.0 INTRODUCTION	4
+1.1 Purpose	4
+1.2	Scope	4
+1.3 Assumptions and Dependencies	5
+1.4 General Design Constraints	5
+1.5 Intended Audience	5
+1.6 Abbreviations, Acronyms And Descriptions	5
+1.7 References	5
+2.0 DESIGN CONSIDERATIONS	5
+2.1	Decision Overview	6
+2.2	Reuse and Buy vs. Build Analysis	6
+2.3	Other Considerations	6
+3.0 ARCHITECTURE	6
+3.1 Software Architecture Details	6
+3.2 Technology Used for Development	6
+3.3  Tools Used For Development	7
+3.4 Other Details	7
+3.5. Architecture Diagram	7
+3.6. Technical Implementation Details	7
+4.0  APPLICATION WORKFLOW	8
+4.1 Major Functionalities	8
+4.2 Overall Workflow Diagram	9
+	10
+4.3 Integration Sequence	10
+4.4	Detailed Technical Workflow	10
+4.5	Error Handling Workflow	11
+5.0 DATABASE DETAILS	11
+5.1 Introduction	11
+5.2 Schema	11
+6.0 INTERFACES	12
+6.1 Internal Interfaces	12
+6.2 External Interfaces :	12
+6.3 Hardware Interfaces :	13
+6.4 Package Integration Interfaces	13
+6.5 SECURITY COMPLIANCE INTERFACES	13
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+1.0 INTRODUCTION
+
+1.1 Purpose
+
+This High-Level Design (HLD) document outlines the architecture and design details for the Authenticator App. It breaks down the system requirements into a clear software structure, defining the main components, their interactions, and the technologies involved. This document acts as a guide for development teams to work together and move on to detailed Low-Level Design (LLD) and implementation.
+
+1.2	Scope
+
+The technical scope of this Release 1.0 (MVP) is to create a mobile application for both iOS and Android that includes essential TOTP generation features along with comprehensive backup, import/export, and security capabilities. The deliverables include:
+
+1.	Add accounts via QR scan (otpauth:// URI and otpauth-migration:// format) and manual entry
+2.	Offline TOTP generation (default 6 digits, 30 second period)
+3.	Secure storage of shared secrets using XChaCha20-Poly1305 AEAD encryption with hardware-backed keys
+4.	Local encrypted database storage (SQLite) with integrity verification
+5.	List/detail UI with 1 second countdown ring/timer, search, filter, and favorites
+6.	Copy code to clipboard with auto clear in 30 seconds
+7.	Password-protected encrypted backups (.cdac files) using Argon2id KDF
+8.	Backup restore with merge strategies (skip/replace/keep both)
+9.	Import accounts from Google Authenticator via otpauth-migration:// QR codes
+10.	Export accounts as QR codes for device-to-device transfers
+11.	Device security checks (root/jailbreak, emulator, development mode detection)
+12.	Database integrity verification using SHA256 checksums
+13.	Bulk operations (multi-select delete/export)
+14.	Recovery codes generation and verification
+15.	Brand-specific icons for popular services
+16.	Dark/light theme support
+17.	Onboarding screen for first-time users
+18.	Basic theming, accessibility (font scaling, high contrast)
+
+1.3 Assumptions and Dependencies
+Assumptions: The user's device time is synchronized with world time (NTP). The mobile operating system (iOS/Android) offers solid hardware-backed cryptographic security.
+
+Dependencies: The project relies on the Flutter SDK, the camera plugin for QR scanning, the flutter_secure_storage plugin for secret storage, and the crypto or a similar cryptography package for implementing the TOTP algorithm.
+1.4 General Design Constraints
+Platform Environment: Must work on Android 8 (API 26)+ and iOS (12+).
+
+Performance: The app must launch and show OTPs in under 2 seconds.
+QR Path: QR scan → parse → persist → display must complete in ≤ 3 seconds on supported devices.
+
+Security: All cryptographic secrets must be kept in secure storage backed by hardware (Android Keystore/iOS Keychain). No plaintext secrets should be logged or stored in unsafe places.
+
+Offline Operation: Core OTP generation must work without an internet connection.
+
+Standards Compliance: TOTP generation must meet RFC 6238 requirements. QR code parsing must support the otpauth:// URI scheme.
+1.5 Intended Audience
+This document is meant for the Project Manager, Software Development Team, Quality Assurance Team, and System Architects involved in the Authenticator project.
+
+1.6 Abbreviations, Acronyms And Descriptions
+
+This document is intended for the Project Manager, Software Development Team, Quality Assurance Team, and System Architects involved in the Authenticator project.
+
+ABBREVIATION	DESCRIPTION
+POC	Proof of Concept
+HLD	High Level Design
+MVVM	Model-View-ViewModel (Architectural Pattern)
+TOTP	Time-based One-Time Password
+2FA	Two-Factor Authentication
+API	Application Programming Interface
+
+1.7 References
+1.	RFC 6238: TOTP — Time Based One Time Password Algorithm
+2.	otpauth URI scheme (Google Authenticator format)
+3.	NIST SP 800 63B - Digital Identity Guidelines (applicable UX/security guidance).
+4.	Apple Keychain / Secure Enclave guidelines; Android Keystore guidelines
+		
+
+
+
+2.0 Design Considerations
+	
+2.1	Decision Overview
+The system is implemented as a single-codebase, cross-platform mobile application in the Flutter framework. The MVVM (Model-View-ViewModel) architecture has been utilized to decouple business logic from the UI, making it easier to test and maintain. This enables a reactive UI where the UI automatically updates when OTPs are refreshed. The option of employing a native development method (Kotlin/Swift) has been eliminated because of the additional development time and effort to maintain two different codebases for the POC.
+	
+2.2	Reuse and Buy vs. Build Analysis
+Non-core functionality is adopted with a "Buy vs. Build" approach to speed up development.
+
+Reuse/Buy (Use Open-Source Libraries): Important pieces such as QR code scanning (camera, google_mlkit_barcode_scanning), secure storage (flutter_secure_storage), and cryptography (crypto, base32) will employ well-tested Flutter plugins. This does not reinvent the wheel but taps into community-tested, secure code.
+
+Build (Custom Development): The essential TOTP generation algorithm, application state management, and all the user interface will be built as custom solutions to satisfy the particular requirements and branding of Authenticator.
+
+2.3	Other Considerations
+The design is focused on security first. The selection of flutter_secure_storage guarantees that secrets are stored through platform-native, hardware-backed APIs. The app is built to be stateless about secrets, not holding secrets in memory longer than it needs to.
+
+3.0 ARCHITECTURE
+
+3.1 Software Architecture Details
+•	Type of system : A closed monolithic mobile application with a layered architecture.
+•	Platform Environment : The application compiled and deployed on Android and ios platform.
+•	Architectural Pattern : MVVM (Model-View-ViewModel).
+
+3.2 Technology Used for Development
+Framework: Flutter (Dart)
+
+State Management: provider (for creating the MVVM pattern in a reactive way)
+
+3.2.1 Package Specifications
+• mobile_scanner: ^7.1.3
+• flutter_secure_storage: ^9.2.4
+• cryptography: ^2.9.0
+• crypto: ^3.0.6
+• base32: ^2.2.0
+• permission_handler: ^12.0.1
+• provider: ^6.1.5+1
+• sqflite: ^2.4.2
+• local_auth: ^2.3.0
+• bcrypt: ^1.1.3
+• encrypt: ^5.0.3
+• safe_device: ^1.3.8
+• file_picker: ^8.1.4
+• share_plus: ^10.1.2
+• path_provider: ^2.1.5
+• font_awesome_flutter: ^10.7.0
+• qr_flutter: ^4.1.0
+• flutter_markdown: ^0.7.4+1
+• shared_preferences: ^2.2.2
+3.3  Tools Used For Development
+IDE: Visual Studio Code
+3.4 Other Details
+Data Storage: The application uses flutter_secure_storage for all persistent data.
+All account data (metadata + secret) is stored in flutter_secure_storage, which internally maps to Android Keystore and iOS Keychain storage locations. Each account entry is stored as an encrypted JSON object containing issuer, account name, algorithm, digits, period, createdAt, and an encrypted form of the secret.
+3.5. Architecture Diagram
+ 
+3.6. Technical Implementation Details
+
+3.6.1	QR Code Processing Pipeline
+
+The application will implement a comprehensive QR code scanning and processing system:
+•	Camera Initialization: The system will utilize the mobile_scanner package to access device camera hardware, automatically selecting the back camera and requesting necessary permissions through the permission_handler package.
+•	QR Code Recognition: Continuous real-time scanning with the mobile_scanner package using its built-in barcode detection capabilities for accurate QR code detection.
+•	OTPAuth URI Parsing: Extracted QR code data will be validated against both otpauth:// URI scheme standard and otpauth-migration:// (Google Authenticator export format). The parser will handle both common URI formats and extract all TOTP parameters including secret key, issuer, account name, algorithm, digits, and period.
+•	Migration Support: The GoogleAuthImportService parses protobuf-encoded migration data from Google Authenticator exports, enabling bulk account imports.
+3.6.2	Secure Storage Implementation
+The application will employ a robust secure storage strategy:
+•	Platform-Native Encryption: The flutter_secure_storage package will be used to leverage Android KeyStore and iOS Keychain Services for hardware-backed encryption, ensuring secrets are protected by the device's secure hardware elements. This package automatically handles platform-specific security configurations without requiring custom native implementations.
+•	Data Encryption: The EncryptionService uses XChaCha20-Poly1305 AEAD (Authenticated Encryption with Associated Data) for encrypting account secrets. A master encryption key is generated and stored securely via flutter_secure_storage, which automatically uses hardware-backed storage when available.
+•	Password-Based Encryption: For cross-device backups, the system uses Argon2id KDF (Key Derivation Function) with 64MB memory, 3 iterations, and 4 parallelism to derive encryption keys from user passwords. This makes brute-force attacks computationally expensive while remaining fast enough for legitimate use.
+•	Data Persistence Architecture: All account data including encrypted secret keys are stored in SQLite database. The DatabaseService encrypts secrets using EncryptionService before writing to database, with automatic persistence across application sessions, device reboots, and application updates.
+•	Memory Security: Secret keys are only loaded into memory during TOTP computation operations and immediately cleared afterward to minimize exposure. The EncryptionService implements a 15-minute memory cache for the master key to balance security and performance.
+3.6.3	TOTP Generation Engine
+
+The core TOTP functionality will be implemented as follows:
+•	Cryptographic Foundation: The system will use the crypto package for HMAC-SHA1 computations and the base32 package for secret key decoding, following RFC 6238 specifications precisely.
+•	Real-time Code Generation: A continuous timer will manage 1-second interval updates for UI synchronization and 30-second interval TOTP regenerations, ensuring codes are always current and accurately displayed.
+•	Algorithm Implementation: The TOTP generation will include time-step calculation from Unix epoch, HMAC-SHA1 computation with dynamic truncation, and 6-digit code formatting with modulo operations.
+3.6.4	App Lock / Secure Access (PIN & Biometric)
+
+The App Lock feature provides an optional local authentication layer to prevent unauthorized access to the Authenticator app and stored secrets. It supports biometric authentication (FaceID / TouchID / Android BiometricPrompt) with a fallback PIN. This module enforces access control on application start, resume, and sensitive UI actions (view secret, export).
+4.0  Application Workflow
+
+4.1 Major Functionalities
+1.	Account Setup Workflow: Handles adding a new account either via QR code scan (supporting both otpauth:// and otpauth-migration:// formats) or manual entry. It involves parsing the URI, validating the secret, encrypting it, and storing it securely in the database along with account metadata.
+2.	OTP Generation & Display Workflow: A continuous process where the service fetches all account secrets from encrypted database, decrypts them, generates the current TOTP for each, and pushes the data to the ViewModels for UI updates every second (for the timer) and every 30 seconds (for the new code).
+3.	Backup & Restore Workflow: Creates password-protected encrypted backups (.cdac files) containing all accounts, favorites, and settings. Supports merge strategies (skip/replace/keep both) during restore to handle duplicate accounts. Uses Argon2id KDF for password-based encryption.
+4.	Import/Export Workflow: Supports importing accounts from Google Authenticator via otpauth-migration:// QR codes. Exports accounts as QR codes using the same format for device-to-device transfers. Handles bulk account operations.
+5.	Security Check Workflow: On app launch, performs device integrity checks including jailbreak/root detection, emulator detection, and development mode detection using the SecurityService. Displays warnings for insecure devices.
+6.	App Lock (Optional): App-level lock using device biometric/PIN (local_auth) on launch and on resume (configurable timeout). PIN is hashed using bcrypt before storage for security.
+7.	Database Integrity Verification: IntegrityService calculates SHA256 checksums of database content to detect tampering. Updates checksums after legitimate changes.
+4.2 Overall Workflow Diagram
+ 
+ 
+4.3 Integration Sequence
+
+The modules will be integrated in the following sequence:
+1.	Core Data Layer: Secure Storage Service and Local Database.
+2.	Domain Layer: TOTP Service and Account Service.
+3.	Presentation Layer: ViewModels and then the UI Views.
+4.	Platform Features: Integration of the camera for QR scanning.
+4.4	Detailed Technical Workflow
+
+
+4.4.1	QR Code to Account Storage Flow
+ 
+1.	Camera Activation: User initiates QR scanning, triggering camera permission requests and hardware initialization
+2.	Image Processing: Continuous frame capture with ML-powered QR recognition via Google ML Kit
+3.	Data Extraction: OTPAuth URI parsing with validation and parameter extraction
+4.	Account Creation: Generation of account objects with unique identifiers and timestamps
+5.	Secure Persistence: Encryption and storage of account data using platform-native secure storage
+6.	UI Update: Automatic refresh of account list with new addition
+
+4.4.2	TOTP Generation and Display Flow
+1.	Account Retrieval: Loading of account metadata and encrypted secret keys from database on application launch
+2.	Secret Decryption: EncryptionService decrypts secrets using the master key from flutter_secure_storage
+3.	Time Calculation: Computation of current time step based on 30-second intervals from Unix epoch
+4.	Cryptographic Processing: Base32 decoding of secrets followed by HMAC-SHA1 computation
+5.	Code Generation: Dynamic truncation and 6-digit formatting according to RFC 6238
+6.	Visual Update: Real-time progress indicators and code updates via 1-second timer intervals
+7.	User Interaction: Copy functionality with clipboard integration and visual feedback
+8.	Clipboard Safety: When a code is copied, the app schedules an auto-clear after 30 seconds (if unchanged). Implemented via Android ClipboardManager and iOS UIPasteboard.
+
+4.4.3	Backup and Restore Flow
+1.	Backup Creation: User initiates backup from settings screen
+2.	Password Entry: User provides password (minimum 6 characters, recommendations for 12+ with mixed characters)
+3.	Data Collection: BackupService gathers all accounts, favorites, and non-security settings
+4.	Key Derivation: Argon2id derives encryption key from password (64MB memory, 3 iterations, 4 parallelism)
+5.	Encryption: Data encrypted using XChaCha20-Poly1305 with derived key
+6.	File Creation: Encrypted backup saved as .cdac file with timestamp in filename
+7.	Export: User can share file via system share sheet
+
+Restore Process:
+1.	File Selection: User selects .cdac backup file via file picker
+2.	Password Entry: User provides backup password
+3.	Decryption: BackupService decrypts file using Argon2id + XChaCha20-Poly1305
+4.	Duplicate Detection: System checks for existing accounts with same issuer+accountName
+5.	Merge Strategy: User chooses how to handle duplicates (skip/replace/keep both)
+6.	Import: Accounts imported according to strategy, favorites and settings restored
+7.	Confirmation: User sees summary of imported/skipped/replaced accounts
+
+4.4.4	Import/Export via QR Code Flow
+Export Process:
+1.	Account Selection: User selects accounts to export (single or multiple)
+2.	Protobuf Encoding: AppExportService encodes accounts into Google Authenticator protobuf format
+3.	URI Generation: Creates otpauth-migration:// URI with base64-encoded protobuf data
+4.	QR Generation: qr_flutter generates QR code from URI
+5.	Display: QR code displayed on screen for scanning by another device
+
+Import Process:
+1.	QR Scan: User scans otpauth-migration:// QR code
+2.	Protobuf Parsing: GoogleAuthImportService decodes base64 and parses protobuf structure
+3.	Account Extraction: Extracts multiple accounts with issuer, name, secret, algorithm, digits
+4.	Duplicate Check: Checks for existing accounts
+5.	Batch Import: Imports all accounts, showing progress and results
+6.	Confirmation: Displays count of successfully imported accounts
+
+4.4.5	Security Check Flow
+1.	App Launch: SecurityService initiates on app startup
+2.	Device Checks: Parallel execution of jailbreak/root, emulator, development mode, external storage checks
+3.	Result Caching: Results cached to avoid repeated expensive checks
+4.	Warning Display: If device is insecure, displays warning dialog with specific issues
+5.	User Decision: User can proceed (in debug mode) or app exits (in production mode)
+6.	Cache Clear: User can dismiss warning, clearing cache for next check
+
+4.4.6	Database Integrity Verification Flow
+1.	Checksum Calculation: IntegrityService calculates SHA256 hash of all account data
+2.	Baseline Storage: First-run stores checksum in flutter_secure_storage
+3.	Verification: On subsequent launches, calculates current checksum and compares with baseline
+4.	Tamper Detection: If checksums don't match, indicates potential database tampering
+5.	Update: After legitimate changes (add/delete/update account), checksum is updated
+6.	Logging: Integrity failures logged for debugging (debug mode only)
+
+
+4.5	Error Handling Workflow
+• Camera Permission Denied: Fallback to manual entry with guidance
+• Invalid QR Code: User notification with format requirements
+• Storage Failure: Data recovery procedures and user alerts
+• Cryptographic Errors: Secure fallback and error logging
+5.0 DATABASE Details
+
+5.1 Introduction
+
+A local database is required to persistently store non-sensitive account metadata (like issuer and account name) while keeping the sensitive shared secret in a more secure, hardware-backed location. SQLite was chosen due to its reliability, simplicity, and excellent support in Flutter via the sqflite plugin.
+5.2 Schema
+
+The account object stored in the database contains the following fields:
+
+Table: accounts
+Column Name	Data Type	Description
+id	TEXT	Unique identifier for the account (timestamp_random format).
+issuer	TEXT	The service provider (e.g., "Google", "GitHub").
+accountName	TEXT	The user's identifier for the service (e.g., "user@example.com").
+secretKey	TEXT	The encrypted secret key. Encrypted using EncryptionService (XChaCha20-Poly1305) before storage. Decrypted only during TOTP generation.
+createdAt	INTEGER	Epoch timestamp (milliseconds) of account creation.
+
+Note: The secretKey is encrypted at the application layer before being written to the database. The EncryptionService uses a master encryption key stored in flutter_secure_storage (hardware-backed) to encrypt/decrypt secrets. This provides defense-in-depth: even if the database file is extracted, secrets remain encrypted.
+
+
+6.0 INTERFACES
+
+This section should details the interfaces used in this software application Some of the modules or processes  are exposed to one or more interfaces. If these interfaces are not trivial and clear from the module descriptions, they should be listed and described in an orderly fashion at this point. It should also mention what kind of modules or objects expose it and which ones will be using it.  
+Interfaces can be defined as
+6.1 Internal Interfaces
+6.1.1	Software Interfaces:
+
+•	TOTP Service -> Cryptography Package: The TOTP Service calls the crypto library to perform the HMAC-SHA1 computation.
+•	Account Service -> Secure Storage Service: The Account Service uses the Secure Storage Service API (e.g., writeSecret(key, value), readSecret(key)) to manage secrets.
+•	ViewModels -> Domain Services: ViewModels call methods on the TOTP Service and Account Service to perform operations and listen to data streams.
+.
+6.2 External Interfaces :
+•	otpauth:// URI Scheme: The app implements a parser for this de facto standard URI to extract account setup parameters from QR codes.
+6.3 Hardware Interfaces :
+
+•	Camera: The app interfaces with the device's camera hardware through the camera plugin to capture QR code images.
+•	Secure Enclave/Keystore: The app interfaces with the device's hardware-backed secure storage through the flutter_secure_storage plugin to perform all cryptographic key and secret storage operations.
+6.4 Package Integration Interfaces
+
+6.4.1	Cryptographic Interfaces
+•	cryptography Package: The EncryptionService interfaces with XChaCha20-Poly1305 AEAD for authenticated encryption and Argon2id for password-based key derivation.
+•	crypto Package: Used for HMAC-SHA1 in TOTP generation and SHA256 for integrity checksums.
+•	base32 Package: Secret key decoding interface for converting Base32 encoded secrets to raw bytes.
+•	bcrypt Package: PIN hashing interface for secure password storage in authentication system.
+•	Integration Point: These packages are used during TOTP computation, encryption operations, and authentication with immediate memory clearance.
+
+6.4.2	Hardware Access Interfaces
+•	mobile_scanner Package: Unified interface for camera control and real-time barcode recognition with built-in QR code processing.
+•	permission_handler: Unified interface for runtime permission management across both platforms.
+•	local_auth: Biometric authentication interface for device-level security (fingerprint, face recognition).
+
+6.4.3	Storage Interfaces
+•	flutter_secure_storage: Abstracted interface for platform-specific secure storage operations with automatic hardware-backed encryption.
+•	sqflite: SQLite database interface for structured data storage with encryption layer.
+•	shared_preferences: Key-value storage interface for app preferences and non-sensitive settings.
+•	Cross-platform Consistency: Uniform API ensuring consistent security behavior on both Android and iOS.
+•	Error Handling: Comprehensive exception management for storage operations and encryption failures.
+
+6.4.4	File System Interfaces
+•	path_provider: Interface for accessing platform-specific directories (documents, cache, temporary).
+•	file_picker: File selection interface for importing backup files.
+•	share_plus: Cross-platform sharing interface for exporting backup files and QR codes.
+
+6.4.5	Security Interfaces
+•	safe_device: Device integrity check interface for detecting rooted/jailbroken devices, emulators, and development mode.
+•	Integration Point: Used during app initialization to assess device security posture.
+
+6.4.6	UI Enhancement Interfaces
+•	font_awesome_flutter: Brand icon interface for displaying service-specific icons.
+•	qr_flutter: QR code generation interface for creating export QR codes.
+•	flutter_markdown: Markdown rendering interface for displaying formatted text (privacy policy, help docs).
+
+6.5 Security Compliance Interfaces
+•	RFC 6238 Compliance: Strict adherence to TOTP standard through algorithmic implementation.
+•	Platform Security Standards: Compliance with Android KeyStore and iOS Keychain security requirements.
+•	Data Protection: Interface design ensuring no sensitive data exposure in logs or debugging output.

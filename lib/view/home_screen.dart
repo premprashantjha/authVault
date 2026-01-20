@@ -7,11 +7,6 @@ import '../app/app_constants.dart';
 import '../app/theme.dart';
 // Models
 import '../models/account.dart';
-import '../services/account_service.dart';
-import '../services/local_backup_service.dart';
-import '../services/database_service.dart';
-import '../services/encryption_service.dart';
-import '../services/integrity_service.dart';
 // Services
 import '../services/totp_service.dart';
 // View Models
@@ -46,43 +41,10 @@ class _HomeScreenState extends State<HomeScreen>
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
   bool _isSearchVisible = false;
-  bool _isBackupEnabled = false;
-  DateTime? _lastBackupTime;
 
   // Selection mode state
   bool _isSelectionMode = false;
   final Set<String> _selectedAccountIds = {};
-
-  @override
-  void initState() {
-    super.initState();
-    _loadBackupStatus();
-  }
-
-  Future<void> _loadBackupStatus() async {
-    try {
-      final encryptionService = EncryptionService();
-      final integrityService = IntegrityService();
-      final databaseService = DatabaseService(
-        encryptionService: encryptionService,
-        integrityService: integrityService,
-      );
-      final accountService = AccountService(databaseService: databaseService);
-      final backupService = LocalBackupService(accountService: accountService);
-
-      final isEnabled = await backupService.isBackupEnabled();
-      final lastBackup = await backupService.getLastBackupTime();
-
-      if (mounted) {
-        setState(() {
-          _isBackupEnabled = isEnabled;
-          _lastBackupTime = lastBackup;
-        });
-      }
-    } catch (e) {
-      // Silently fail - backup status is optional
-    }
-  }
 
   @override
   void dispose() {
@@ -95,25 +57,6 @@ class _HomeScreenState extends State<HomeScreen>
     await Navigator.of(
       context,
     ).push(MaterialPageRoute(builder: (context) => const SettingsScreen()));
-    // Reload backup status when returning from settings
-    _loadBackupStatus();
-  }
-
-  String _formatBackupTime(DateTime time) {
-    final now = DateTime.now();
-    final difference = now.difference(time);
-
-    if (difference.inMinutes < 1) {
-      return 'Just now';
-    } else if (difference.inMinutes < 60) {
-      return '${difference.inMinutes}m ago';
-    } else if (difference.inHours < 24) {
-      return '${difference.inHours}h ago';
-    } else if (difference.inDays == 1) {
-      return 'Yesterday';
-    } else {
-      return '${difference.inDays}d ago';
-    }
   }
 
   Future<void> _openFilterModal() async {

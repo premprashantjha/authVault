@@ -1,15 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../app/theme.dart';
+
 import '../app/app_constants.dart';
+import '../app/theme.dart';
 import '../services/backup_service.dart';
 import '../view_models/account_view_model.dart';
 import '../widgets/skeleton.dart';
-import 'onboarding_screen.dart';
 import 'backup_screen.dart';
+import 'export_accounts_screen.dart';
+import 'onboarding_screen.dart';
 import 'privacy_policy_screen.dart';
 import 'qr_import_screen.dart';
-import 'export_accounts_screen.dart';
+import 'terms_of_service_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -48,7 +50,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return ListView(
       padding: AppConstants.getResponsivePadding(context),
       children: [
-        SizedBox(height: AppConstants.getResponsiveSpacing(context, xs: 2.0, sm: 4.0)),
+        SizedBox(
+          height: AppConstants.getResponsiveSpacing(context, xs: 2.0, sm: 4.0),
+        ),
         Skeleton(height: AppConstants.getResponsiveButtonHeight(context) + 16),
         SizedBox(height: AppConstants.getResponsiveSpacing(context)),
         Skeleton(height: AppConstants.getResponsiveButtonHeight(context) + 16),
@@ -59,17 +63,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   void _navigateToBackup(BuildContext context) {
-    final accountViewModel = Provider.of<AccountViewModel>(context, listen: false);
+    final accountViewModel = Provider.of<AccountViewModel>(
+      context,
+      listen: false,
+    );
     final backupService = BackupService(
       accountService: accountViewModel.accountService,
     );
-    
+
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => BackupScreen(
-          backupService: backupService,
-        ),
+        builder: (context) => BackupScreen(backupService: backupService),
       ),
     );
   }
@@ -77,27 +82,28 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void _navigateToPrivacyPolicy(BuildContext context) {
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (context) => const PrivacyPolicyScreen(),
-      ),
+      MaterialPageRoute(builder: (context) => const PrivacyPolicyScreen()),
+    );
+  }
+
+  void _navigateToTermsOfService(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const TermsOfServiceScreen()),
     );
   }
 
   void _navigateToImport(BuildContext context) {
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (context) => const QrImportScreen(),
-      ),
+      MaterialPageRoute(builder: (context) => const QrImportScreen()),
     );
   }
 
   void _navigateToExport(BuildContext context) {
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (context) => const ExportAccountsScreen(),
-      ),
+      MaterialPageRoute(builder: (context) => const ExportAccountsScreen()),
     );
   }
 
@@ -144,7 +150,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   context,
                   icon: Icons.download_rounded,
                   title: 'Import from Other Apps',
-                  subtitle: 'Transfer from Google Authenticator, Authy, and more',
+                  subtitle:
+                      'Transfer from Google Authenticator, Authy, and more',
                   trailing: Icon(
                     Icons.arrow_forward_ios,
                     size: 16,
@@ -202,6 +209,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 const SizedBox(height: 12),
                 _buildSettingCard(
                   context,
+                  icon: Icons.description_outlined,
+                  title: 'Terms of Service',
+                  subtitle: 'App usage terms and conditions',
+                  trailing: Icon(
+                    Icons.arrow_forward_ios,
+                    size: 16,
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.3),
+                  ),
+                  onTap: () => _navigateToTermsOfService(context),
+                ),
+                const SizedBox(height: 12),
+                _buildSettingCard(
+                  context,
                   icon: Icons.info_outline,
                   title: 'App Version',
                   subtitle: '1.0.0',
@@ -215,10 +235,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget _buildSectionHeader(String title, ThemeData theme) {
     return Text(
       title.toUpperCase(),
-      style: AppTheme.caption(theme.colorScheme.onSurface).copyWith(
-        fontWeight: FontWeight.w600,
-        letterSpacing: 1.2,
-      ),
+      style: AppTheme.caption(
+        theme.colorScheme.onSurface,
+      ).copyWith(fontWeight: FontWeight.w600, letterSpacing: 1.2),
     );
   }
 
@@ -263,9 +282,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   children: [
                     Text(
                       title,
-                      style: AppTheme.bodyLarge(theme.colorScheme.onSurface).copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
+                      style: AppTheme.bodyLarge(
+                        theme.colorScheme.onSurface,
+                      ).copyWith(fontWeight: FontWeight.w600),
                     ),
 
                     const SizedBox(height: 4),
